@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vdW Moiré Pattern Simulator</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #fff;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 100vw;
+            margin: 0 auto;
+        }
+        
+        .controls {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .control-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .control-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        label {
+            font-weight: bold;
+            min-width: 60px;
+            font-size: 14px;
+        }
+        
+        .slider-container {
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            background: #444;
+            outline: none;
+            border-radius: 4px;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #00ff88;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #00ff88;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .value-display {
+            background: #333;
+            padding: 5px 10px;
+            border-radius: 4px;
+            min-width: 80px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        button {
+            background: #00ff88;
+            color: #000;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #00cc6a;
+        }
+        
+        button:active {
+            background: #009952;
+        }
+        
+        .info-panel {
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .info-panel.hidden {
+            display: none;
+        }
+        
+        .lattice-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 8px;
+        }
+        
+        .lattice-param {
+            background: #333;
+            padding: 8px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .param-value {
+            color: #00ff88;
+            font-weight: bold;
+        }
+        
+        canvas {
+            border: 2px solid #444;
+            border-radius: 8px;
+            background: #000;
+            width: 100%;
+            height: auto;
+            max-width: 100vw;
+            touch-action: manipulation;
+        }
+        
+        .canvas-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+        }
+        
+        @media (max-width: 768px) {
+            .control-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .slider-container {
+                min-width: 100%;
+            }
+            
+            .lattice-info {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls">
+            <div class="control-row">
+                <label>Angle:</label>
+                <div class="slider-container">
+                    <input type="range" id="angleSlider" min="0" max="30" step="0.1" value="1.1">
+                </div>
+                <div class="value-display" id="angleValue">1.1°</div>
+            </div>
+            
+            <div class="control-row">
+                <label>Scale:</label>
+                <div class="slider-container">
+                    <input type="range" id="scaleSlider" min="5" max="50" step="1" value="9">
+                </div>
+                <div class="value-display" id="scaleValue">9px</div>
+                <button id="toggleInfo">Show Superlattice</button>
+            </div>
+        </div>
+        
+        <div class="info-panel hidden" id="infoPanel">
+            <div><strong>Superlattice Properties:</strong></div>
+            <div class="lattice-info">
+                <div class="lattice-param">
+                    <div>Period</div>
+                    <div class="param-value" id="period">13.4 nm</div>
+                </div>
+                <div class="lattice-param">
+                    <div>Wavelength</div>
+                    <div class="param-value" id="wavelength">λ_M</div>
+                </div>
+                <div class="lattice-param">
+                    <div>Unit Cells</div>
+                    <div class="param-value" id="unitCells">~1200</div>
+                </div>
+                <div class="lattice-param">
+                    <div>θ (rad)</div>
+                    <div class="param-value" id="angleRad">0.019</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="moireCanvas" width="800" height="600"></canvas>
+        </div>
+    </div>
+
+    <script>
+        class MoireSimulator {
+            constructor() {
+                this.canvas = document.getElementById('moireCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.angleSlider = document.getElementById('angleSlider');
+                this.scaleSlider = document.getElementById('scaleSlider');
+                this.angleValue = document.getElementById('angleValue');
+                this.scaleValue = document.getElementById('scaleValue');
+                this.toggleButton = document.getElementById('toggleInfo');
+                this.infoPanel = document.getElementById('infoPanel');
+                
+                // Lattice parameters
+                this.latticeConstant = 0.246; // nm
+                
+                this.setupCanvas();
+                this.bindEvents();
+                this.draw();
+            }
+            
+            setupCanvas() {
+                const container = this.canvas.parentElement;
+                const containerWidth = container.clientWidth;
+                const aspectRatio = 4/3;
+                
+                this.canvas.width = Math.min(800, containerWidth * window.devicePixelRatio);
+                this.canvas.height = Math.min(600, (containerWidth / aspectRatio) * window.devicePixelRatio);
+                
+                this.canvas.style.width = Math.min(800, containerWidth) + 'px';
+                this.canvas.style.height = Math.min(600, containerWidth / aspectRatio) + 'px';
+                
+                this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+                
+                this.centerX = this.canvas.width / (2 * window.devicePixelRatio);
+                this.centerY = this.canvas.height / (2 * window.devicePixelRatio);
+            }
+            
+            bindEvents() {
+                this.angleSlider.addEventListener('input', () => this.updateAndDraw());
+                this.scaleSlider.addEventListener('input', () => this.updateAndDraw());
+                
+                this.toggleButton.addEventListener('click', () => {
+                    if (this.infoPanel.classList.contains('hidden')) {
+                        this.infoPanel.classList.remove('hidden');
+                        this.toggleButton.textContent = 'Hide Superlattice';
+                    } else {
+                        this.infoPanel.classList.add('hidden');
+                        this.toggleButton.textContent = 'Show Superlattice';
+                    }
+                });
+                
+                window.addEventListener('resize', () => {
+                    this.setupCanvas();
+                    this.draw();
+                });
+            }
+            
+            updateAndDraw() {
+                const angle = parseFloat(this.angleSlider.value);
+                const scale = parseFloat(this.scaleSlider.value);
+                
+                this.angleValue.textContent = angle.toFixed(1) + '°';
+                this.scaleValue.textContent = scale + 'px';
+                
+                this.updateSuperlatticeInfo(angle);
+                this.draw();
+            }
+            
+            updateSuperlatticeInfo(angleDeg) {
+                const angleRad = angleDeg * Math.PI / 180;
+                
+                if (angleDeg === 0) {
+                    document.getElementById('period').textContent = '∞';
+                    document.getElementById('wavelength').textContent = '∞';
+                    document.getElementById('unitCells').textContent = '∞';
+                    document.getElementById('angleRad').textContent = '0.000';
+                    return;
+                }
+                
+                // Moiré period calculation
+                const period = this.latticeConstant / (2 * Math.sin(angleRad / 2));
+                const wavelength = period / this.latticeConstant;
+                const unitCells = Math.round(Math.pow(period / this.latticeConstant, 2));
+                
+                document.getElementById('period').textContent = period.toFixed(1) + ' nm';
+                document.getElementById('wavelength').textContent = wavelength.toFixed(0) + 'a';
+                document.getElementById('unitCells').textContent = '~' + unitCells;
+                document.getElementById('angleRad').textContent = angleRad.toFixed(3);
+            }
+            
+            generateHoneycombNetwork(scale, rotation) {
+                const edges = new Set();
+                const vertices = new Map();
+                
+                const a = scale; // side length of hexagons
+                const sqrt3 = Math.sqrt(3);
+                
+                const cos_r = Math.cos(rotation);
+                const sin_r = Math.sin(rotation);
+                
+                // Calculate range for lattice generation
+                const maxDim = Math.max(this.canvas.width, this.canvas.height) / window.devicePixelRatio;
+                const range = Math.ceil(maxDim / (a * sqrt3)) + 3;
+                
+                // Generate hexagon centers on proper honeycomb lattice
+                for (let i = -range; i <= range; i++) {
+                    for (let j = -range; j <= range; j++) {
+                        // Honeycomb lattice vectors (center-to-center distances)
+                        const centerX = i * sqrt3 * a + j * sqrt3 * a / 2;
+                        const centerY = j * 3 * a / 2;
+                        
+                        // Generate 6 vertices of this hexagon (regular hexagon)
+                        for (let k = 0; k < 6; k++) {
+                            const angle = k * Math.PI / 3 + Math.PI / 6; // Start at 30° for flat-top hexagons
+                            const vx = centerX + a * Math.cos(angle);
+                            const vy = centerY + a * Math.sin(angle);
+                            
+                            // Create unique vertex key (rounded to avoid floating point issues)
+                            const roundedX = Math.round(vx * 1000) / 1000;
+                            const roundedY = Math.round(vy * 1000) / 1000;
+                            const vertexKey = `${roundedX},${roundedY}`;
+                            
+                            // Apply rotation and translation
+                            const rx = this.centerX + (vx * cos_r - vy * sin_r);
+                            const ry = this.centerY + (vx * sin_r + vy * cos_r);
+                            
+                            vertices.set(vertexKey, { x: rx, y: ry, origX: vx, origY: vy });
+                        }
+                    }
+                }
+                
+                // Connect vertices that are exactly distance 'a' apart
+                const vertexArray = Array.from(vertices.values());
+                const tolerance = a * 1.1; // Allow small floating point errors
+                
+                for (let i = 0; i < vertexArray.length; i++) {
+                    for (let j = i + 1; j < vertexArray.length; j++) {
+                        const v1 = vertexArray[i];
+                        const v2 = vertexArray[j];
+                        
+                        // Calculate distance in original (unrotated) coordinates
+                        const dx = v1.origX - v2.origX;
+                        const dy = v1.origY - v2.origY;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        // Connect if distance equals side length (within tolerance)
+                        if (Math.abs(distance - a) < 0.01) {
+                            if (this.isEdgeInBounds(v1.x, v1.y, v2.x, v2.y)) {
+                                const edgeKey = this.createEdgeKey(v1.x, v1.y, v2.x, v2.y);
+                                edges.add(edgeKey);
+                            }
+                        }
+                    }
+                }
+                
+                // Convert Set back to array of edge objects
+                return Array.from(edges).map(key => this.parseEdgeKey(key));
+            }
+            
+            createEdgeKey(x1, y1, x2, y2) {
+                // Round coordinates to avoid floating point issues
+                const rx1 = Math.round(x1 * 100) / 100;
+                const ry1 = Math.round(y1 * 100) / 100;
+                const rx2 = Math.round(x2 * 100) / 100;
+                const ry2 = Math.round(y2 * 100) / 100;
+                
+                // Ensure consistent ordering to avoid duplicate edges
+                if (rx1 < rx2 || (rx1 === rx2 && ry1 < ry2)) {
+                    return `${rx1},${ry1},${rx2},${ry2}`;
+                } else {
+                    return `${rx2},${ry2},${rx1},${ry1}`;
+                }
+            }
+            
+            parseEdgeKey(key) {
+                const parts = key.split(',').map(Number);
+                return {
+                    x1: parts[0],
+                    y1: parts[1],
+                    x2: parts[2],
+                    y2: parts[3]
+                };
+            }
+            
+            isEdgeInBounds(x1, y1, x2, y2) {
+                const margin = 50;
+                const canvasW = this.canvas.width / window.devicePixelRatio;
+                const canvasH = this.canvas.height / window.devicePixelRatio;
+                
+                return (x1 >= -margin && x1 <= canvasW + margin && y1 >= -margin && y1 <= canvasH + margin) ||
+                       (x2 >= -margin && x2 <= canvasW + margin && y2 >= -margin && y2 <= canvasH + margin);
+            }
+            
+            draw() {
+                const angle = parseFloat(this.angleSlider.value);
+                const scale = parseFloat(this.scaleSlider.value);
+                
+                // Clear canvas
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(0, 0, this.canvas.width/window.devicePixelRatio, this.canvas.height/window.devicePixelRatio);
+                
+                const angleRad = angle * Math.PI / 180;
+                
+                // Generate ONE honeycomb network (unrotated)
+                const baseNetwork = this.generateHoneycombNetwork(scale, 0);
+                
+                // Draw first honeycomb network (green, unrotated)
+                this.ctx.strokeStyle = '#00AA44';
+                this.ctx.lineWidth = 1.5;
+                this.ctx.globalAlpha = 0.7;
+                
+                baseNetwork.forEach(edge => {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(edge.x1, edge.y1);
+                    this.ctx.lineTo(edge.x2, edge.y2);
+                    this.ctx.stroke();
+                });
+                
+                // Draw second honeycomb network (magenta, rotated)
+                this.ctx.strokeStyle = '#CC3399';
+                this.ctx.lineWidth = 1.5;
+                this.ctx.globalAlpha = 0.7;
+                
+                const cos_r = Math.cos(angleRad);
+                const sin_r = Math.sin(angleRad);
+                
+                baseNetwork.forEach(edge => {
+                    // Rotate each edge around center
+                    const dx1 = edge.x1 - this.centerX;
+                    const dy1 = edge.y1 - this.centerY;
+                    const dx2 = edge.x2 - this.centerX;
+                    const dy2 = edge.y2 - this.centerY;
+                    
+                    const rotX1 = this.centerX + (dx1 * cos_r - dy1 * sin_r);
+                    const rotY1 = this.centerY + (dx1 * sin_r + dy1 * cos_r);
+                    const rotX2 = this.centerX + (dx2 * cos_r - dy2 * sin_r);
+                    const rotY2 = this.centerY + (dx2 * sin_r + dy2 * cos_r);
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(rotX1, rotY1);
+                    this.ctx.lineTo(rotX2, rotY2);
+                    this.ctx.stroke();
+                });
+                
+                this.ctx.globalAlpha = 1.0;
+            }
+        }
+        
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new MoireSimulator();
+        });
+    </script>
+</body>
+</html>
