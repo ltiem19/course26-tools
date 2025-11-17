@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EBL Scattering Simulator</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #1a1a2e;
+            color: white;
+            overflow-x: hidden;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .canvas-wrapper {
+            width: 100%;
+        }
+        #canvas {
+            background: #0f0f1e;
+            border: 2px solid #4a90e2;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 800px;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        .controls {
+            background: #2a2a3e;
+            padding: 1.5rem;
+            border-radius: 8px;
+        }
+        .control-group {
+            margin-bottom: 1.5rem;
+        }
+        .control-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #4a90e2;
+        }
+        .value-display {
+            color: #aaa;
+            font-size: 0.9rem;
+            margin-bottom: 0.3rem;
+        }
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: #3a3a4e;
+            border-radius: 3px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #4a90e2;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #4a90e2;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+        .info-box {
+            background: #3a3a4e;
+            padding: 1rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            margin-top: 1rem;
+        }
+        .info-box strong {
+            color: #4a90e2;
+        }
+        .legend {
+            background: #2a2a3e;
+            padding: 1rem;
+            border-radius: 8px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .legend-color {
+            width: 30px;
+            height: 3px;
+            margin-right: 0.5rem;
+        }
+        @media (max-width: 640px) {
+            h1 { font-size: 1.4rem; }
+            .controls { padding: 1rem; }
+            .container { padding: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Electron Beam Lithography - Scattering Simulator</h1>
+        
+        <div class="main-content">
+            <div class="canvas-wrapper">
+                <canvas id="canvas" width="800" height="600"></canvas>
+            </div>
+            
+            <div class="controls">
+                <div class="control-group">
+                    <label>Beam Energy</label>
+                    <div class="value-display" id="energy-value">50 kV</div>
+                    <input type="range" id="energy" min="20" max="100" value="50" step="5">
+                </div>
+
+                <div class="control-group">
+                    <label>Resist Thickness</label>
+                    <div class="value-display" id="thickness-value">300 nm</div>
+                    <input type="range" id="thickness" min="100" max="1000" value="300" step="50">
+                </div>
+
+                <div class="info-box">
+                    <strong>Substrate:</strong> Silicon (Si)<br>
+                    <strong>Exposure Diameter:</strong> <span id="exposure-diameter">--</span> nm<br>
+                    <strong>Penetration Depth:</strong> <span id="penetration">--</span> nm<br>
+                    <strong>Resolution Limit:</strong> ~<span id="resolution">--</span> nm
+                </div>
+
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff4444;"></div>
+                        Primary beam
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #44ff44;"></div>
+                        Forward scattering (resist)
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #4444ff;"></div>
+                        Backscattering (substrate→resist)
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ffff44;"></div>
+                        Total exposure zone (dashed)
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <strong>Physics:</strong> Although electron wavelength is ~0.01 nm, EBL resolution (~20 nm) is limited by scattering. 
+            Forward scattering in the resist and backscattering from the substrate expose regions far from the primary beam spot. 
+            Higher beam energy reduces forward scattering but increases backscattering range (proximity effect). 
+            This is why careful dose control and proximity effect correction are critical for sub-50nm features.
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const energySlider = document.getElementById('energy');
+        const thicknessSlider = document.getElementById('thickness');
+
+        let config = {
+            energy: 50,        // kV
+            thickness: 300,    // nm
+            substrate: 'si'    // Fixed to Silicon
+        };
+
+        function updateConfig() {
+            config.energy = parseInt(energySlider.value);
+            config.thickness = parseInt(thicknessSlider.value);
+
+            document.getElementById('energy-value').textContent = config.energy + ' kV';
+            document.getElementById('thickness-value').textContent = config.thickness + ' nm';
+
+            simulate();
+        }
+
+        // Simplified scattering physics
+        function getScatteringParams() {
+            const E = config.energy;
+            const Z = 14; // Silicon
+            
+            // Forward scattering range (in resist, approximation)
+            const forwardRange = 0.5 * config.thickness * Math.sqrt(50 / E);
+            
+            // Backscattering range (in substrate, Kanaya-Okayama equation approximation)
+            const backscatterRange = (0.0276 * Math.pow(E, 1.67)) / Z * 1000; // nm
+            
+            // Penetration depth
+            const penetration = config.thickness + backscatterRange * 0.6;
+            
+            // Backscatter coefficient (increases with Z)
+            const eta = 0.5 * (1 - Math.exp(-0.1 * Z));
+            
+            return { forwardRange, backscatterRange, penetration, eta };
+        }
+
+        function simulate() {
+            const params = getScatteringParams();
+            const scale = 0.5; // pixels per nm
+            const beamX = canvas.width / 2;
+            const beamY = 50;
+
+            ctx.fillStyle = '#0f0f1e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw layers
+            const resistHeight = config.thickness * scale;
+            const substrateTop = beamY + resistHeight;
+
+            // Resist layer
+            ctx.fillStyle = 'rgba(180, 100, 60, 0.3)';
+            ctx.fillRect(0, beamY, canvas.width, resistHeight);
+            ctx.strokeStyle = '#ff8844';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, substrateTop);
+            ctx.lineTo(canvas.width, substrateTop);
+            ctx.stroke();
+
+            // Substrate
+            ctx.fillStyle = 'rgba(100, 100, 150, 0.2)';
+            ctx.fillRect(0, substrateTop, canvas.width, canvas.height - substrateTop);
+
+            // Labels
+            ctx.fillStyle = '#aaa';
+            ctx.font = '14px sans-serif';
+            ctx.fillText('PMMA Resist', 10, beamY + 20);
+            ctx.fillText('Silicon Substrate', 10, substrateTop + 20);
+
+            // Draw electron trajectories
+            const numElectrons = 50;
+
+            for (let i = 0; i < numElectrons; i++) {
+                // Primary beam + forward scattering in resist
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(beamX, beamY);
+                
+                let x = beamX;
+                let y = beamY;
+                
+                // Forward scattering - progressive lateral spreading
+                const forwardSpread = params.forwardRange * scale;
+                const scatterAngle = (Math.random() - 0.5) * 0.3;
+                
+                // Primary beam (red)
+                ctx.strokeStyle = 'rgba(255, 68, 68, 0.6)';
+                ctx.lineTo(beamX, beamY + 20);
+                ctx.stroke();
+                
+                // Forward scatter in resist (green)
+                ctx.beginPath();
+                ctx.moveTo(beamX, beamY + 20);
+                ctx.strokeStyle = 'rgba(68, 255, 68, 0.4)';
+                
+                const resistSteps = 15;
+                for (let j = 0; j < resistSteps; j++) {
+                    const progress = j / resistSteps;
+                    const dy = resistHeight / resistSteps;
+                    // Lateral spread increases with depth
+                    const dx = scatterAngle * forwardSpread * progress + (Math.random() - 0.5) * 2;
+                    x += dx;
+                    y += dy;
+                    
+                    if (y >= substrateTop) break;
+                    ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+
+                // Backscattering from substrate - go down then curve back UP
+                if (Math.random() < params.eta) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, substrateTop);
+                    ctx.strokeStyle = 'rgba(68, 68, 255, 0.4)';
+                    
+                    const backAngle = (Math.random() - 0.5) * Math.PI * 0.7;
+                    const backDist = params.backscatterRange * scale * (0.3 + Math.random() * 0.7);
+                    const penetrationDepth = backDist * 0.6;
+                    
+                    const backSteps = 30;
+                    let bx = x;
+                    let by = substrateTop;
+                    
+                    for (let j = 0; j < backSteps; j++) {
+                        const t = j / backSteps;
+                        
+                        // Parabolic trajectory: down into substrate, then back up
+                        if (t < 0.5) {
+                            // Going down into substrate
+                            by += penetrationDepth / backSteps * 2;
+                            bx += Math.sin(backAngle) * backDist / backSteps * 2;
+                        } else {
+                            // Coming back up - this is key for proximity effect!
+                            by -= penetrationDepth / backSteps * 2.2;
+                            bx += Math.sin(backAngle) * backDist / backSteps * 2;
+                        }
+                        
+                        // Add some randomness
+                        bx += (Math.random() - 0.5) * 3;
+                        
+                        if (by > canvas.height) break;
+                        ctx.lineTo(bx, by);
+                        
+                        // Stop when coming back up through resist surface
+                        if (by < beamY) break;
+                    }
+                    ctx.stroke();
+                }
+            }
+
+            // Draw beam spot
+            ctx.fillStyle = 'rgba(255, 68, 68, 0.8)';
+            ctx.beginPath();
+            ctx.arc(beamX, beamY, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw exposure region outline - should be IN the resist layer
+            const forwardRadius = params.forwardRange * scale;
+            const backscatterRadius = params.backscatterRange * scale * 0.4; // fraction that returns to resist
+            const totalExposureRadius = Math.sqrt(forwardRadius*forwardRadius + backscatterRadius*backscatterRadius);
+            
+            ctx.strokeStyle = 'rgba(255, 255, 68, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            // Draw at mid-resist height
+            ctx.arc(beamX, beamY + resistHeight * 0.5, totalExposureRadius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Update stats
+            const forwardDiam = params.forwardRange * 2;
+            const backContribution = params.backscatterRange * 0.4; // fraction returning to resist
+            const totalExposure = Math.sqrt(forwardDiam*forwardDiam + backContribution*backContribution * 4);
+            
+            document.getElementById('exposure-diameter').textContent = Math.round(totalExposure);
+            document.getElementById('penetration').textContent = Math.round(params.penetration);
+            document.getElementById('resolution').textContent = Math.round(forwardDiam);
+        }
+
+        energySlider.addEventListener('input', updateConfig);
+        thicknessSlider.addEventListener('input', updateConfig);
+
+        // Handle resize
+        function handleResize() {
+            const container = canvas.parentElement;
+            const maxWidth = Math.min(800, container.clientWidth - 20);
+            canvas.width = maxWidth;
+            canvas.height = maxWidth * 0.75;
+            simulate();
+        }
+        
+        window.addEventListener('resize', handleResize);
+        handleResize();
+
+        // Initial simulation
+        updateConfig();
+    </script>
+</body>
+</html>
