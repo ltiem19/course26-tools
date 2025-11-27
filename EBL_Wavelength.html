@@ -1,0 +1,142 @@
+import React, { useState } from 'react';
+
+const EBLWavelengthCalculator = () => {
+  const [energy, setEnergy] = useState(10); // in keV
+  const [useRelativistic, setUseRelativistic] = useState(false);
+  
+  // Constants
+  const h = 6.62607015e-34; // Planck constant in J·s
+  const me = 9.1093837015e-31; // electron mass in kg
+  const e = 1.602176634e-19; // elementary charge in C
+  const c = 299792458; // speed of light in m/s
+  
+  // Calculate wavelength - classical approximation
+  const calculateClassical = (E_keV) => {
+    const E_J = E_keV * 1000 * e; // Convert keV to Joules
+    // E = 1/2 m v^2, so p = m v = sqrt(2 m E)
+    const p = Math.sqrt(2 * me * E_J); // momentum in kg·m/s
+    const lambda = h / p; // de Broglie wavelength in m
+    return lambda * 1e12; // Convert to pm
+  };
+  
+  // Calculate wavelength - relativistic formula
+  const calculateRelativistic = (E_keV) => {
+    const E_J = E_keV * 1000 * e; // Convert keV to Joules
+    const E_rest = me * c * c; // rest energy in J
+    const E_total = E_J + E_rest; // total energy
+    const p = Math.sqrt(E_total * E_total - E_rest * E_rest) / c; // momentum in kg·m/s
+    const lambda = h / p; // de Broglie wavelength in m
+    return lambda * 1e12; // Convert to pm
+  };
+  
+  const wavelength = useRelativistic ? calculateRelativistic(energy) : calculateClassical(energy);
+  const wavelengthClassical = calculateClassical(energy);
+  const wavelengthRelativistic = calculateRelativistic(energy);
+  const percentDifference = Math.abs((wavelengthClassical - wavelengthRelativistic) / wavelengthRelativistic * 100);
+  
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 text-white p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-2xl md:text-3xl font-bold mb-6 text-center">
+          De Broglie Wavelength for Electron Beam Lithography
+        </h1>
+        
+        <div className="bg-slate-800 rounded-lg p-4 md:p-6 mb-6 shadow-xl">
+          <h2 className="text-xl font-semibold mb-4">Derivation</h2>
+          <div className="space-y-3 text-sm md:text-base leading-relaxed">
+            <p>The <strong>de Broglie wavelength</strong> of a particle:</p>
+            <div className="bg-slate-700 p-3 rounded text-center text-lg">
+              λ = h / p
+            </div>
+            
+            {!useRelativistic ? (
+              <>
+                <p>For electrons with kinetic energy <em>E</em> (accelerated through voltage <em>U</em>):</p>
+                <div className="bg-slate-700 p-3 rounded text-center">
+                  E = eU = ½mv²
+                </div>
+                <p>Solve for v, insert into p = mv, then into λ = h/p:</p>
+                <div className="bg-slate-700 p-3 rounded text-center text-lg">
+                  λ = h / √(2m<sub>e</sub>E)
+                </div>
+              </>
+            ) : (
+              <>
+                <p>For electrons with kinetic energy <em>E</em> (accelerated through voltage <em>U</em>):</p>
+                <div className="bg-slate-700 p-3 rounded text-center">
+                  E = eU
+                </div>
+                <p>At EBL energies (1-100 keV), <strong>relativistic effects</strong> must be included:</p>
+                <div className="bg-slate-700 p-3 rounded text-center text-sm md:text-base">
+                  p = √[(E<sub>total</sub>² - E<sub>rest</sub>²) / c²]
+                </div>
+                <p className="text-xs md:text-sm text-slate-300">
+                  where E<sub>total</sub> = E<sub>kin</sub> + m<sub>e</sub>c² and E<sub>rest</sub> = m<sub>e</sub>c² = 511 keV
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+        
+        <div className="bg-slate-800 rounded-lg p-4 md:p-6 mb-6 shadow-xl">
+          <h2 className="text-xl font-semibold mb-4">Interactive Calculation</h2>
+          
+          <div className="mb-6">
+            <div className="flex items-center gap-4 mb-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useRelativistic}
+                  onChange={(e) => setUseRelativistic(e.target.checked)}
+                  className="w-4 h-4 accent-cyan-500"
+                />
+                <span className="text-sm font-medium">Use relativistic formula</span>
+              </label>
+            </div>
+            
+            <label className="block mb-2 font-medium">
+              Acceleration Voltage: <span className="text-cyan-400">{energy} keV</span>
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="100"
+              step="0.5"
+              value={energy}
+              onChange={(e) => setEnergy(parseFloat(e.target.value))}
+              className="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+            />
+            <div className="flex justify-between text-xs text-slate-400 mt-1">
+              <span>1 keV</span>
+              <span>100 keV</span>
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-cyan-900 to-blue-900 rounded-lg p-4 md:p-6 text-center">
+            <div className="text-sm md:text-base text-slate-300 mb-2">
+              De Broglie Wavelength ({useRelativistic ? 'Relativistic' : 'Classical'})
+            </div>
+            <div className="text-3xl md:text-4xl font-bold text-cyan-300">
+              {wavelength.toFixed(2)} pm
+            </div>
+            <div className="text-xs md:text-sm text-slate-400 mt-2">
+              = {(wavelength / 1000).toFixed(4)} nm
+            </div>
+          </div>
+          
+          {percentDifference > 0.5 && (
+            <div className="mt-4 text-xs md:text-sm text-amber-300 bg-slate-700 p-3 rounded">
+              <strong>Note:</strong> At {energy} keV, the classical approximation differs from the relativistic 
+              result by {percentDifference.toFixed(1)}%. 
+              (Classical: {wavelengthClassical.toFixed(2)} pm, Relativistic: {wavelengthRelativistic.toFixed(2)} pm)
+            </div>
+          )}
+        </div>
+        
+
+      </div>
+    </div>
+  );
+};
+
+export default EBLWavelengthCalculator;
