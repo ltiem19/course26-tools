@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Tunneling and Band Formation</title>
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo } = React;
+
+        const BandStructureFormation = () => {
+          const [numWells, setNumWells] = useState(2);
+          const [separation, setSeparation] = useState(4.0);
+          
+          const wellWidth = 1.0;
+          const V0 = 10.0;
+          
+          const calculateEnergyLevels = (N, d) => {
+            const levels = [];
+            const E0 = (Math.PI ** 2) / (2 * wellWidth ** 2);
+            
+            if (N === 1) {
+              levels.push({ energy: E0, index: 0 });
+            } else {
+              const kappa = Math.sqrt(2 * V0);
+              const t = E0 * Math.exp(-kappa * d / 2);
+              
+              for (let k = 1; k <= N; k++) {
+                const energy = E0 + 2 * t * Math.cos(Math.PI * k / (N + 1));
+                levels.push({ energy, index: k - 1, coupling: t });
+              }
+            }
+            
+            return levels.sort((a, b) => a.energy - b.energy);
+          };
+          
+          const generatePotential = (N, d) => {
+            const points = [];
+            const totalRange = 10.0;
+            const resolution = 400;
+            
+            for (let i = 0; i <= resolution; i++) {
+              const x = (i / resolution) * totalRange;
+              let V = 0;
+              
+              for (let j = 0; j < N; j++) {
+                const wellStart = j * (wellWidth + d);
+                const wellEnd = wellStart + wellWidth;
+                
+                if (x >= wellStart && x <= wellEnd && wellEnd <= totalRange) {
+                  V = -V0;
+                  break;
+                }
+              }
+              
+              points.push({ x, V });
+            }
+            
+            return points;
+          };
+          
+          const energyLevels = useMemo(() => calculateEnergyLevels(numWells, separation), [numWells, separation]);
+          const potential = useMemo(() => generatePotential(numWells, separation), [numWells, separation]);
+          
+          const bandWidth = energyLevels.length > 1 ? 
+            Math.max(...energyLevels.map(l => l.energy)) - Math.min(...energyLevels.map(l => l.energy)) : 0;
+          
+          const coupling = energyLevels.length > 1 ? energyLevels[0].coupling : 0;
+          
+          // Chart rendering
+          const ChartComponent = ({ data, energyLevels }) => {
+            const width = 600;
+            const height = 320;
+            const margin = { top: 20, right: 30, bottom: 40, left: 60 };
+            const chartWidth = width - margin.left - margin.right;
+            const chartHeight = height - margin.top - margin.bottom;
+            
+            const xMin = 0, xMax = 10;
+            const yMin = -12, yMax = 2;
+            
+            const scaleX = (x) => margin.left + (x - xMin) / (xMax - xMin) * chartWidth;
+            const scaleY = (y) => margin.top + (1 - (y - yMin) / (yMax - yMin)) * chartHeight;
+            
+            const pathData = data.map((d, i) => 
+              `${i === 0 ? 'M' : 'L'} ${scaleX(d.x)} ${scaleY(d.V)}`
+            ).join(' ');
+            
+            const xTicks = [0, 2, 4, 6, 8, 10];
+            const yTicks = [-12, -8, -4, 0];
+            
+            return (
+              <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
+                {/* Grid */}
+                {xTicks.map(tick => (
+                  <line key={`vgrid-${tick}`} x1={scaleX(tick)} y1={margin.top} x2={scaleX(tick)} y2={height - margin.bottom} 
+                    stroke="#e5e7eb" strokeDasharray="3 3" />
+                ))}
+                {yTicks.map(tick => (
+                  <line key={`hgrid-${tick}`} x1={margin.left} y1={scaleY(tick)} x2={width - margin.right} y2={scaleY(tick)} 
+                    stroke="#e5e7eb" strokeDasharray="3 3" />
+                ))}
+                
+                {/* Axes */}
+                <line x1={margin.left} y1={height - margin.bottom} x2={width - margin.right} y2={height - margin.bottom} 
+                  stroke="#000" strokeWidth="2" />
+                <line x1={margin.left} y1={margin.top} x2={margin.left} y2={height - margin.bottom} 
+                  stroke="#000" strokeWidth="2" />
+                
+                {/* X ticks and labels */}
+                {xTicks.map(tick => (
+                  <g key={`xtick-${tick}`}>
+                    <line x1={scaleX(tick)} y1={height - margin.bottom} x2={scaleX(tick)} y2={height - margin.bottom + 5} 
+                      stroke="#000" />
+                    <text x={scaleX(tick)} y={height - margin.bottom + 20} textAnchor="middle" fontSize="12">{tick}</text>
+                  </g>
+                ))}
+                
+                {/* Y ticks and labels */}
+                {yTicks.map(tick => (
+                  <g key={`ytick-${tick}`}>
+                    <line x1={margin.left - 5} y1={scaleY(tick)} x2={margin.left} y2={scaleY(tick)} 
+                      stroke="#000" />
+                    <text x={margin.left - 10} y={scaleY(tick) + 4} textAnchor="end" fontSize="12">{tick}</text>
+                  </g>
+                ))}
+                
+                {/* Axis labels */}
+                <text x={width / 2} y={height - 5} textAnchor="middle" fontSize="14">Position (a₀)</text>
+                <text x={15} y={height / 2} textAnchor="middle" fontSize="14" transform={`rotate(-90, 15, ${height / 2})`}>Energy</text>
+                
+                {/* Potential curve */}
+                <path d={pathData} fill="none" stroke="#2563eb" strokeWidth="2" />
+                
+                {/* Energy levels */}
+                {energyLevels.map((level, index) => {
+                  const y = scaleY(level.energy - V0);
+                  const color = numWells === 2 ? (index === 0 ? "#dc2626" : "#059669") : `hsl(${index * 30}, 70%, 50%)`;
+                  return (
+                    <line key={index} x1={margin.left} y1={y} x2={width - margin.right} y2={y} 
+                      stroke={color} strokeWidth="2" strokeDasharray="5 5" />
+                  );
+                })}
+              </svg>
+            );
+          };
+          
+          return (
+            <div className="w-full max-w-5xl mx-auto p-3 sm:p-6 bg-white">
+              <div className="mb-4 sm:mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Quantum Tunneling and Band Formation</h2>
+                
+                <div className="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-6 mb-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="font-semibold text-sm sm:text-base">Number of Wells:</label>
+                      <span className="px-2 py-1 bg-blue-100 rounded font-mono text-sm">{numWells}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="2"
+                      max="10"
+                      value={numWells}
+                      onChange={(e) => setNumWells(parseInt(e.target.value))}
+                      className="w-full h-8 sm:h-6"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="font-semibold text-sm sm:text-base">Separation:</label>
+                      <span className="px-2 py-1 bg-green-100 rounded font-mono text-sm">{separation.toFixed(1)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="5.0"
+                      step="0.1"
+                      value={separation}
+                      onChange={(e) => setSeparation(parseFloat(e.target.value))}
+                      className="w-full h-8 sm:h-6"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 p-3 sm:p-4 rounded mb-4 sm:mb-6">
+                <h3 className="font-semibold mb-2 text-sm sm:text-base">Potential and Energy Levels</h3>
+                <div className="h-64 sm:h-80">
+                  <ChartComponent data={potential} energyLevels={energyLevels} />
+                </div>
+              </div>
+              
+              <div className="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-4 mb-4 sm:mb-6">
+                <div className="bg-blue-50 p-3 sm:p-4 rounded">
+                  <h3 className="font-semibold mb-2 text-sm sm:text-base">Energy Levels</h3>
+                  <div className="space-y-1 text-xs sm:text-sm font-mono">
+                    {energyLevels.map((level, index) => (
+                      <div key={index} className="flex justify-between">
+                        <span>E₁^({index + 1}):</span>
+                        <span>{(level.energy - V0).toFixed(4)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="bg-green-50 p-3 sm:p-4 rounded">
+                  <h3 className="font-semibold mb-2 text-sm sm:text-base">Band Properties</h3>
+                  <div className="space-y-1 text-xs sm:text-sm">
+                    <div className="flex justify-between">
+                      <span>Band Width:</span>
+                      <span className="font-mono">{bandWidth.toFixed(6)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Tunneling Coupling:</span>
+                      <span className="font-mono">{coupling.toFixed(6)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Splitting Factor:</span>
+                      <span className="font-mono">e^(-κd) ≈ {Math.exp(-Math.sqrt(2 * V0) * separation / 2).toFixed(6)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-yellow-50 p-3 sm:p-4 rounded">
+                <h3 className="font-semibold mb-2 text-sm sm:text-base">Physics</h3>
+                <div className="text-xs sm:text-sm space-y-1 leading-relaxed">
+                  <p><strong>Large separation:</strong> Wells are isolated → degenerate energy levels</p>
+                  <p><strong>Small separation:</strong> Quantum tunneling couples wells → level splitting</p>
+                  <p><strong>Tunneling strength:</strong> t ∝ e^(-κd) where κ = √(2mV₀)/ℏ</p>
+                  <p><strong>Energy eigenvalues:</strong> E_k = E₀ + 2t cos(πk/(N+1)) for k = 1,2,...,N</p>
+                  <p><strong>Band formation:</strong> As N → ∞, discrete levels → continuous energy bands</p>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        ReactDOM.render(<BandStructureFormation />, document.getElementById('root'));
+    </script>
+</body>
+</html>
