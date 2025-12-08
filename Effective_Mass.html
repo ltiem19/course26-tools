@@ -33,7 +33,7 @@
             margin: 15px 0;
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 20px;
             flex-wrap: wrap;
             justify-content: center;
         }
@@ -41,12 +41,15 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            flex-direction: column;
-            text-align: center;
+            flex-direction: row;
+        }
+        .slider-group label {
+            font-size: 14px;
+            white-space: nowrap;
         }
         input[type="range"] {
             width: 150px;
-            height: 40px;
+            height: 30px;
         }
         .info-box {
             background-color: #3a3a3a;
@@ -85,46 +88,48 @@
                 padding: 5px;
             }
             .plot-container {
-                padding: 10px;
-                margin: 10px 0;
+                padding: 8px;
+                margin: 5px 0;
             }
             .controls {
                 gap: 10px;
-                margin: 10px 0;
+                margin: 8px 0;
             }
             .slider-group {
-                gap: 5px;
+                gap: 8px;
+            }
+            .slider-group label {
+                font-size: 12px;
             }
             input[type="range"] {
-                width: 120px;
-                height: 35px;
-            }
-            .info-box {
-                font-size: 12px;
-                padding: 10px;
+                width: 100px;
+                height: 30px;
             }
             h1 {
-                font-size: 1.3em;
+                font-size: 1.2em;
+                margin-bottom: 10px;
             }
             h2 {
-                font-size: 1.1em;
-                margin-top: 15px;
+                font-size: 1em;
+                margin-top: 8px;
+                margin-bottom: 5px;
             }
             .equation {
-                font-size: 1em;
+                font-size: 0.9em;
+                margin: 5px 0;
             }
         }
         
         @media (max-width: 480px) {
             .controls {
-                flex-direction: column;
-                gap: 15px;
+                flex-direction: row;
+                gap: 10px;
             }
-            .slider-group {
-                width: 100%;
+            .slider-group label {
+                font-size: 11px;
             }
             input[type="range"] {
-                width: 80%;
+                width: 80px;
             }
         }
     </style>
@@ -136,12 +141,10 @@
         <div class="slider-group">
             <label>Curvature:</label>
             <input type="range" id="massSlider" min="0.1" max="5" step="0.1" value="1">
-            <span id="massValue" class="value-display">1.0</span>
         </div>
         <div class="slider-group">
             <label>k-point:</label>
             <input type="range" id="kSlider" min="-3" max="3" step="0.1" value="2">
-            <span id="kValue" class="value-display">2.0</span> π/a
         </div>
     </div>
 
@@ -163,15 +166,6 @@
         <canvas id="secondDerivCanvas"></canvas>
     </div>
 
-    <div class="info-box">
-        <h3>Current Values:</h3>
-        <div>k = <span id="kInfo" class="value-display">2.00</span> π/a</div>
-        <div>E(k) = <span id="energyInfo" class="value-display">0.00</span> eV</div>
-        <div>v<sub>g</sub>(k) = <span id="velocityInfo" class="value-display">0.00</span> × 10⁶ m/s</div>
-        <div>1/(d²E/dk²) = <span id="curvatureInfo" class="value-display">--</span> ×10³⁷ s²/(kg·m²)</div>
-        <div>m/m₀ = <span id="massInfo" class="value-display">1.00</span></div>
-    </div>
-
     <script>
         // Constants
         const hbar = 1.0545718e-34; // J·s
@@ -190,13 +184,13 @@
         // Mobile responsive canvas sizing
         function resizeCanvases() {
             const container = document.querySelector('.plot-container');
-            const containerWidth = container.clientWidth - 30; // Account for padding
+            const containerWidth = container.clientWidth - 16; // Account for reduced padding
             const isMobile = window.innerWidth <= 768;
             
-            // Set logical canvas dimensions
+            // Set logical canvas dimensions - shorter on mobile
             const canvasWidth = Math.min(containerWidth, 800);
-            const canvasHeight = isMobile ? 200 : 300;
-            const smallCanvasHeight = isMobile ? 150 : 200;
+            const canvasHeight = isMobile ? 150 : 300;
+            const smallCanvasHeight = isMobile ? 120 : 200;
             
             // Set canvas dimensions
             dispCanvas.width = canvasWidth;
@@ -240,15 +234,6 @@
         // Get controls
         const massSlider = document.getElementById('massSlider');
         const kSlider = document.getElementById('kSlider');
-        const massValue = document.getElementById('massValue');
-        const kValue = document.getElementById('kValue');
-        
-        // Info displays
-        const kInfo = document.getElementById('kInfo');
-        const energyInfo = document.getElementById('energyInfo');
-        const velocityInfo = document.getElementById('velocityInfo');
-        const curvatureInfo = document.getElementById('curvatureInfo');
-        const massInfo = document.getElementById('massInfo');
         
         let effectiveMass = 1.0;
         let currentK = 2;
@@ -481,36 +466,20 @@
             secondDerivCtx.fillText(labelText, 10, 20);
         }
         
-        function updateInfo() {
-            const k = mouseK !== null ? mouseK : currentK;
-            const E = calculateEnergy(k);
-            const v = calculateVelocity(k);
-            const invCurvature = calculateInverseSecondDerivative();
-            
-            kInfo.textContent = k.toFixed(2);
-            energyInfo.textContent = E.toFixed(2);
-            velocityInfo.textContent = (v / 1e6).toFixed(2);
-            curvatureInfo.textContent = (invCurvature / 1e37).toFixed(2);
-            massInfo.textContent = effectiveMass.toFixed(2);
-        }
-        
         function draw() {
             drawDispersion();
             drawVelocity();
             drawInverseSecondDerivative();
-            updateInfo();
         }
         
         // Event listeners for controls
         massSlider.addEventListener('input', (e) => {
             effectiveMass = parseFloat(e.target.value);
-            massValue.textContent = effectiveMass.toFixed(1);
             draw();
         });
         
         kSlider.addEventListener('input', (e) => {
             currentK = parseFloat(e.target.value);
-            kValue.textContent = currentK.toFixed(1);
             mouseK = null;
             draw();
         });
