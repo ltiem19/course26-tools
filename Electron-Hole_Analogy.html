@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Electron-Hole Duality</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 8px; color: #1f2937; }
+    .subtitle { font-size: 0.85rem; color: #666; margin-bottom: 20px; }
+    .container { max-width: 600px; margin: 0 auto; }
+    .grids { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+    @media (max-width: 500px) {
+      .grids { flex-direction: column; align-items: center; gap: 15px; }
+      .equals { transform: rotate(90deg); margin: -5px 0; }
+      .grid { grid-template-columns: repeat(3, 50px); }
+      .cell { width: 50px; height: 50px; font-size: 0.8rem; }
+    }
+    .grid-container { text-align: center; }
+    .grid-title { font-size: 0.9rem; font-weight: bold; color: #374151; margin-bottom: 4px; }
+    .grid-sub { font-size: 0.75rem; color: #6b7280; margin-bottom: 8px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 60px);
+      gap: 6px;
+      background: #d1d5db;
+      padding: 8px;
+      border-radius: 12px;
+    }
+    .cell {
+      width: 60px;
+      height: 60px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+    }
+    .electron { background: #2563eb; color: white; }
+    .electron.clickable { 
+      cursor: pointer; 
+      box-shadow: 0 0 0 3px #facc15;
+    }
+    .electron.clickable:hover { transform: scale(1.05); }
+    .vacancy-e { background: #e5e5e5; color: #999; }
+    .hole { background: #ef4444; color: white; }
+    .filled { background: #bfdbfe; color: #666; }
+    .equals { display: flex; align-items: center; font-size: 1.5rem; color: #9ca3af; }
+    .move-display {
+      background: white;
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .move-display h3 { font-size: 0.9rem; margin-bottom: 10px; color: #374151; }
+    .move-arrows { display: flex; gap: 20px; justify-content: center; align-items: center; }
+    .arrow-e { color: #2563eb; font-size: 1.5rem; }
+    .arrow-h { color: #ef4444; font-size: 1.5rem; }
+    .arrow-eq { color: #9ca3af; }
+    .info-box {
+      background: #e0e7ff;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      color: #3730a3;
+      margin-bottom: 16px;
+    }
+    button {
+      padding: 10px 24px;
+      background: #4b5563;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+    button:hover { background: #374151; }
+    .history { 
+      background: white; 
+      padding: 12px; 
+      border-radius: 10px; 
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .history h4 { font-size: 0.8rem; color: #6b7280; margin-bottom: 8px; }
+    .history-items { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+    .history-item {
+      background: #f3f4f6;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+    .history-item .e { color: #2563eb; }
+    .history-item .h { color: #ef4444; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Electron-Hole Duality</h1>
+    <p class="subtitle">Click an electron (blue, yellow border) next to the vacancy. Watch particles move in opposite directions!</p>
+    
+    <div class="grids">
+      <div class="grid-container">
+        <div class="grid-title">Electron Picture</div>
+        <div class="grid-sub">(track e⁻)</div>
+        <div class="grid" id="electron-grid"></div>
+      </div>
+      
+      <div class="equals">=</div>
+      
+      <div class="grid-container">
+        <div class="grid-title">Hole Picture</div>
+        <div class="grid-sub">(track h⁺)</div>
+        <div class="grid" id="hole-grid"></div>
+      </div>
+    </div>
+    
+    <div class="move-display" id="move-display" style="display: none;">
+      <h3>Last Move</h3>
+      <div class="move-arrows">
+        <span class="arrow-e" id="e-arrow">e⁻ →</span>
+        <span class="arrow-eq">=</span>
+        <span class="arrow-h" id="h-arrow">h⁺ ←</span>
+      </div>
+      <p style="font-size: 0.75rem; color: #6b7280; margin-top: 8px;">Same physical event, opposite descriptions!</p>
+    </div>
+    
+    <button onclick="reset()">Reset</button>
+  </div>
+
+  <script>
+    let holePos = 4;
+    
+    const adjacent = {
+      0: [1, 3], 1: [0, 2, 4], 2: [1, 5],
+      3: [0, 4, 6], 4: [1, 3, 5, 7], 5: [2, 4, 8],
+      6: [3, 7], 7: [4, 6, 8], 8: [5, 7]
+    };
+    
+    function getDirection(from, to) {
+      const diff = to - from;
+      if (diff === 1) return ['→', '←', 'right', 'left'];
+      if (diff === -1) return ['←', '→', 'left', 'right'];
+      if (diff === 3) return ['↓', '↑', 'down', 'up'];
+      if (diff === -3) return ['↑', '↓', 'up', 'down'];
+      return ['?', '?', '?', '?'];
+    }
+    
+    function canMove(pos) {
+      return adjacent[holePos].includes(pos);
+    }
+    
+    function handleClick(pos) {
+      if (!canMove(pos)) return;
+      
+      const [eDir, hDir] = getDirection(pos, holePos);
+      holePos = pos;
+      render();
+      showMove(eDir, hDir);
+    }
+    
+    function showMove(eDir, hDir) {
+      document.getElementById('move-display').style.display = 'block';
+      document.getElementById('e-arrow').textContent = `e⁻ ${eDir}`;
+      document.getElementById('h-arrow').textContent = `h⁺ ${hDir}`;
+    }
+    
+    function render() {
+      const eGrid = document.getElementById('electron-grid');
+      const hGrid = document.getElementById('hole-grid');
+      
+      eGrid.innerHTML = '';
+      hGrid.innerHTML = '';
+      
+      for (let i = 0; i < 9; i++) {
+        // Electron grid
+        const eCell = document.createElement('div');
+        eCell.className = 'cell';
+        if (i === holePos) {
+          eCell.classList.add('vacancy-e');
+          eCell.textContent = '○';
+        } else {
+          eCell.classList.add('electron');
+          eCell.textContent = 'e⁻';
+          if (canMove(i)) {
+            eCell.classList.add('clickable');
+            eCell.onclick = () => handleClick(i);
+          }
+        }
+        eGrid.appendChild(eCell);
+        
+        // Hole grid
+        const hCell = document.createElement('div');
+        hCell.className = 'cell';
+        if (i === holePos) {
+          hCell.classList.add('hole');
+          hCell.textContent = 'h⁺';
+        } else {
+          hCell.classList.add('filled');
+          hCell.textContent = '●';
+        }
+        hGrid.appendChild(hCell);
+      }
+    }
+    
+    function reset() {
+      holePos = 4;
+      document.getElementById('move-display').style.display = 'none';
+      render();
+    }
+    
+    render();
+  </script>
+</body>
+</html>
