@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electronic Band Structure Quiz</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .quiz-content {
+            padding: 30px 20px;
+        }
+        
+        .option {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+        }
+        
+        .option:hover {
+            background: #e3f2fd;
+            border-color: #2196f3;
+            transform: translateY(-2px);
+        }
+        
+        .option.selected {
+            background: #bbdefb;
+            border-color: #1976d2;
+            box-shadow: 0 4px 12px rgba(25,118,210,0.3);
+        }
+        
+        .option input[type="radio"] {
+            margin-right: 12px;
+            transform: scale(1.2);
+        }
+        
+        .option label {
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1.4;
+            user-select: none;
+        }
+        
+        .show-results-btn {
+            background: linear-gradient(135deg, #4caf50, #45a049);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 25px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(76,175,80,0.3);
+        }
+        
+        .show-results-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76,175,80,0.4);
+        }
+        
+        .show-results-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .results {
+            margin-top: 30px;
+            padding: 25px;
+            background: #f1f8e9;
+            border-radius: 10px;
+            border-left: 5px solid #4caf50;
+            display: none;
+        }
+        
+        .results.wrong {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+        
+        .results h3 {
+            color: #2e7d32;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+        
+        .results.wrong h3 {
+            color: #c62828;
+        }
+        
+        .results p {
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+        
+        .physics-note {
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 0.95rem;
+            border-left: 3px solid #4caf50;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                margin: 10px;
+                border-radius: 10px;
+            }
+            
+            .header {
+                padding: 20px 15px;
+            }
+            
+            .quiz-content {
+                padding: 20px 15px;
+            }
+            
+            .option {
+                padding: 12px;
+            }
+            
+            .show-results-btn {
+                padding: 12px 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Electronic Band Structure</h1>
+            <p>Select the best answer and click "Show Results"</p>
+        </div>
+        
+        <div class="quiz-content">
+            <div class="options">
+                <div class="option" onclick="selectOption(1)">
+                    <input type="radio" id="option1" name="answer" value="1">
+                    <label for="option1">Duh! It's the size of the band gap, stupid!</label>
+                </div>
+                
+                <div class="option" onclick="selectOption(2)">
+                    <input type="radio" id="option2" name="answer" value="2">
+                    <label for="option2">The temperature determines everything!</label>
+                </div>
+                
+                <div class="option" onclick="selectOption(3)">
+                    <input type="radio" id="option3" name="answer" value="3">
+                    <label for="option3">The position of the Fermi level is important</label>
+                </div>
+                
+                <div class="option" onclick="selectOption(4)">
+                    <input type="radio" id="option4" name="answer" value="4">
+                    <label for="option4">It's complicated...just like my last relationship</label>
+                </div>
+                
+                <div class="option" onclick="selectOption(5)">
+                    <input type="radio" id="option5" name="answer" value="5">
+                    <label for="option5">Ugh! I should have been studying sociology instead!</label>
+                </div>
+            </div>
+            
+            <button class="show-results-btn" onclick="showResults()" disabled>Show Results</button>
+            
+            <div id="results" class="results"></div>
+        </div>
+    </div>
+
+    <script>
+        let selectedAnswer = null;
+        
+        function selectOption(optionNumber) {
+            // Remove previous selection
+            document.querySelectorAll('.option').forEach(opt => opt.classList.remove('selected'));
+            document.querySelectorAll('input[type="radio"]').forEach(radio => radio.checked = false);
+            
+            // Select current option
+            const selectedOption = document.querySelector(`#option${optionNumber}`);
+            selectedOption.checked = true;
+            selectedOption.closest('.option').classList.add('selected');
+            
+            selectedAnswer = optionNumber;
+            document.querySelector('.show-results-btn').disabled = false;
+        }
+        
+        function showResults() {
+            const resultsDiv = document.getElementById('results');
+            let content = '';
+            let isCorrect = false;
+            
+            switch(selectedAnswer) {
+                case 1:
+                    content = `<h3>Not quite right!</h3>
+                    <p>While band gap size matters for semiconductors vs insulators, it doesn't explain why metals conduct. Metals often have overlapping bands or partially filled bands, not necessarily small gaps.</p>`;
+                    break;
+                    
+                case 2:
+                    content = `<h3>Temperature is important, but not everything!</h3>
+                    <p>Temperature affects carrier concentration in semiconductors (∝ e^(-Eg/2kT)), but metals conduct at all temperatures, even approaching absolute zero. The fundamental difference lies elsewhere.</p>`;
+                    break;
+                    
+                case 3:
+                    isCorrect = true;
+                    content = `<h3>Correct! Well done.</h3>
+                    <p>The Fermi level position relative to the band structure is crucial. For conduction, electrons need access to unoccupied states within ~kT of E<sub>F</sub>.</p>
+                    <p><strong>Metals:</strong> E<sub>F</sub> lies within a partially filled band → abundant unoccupied states</p>
+                    <p><strong>Semiconductors/Insulators:</strong> E<sub>F</sub> lies in the gap between filled valence and empty conduction bands → few available states at T≈0</p>`;
+                    break;
+                    
+                case 4:
+                    isCorrect = true;
+                    content = `<h3>Actually correct! (Despite the relationship humor)</h3>
+                    <p>It IS complicated! Conductivity depends on band filling, band overlap, defect states, temperature, doping, electron-phonon coupling, and quantum many-body effects.</p>`;
+                    break;
+                    
+                case 5:
+                    content = `<h3>Physics avoidance detected!</h3>
+                    <p>Sociology is fascinating, but electronic band theory explains technologies from LEDs to solar cells to quantum computers. The universe doesn't care about your career regrets - electrons still follow quantum mechanics!</p>
+                    <div class="physics-note">
+                        <strong>Ironic note:</strong> Even sociological research increasingly relies on electronic devices whose operation depends on... band theory. No escape!
+                    </div>`;
+                    break;
+            }
+            
+            resultsDiv.innerHTML = content;
+            resultsDiv.style.display = 'block';
+            resultsDiv.className = isCorrect ? 'results' : 'results wrong';
+            
+            // Scroll to results
+            resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    </script>
+</body>
+</html>
