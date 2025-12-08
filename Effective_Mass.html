@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dispersion and Group Velocity</title>
+    <style>
+        body {
+            font-family: 'Times New Roman', serif;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            padding: 10px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .plot-container {
+            background-color: #2a2a2a;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            position: relative;
+            overflow-x: auto;
+        }
+        canvas {
+            border: 1px solid #4a4a4a;
+            cursor: crosshair;
+            width: 100%;
+            height: auto;
+            display: block;
+            touch-action: none;
+        }
+        .controls {
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-direction: column;
+            text-align: center;
+        }
+        input[type="range"] {
+            width: 150px;
+            height: 40px;
+        }
+        .info-box {
+            background-color: #3a3a3a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .value-display {
+            color: #4a9eff;
+            font-weight: bold;
+        }
+        h1 {
+            font-size: 1.5em;
+            text-align: center;
+            color: #4a9eff;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #4a9eff;
+            margin-top: 20px;
+            font-size: 1.3em;
+        }
+        .equation {
+            font-size: 1.1em;
+            margin: 10px 0;
+        }
+        .highlight {
+            color: #ff9a4a;
+        }
+        
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+            .plot-container {
+                padding: 10px;
+                margin: 10px 0;
+            }
+            .controls {
+                gap: 10px;
+                margin: 10px 0;
+            }
+            .slider-group {
+                gap: 5px;
+            }
+            input[type="range"] {
+                width: 120px;
+                height: 35px;
+            }
+            .info-box {
+                font-size: 12px;
+                padding: 10px;
+            }
+            h1 {
+                font-size: 1.3em;
+            }
+            h2 {
+                font-size: 1.1em;
+                margin-top: 15px;
+            }
+            .equation {
+                font-size: 1em;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .controls {
+                flex-direction: column;
+                gap: 15px;
+            }
+            .slider-group {
+                width: 100%;
+            }
+            input[type="range"] {
+                width: 80%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center; color: #4a9eff;">Parabolic Dispersion & Group Velocity</h1>
+    
+    <div class="controls">
+        <div class="slider-group">
+            <label>Curvature:</label>
+            <input type="range" id="massSlider" min="0.1" max="5" step="0.1" value="1">
+            <span id="massValue" class="value-display">1.0</span>
+        </div>
+        <div class="slider-group">
+            <label>k-point:</label>
+            <input type="range" id="kSlider" min="-3" max="3" step="0.1" value="2">
+            <span id="kValue" class="value-display">2.0</span> π/a
+        </div>
+    </div>
+
+    <div class="plot-container">
+        <h2>Energy Dispersion</h2>
+        <div class="equation">E(k) = ℏ²k²/2m</div>
+        <canvas id="dispersionCanvas"></canvas>
+    </div>
+
+    <div class="plot-container">
+        <h2>Group Velocity v<sub>g</sub>(k)</h2>
+        <div class="equation">v<sub>g</sub> = (1/ℏ) dE/dk = ℏk/m</div>
+        <canvas id="velocityCanvas"></canvas>
+    </div>
+
+    <div class="plot-container">
+        <h2>Inverse Second Derivative 1/(d²E/dk²)</h2>
+        <div class="equation">1/(d²E/dk²) = m/ℏ²</div>
+        <canvas id="secondDerivCanvas"></canvas>
+    </div>
+
+    <div class="info-box">
+        <h3>Current Values:</h3>
+        <div>k = <span id="kInfo" class="value-display">2.00</span> π/a</div>
+        <div>E(k) = <span id="energyInfo" class="value-display">0.00</span> eV</div>
+        <div>v<sub>g</sub>(k) = <span id="velocityInfo" class="value-display">0.00</span> × 10⁶ m/s</div>
+        <div>1/(d²E/dk²) = <span id="curvatureInfo" class="value-display">--</span> ×10³⁷ s²/(kg·m²)</div>
+        <div>m/m₀ = <span id="massInfo" class="value-display">1.00</span></div>
+    </div>
+
+    <script>
+        // Constants
+        const hbar = 1.0545718e-34; // J·s
+        const m0 = 9.10938356e-31; // kg (electron mass)
+        const eV = 1.60217663e-19; // J
+        const a = 5e-10; // lattice constant (5 Å)
+        
+        // Get canvas contexts
+        const dispCanvas = document.getElementById('dispersionCanvas');
+        const velCanvas = document.getElementById('velocityCanvas');
+        const secondDerivCanvas = document.getElementById('secondDerivCanvas');
+        const dispCtx = dispCanvas.getContext('2d');
+        const velCtx = velCanvas.getContext('2d');
+        const secondDerivCtx = secondDerivCanvas.getContext('2d');
+        
+        // Mobile responsive canvas sizing
+        function resizeCanvases() {
+            const container = document.querySelector('.plot-container');
+            const containerWidth = container.clientWidth - 30; // Account for padding
+            const isMobile = window.innerWidth <= 768;
+            
+            // Set logical canvas dimensions
+            const canvasWidth = Math.min(containerWidth, 800);
+            const canvasHeight = isMobile ? 200 : 300;
+            const smallCanvasHeight = isMobile ? 150 : 200;
+            
+            // Set canvas dimensions
+            dispCanvas.width = canvasWidth;
+            dispCanvas.height = canvasHeight;
+            velCanvas.width = canvasWidth;
+            velCanvas.height = canvasHeight;
+            secondDerivCanvas.width = canvasWidth;
+            secondDerivCanvas.height = smallCanvasHeight;
+            
+            // Set CSS dimensions to match
+            dispCanvas.style.width = canvasWidth + 'px';
+            dispCanvas.style.height = canvasHeight + 'px';
+            velCanvas.style.width = canvasWidth + 'px';
+            velCanvas.style.height = canvasHeight + 'px';
+            secondDerivCanvas.style.width = canvasWidth + 'px';
+            secondDerivCanvas.style.height = smallCanvasHeight + 'px';
+        }
+        
+        // Initialize canvas sizes
+        window.addEventListener('load', () => {
+            resizeCanvases();
+            draw();
+        });
+        
+        window.addEventListener('resize', () => {
+            resizeCanvases();
+            draw();
+        });
+        
+        // Initial draw after DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                resizeCanvases();
+                draw();
+            });
+        } else {
+            resizeCanvases();
+            draw();
+        }
+        
+        // Get controls
+        const massSlider = document.getElementById('massSlider');
+        const kSlider = document.getElementById('kSlider');
+        const massValue = document.getElementById('massValue');
+        const kValue = document.getElementById('kValue');
+        
+        // Info displays
+        const kInfo = document.getElementById('kInfo');
+        const energyInfo = document.getElementById('energyInfo');
+        const velocityInfo = document.getElementById('velocityInfo');
+        const curvatureInfo = document.getElementById('curvatureInfo');
+        const massInfo = document.getElementById('massInfo');
+        
+        let effectiveMass = 1.0;
+        let currentK = 2;
+        let mouseK = null;
+        
+        function kToPixel(k, canvas) {
+            return (k + 3) * canvas.width / 6;
+        }
+        
+        function pixelToK(x, canvas) {
+            return (x / canvas.width) * 6 - 3;
+        }
+        
+        function energyToPixel(E, canvas) {
+            const maxE = 10; // eV
+            return canvas.height - (E / maxE) * canvas.height * 0.9 - 20;
+        }
+        
+        function velocityToPixel(v, canvas) {
+            const maxV = 2e6; // m/s
+            return canvas.height / 2 - (v / maxV) * (canvas.height * 0.4);
+        }
+        
+        function inverseSecondDerivToPixel(invD2E, canvas) {
+            const maxInvD2E = 4e38; // s²/kg·m²
+            return canvas.height - (invD2E / maxInvD2E) * canvas.height * 0.8 - 20;
+        }
+        
+        function calculateEnergy(k) {
+            // E = ℏ²k² / 2m in eV
+            const kReal = k * Math.PI / a; // convert to 1/m
+            return (hbar * hbar * kReal * kReal) / (2 * effectiveMass * m0 * eV);
+        }
+        
+        function calculateVelocity(k) {
+            // v_g = ℏk/m in m/s
+            const kReal = k * Math.PI / a;
+            return (hbar * kReal) / (effectiveMass * m0);
+        }
+        
+        function calculateInverseSecondDerivative() {
+            // 1/(d²E/dk²) = m/ℏ² in s²/(kg·m²)
+            return (effectiveMass * m0) / (hbar * hbar);
+        }
+        
+        function drawDispersion() {
+            dispCtx.clearRect(0, 0, dispCanvas.width, dispCanvas.height);
+            
+            // Grid
+            dispCtx.strokeStyle = '#3a3a3a';
+            dispCtx.lineWidth = 1;
+            for (let i = -3; i <= 3; i++) {
+                const x = kToPixel(i, dispCanvas);
+                dispCtx.beginPath();
+                dispCtx.moveTo(x, 0);
+                dispCtx.lineTo(x, dispCanvas.height);
+                dispCtx.stroke();
+            }
+            
+            // Axes
+            dispCtx.strokeStyle = '#6a6a6a';
+            dispCtx.lineWidth = 2;
+            dispCtx.beginPath();
+            dispCtx.moveTo(0, dispCanvas.height - 20);
+            dispCtx.lineTo(dispCanvas.width, dispCanvas.height - 20);
+            dispCtx.moveTo(dispCanvas.width / 2, 0);
+            dispCtx.lineTo(dispCanvas.width / 2, dispCanvas.height);
+            dispCtx.stroke();
+            
+            // Parabola
+            dispCtx.strokeStyle = '#4a9eff';
+            dispCtx.lineWidth = 3;
+            dispCtx.beginPath();
+            for (let x = 0; x <= dispCanvas.width; x += 2) {
+                const k = pixelToK(x, dispCanvas);
+                const E = calculateEnergy(k);
+                const y = energyToPixel(E, dispCanvas);
+                if (x === 0) {
+                    dispCtx.moveTo(x, y);
+                } else {
+                    dispCtx.lineTo(x, y);
+                }
+            }
+            dispCtx.stroke();
+            
+            // Current point
+            const kCurrent = mouseK !== null ? mouseK : currentK;
+            const ECurrent = calculateEnergy(kCurrent);
+            const xCurrent = kToPixel(kCurrent, dispCanvas);
+            const yCurrent = energyToPixel(ECurrent, dispCanvas);
+            
+            dispCtx.fillStyle = '#ff9a4a';
+            dispCtx.beginPath();
+            dispCtx.arc(xCurrent, yCurrent, 6, 0, 2 * Math.PI);
+            dispCtx.fill();
+            
+            // Tangent line at current point
+            const slope = 2 * calculateEnergy(kCurrent) / kCurrent; // dE/dk at k
+            if (Math.abs(kCurrent) > 0.1) {
+                dispCtx.strokeStyle = '#ff9a4a';
+                dispCtx.lineWidth = 2;
+                dispCtx.setLineDash([5, 5]);
+                dispCtx.beginPath();
+                
+                const dx = 1; // π/a
+                const x1 = kToPixel(kCurrent - dx, dispCanvas);
+                const x2 = kToPixel(kCurrent + dx, dispCanvas);
+                const y1 = energyToPixel(ECurrent - slope * dx, dispCanvas);
+                const y2 = energyToPixel(ECurrent + slope * dx, dispCanvas);
+                
+                dispCtx.moveTo(x1, y1);
+                dispCtx.lineTo(x2, y2);
+                dispCtx.stroke();
+                dispCtx.setLineDash([]);
+            }
+            
+            // Labels
+            const fontSize = dispCanvas.width < 600 ? '12px' : '14px';
+            dispCtx.fillStyle = '#e0e0e0';
+            dispCtx.font = fontSize + ' Times New Roman';
+            dispCtx.fillText('k (π/a)', dispCanvas.width - 50, dispCanvas.height - 5);
+            dispCtx.fillText('E (eV)', 10, 20);
+        }
+        
+        function drawVelocity() {
+            velCtx.clearRect(0, 0, velCanvas.width, velCanvas.height);
+            
+            // Grid
+            velCtx.strokeStyle = '#3a3a3a';
+            velCtx.lineWidth = 1;
+            for (let i = -3; i <= 3; i++) {
+                const x = kToPixel(i, velCanvas);
+                velCtx.beginPath();
+                velCtx.moveTo(x, 0);
+                velCtx.lineTo(x, velCanvas.height);
+                velCtx.stroke();
+            }
+            
+            // Axes
+            velCtx.strokeStyle = '#6a6a6a';
+            velCtx.lineWidth = 2;
+            velCtx.beginPath();
+            velCtx.moveTo(0, velCanvas.height / 2);
+            velCtx.lineTo(velCanvas.width, velCanvas.height / 2);
+            velCtx.moveTo(velCanvas.width / 2, 0);
+            velCtx.lineTo(velCanvas.width / 2, velCanvas.height);
+            velCtx.stroke();
+            
+            // Linear velocity
+            velCtx.strokeStyle = '#4a9eff';
+            velCtx.lineWidth = 3;
+            velCtx.beginPath();
+            const k1 = -3;
+            const k2 = 3;
+            const v1 = calculateVelocity(k1);
+            const v2 = calculateVelocity(k2);
+            velCtx.moveTo(kToPixel(k1, velCanvas), velocityToPixel(v1, velCanvas));
+            velCtx.lineTo(kToPixel(k2, velCanvas), velocityToPixel(v2, velCanvas));
+            velCtx.stroke();
+            
+            // Current point
+            const kCurrent = mouseK !== null ? mouseK : currentK;
+            const vCurrent = calculateVelocity(kCurrent);
+            const xCurrent = kToPixel(kCurrent, velCanvas);
+            const yCurrent = velocityToPixel(vCurrent, velCanvas);
+            
+            velCtx.fillStyle = '#ff9a4a';
+            velCtx.beginPath();
+            velCtx.arc(xCurrent, yCurrent, 6, 0, 2 * Math.PI);
+            velCtx.fill();
+            
+            // Labels
+            const fontSize = velCanvas.width < 600 ? '12px' : '14px';
+            velCtx.fillStyle = '#e0e0e0';
+            velCtx.font = fontSize + ' Times New Roman';
+            velCtx.fillText('k (π/a)', velCanvas.width - 50, velCanvas.height / 2 - 5);
+            velCtx.fillText('v_g (10⁶ m/s)', 10, 20);
+        }
+        
+        function drawInverseSecondDerivative() {
+            secondDerivCtx.clearRect(0, 0, secondDerivCanvas.width, secondDerivCanvas.height);
+            
+            // Grid
+            secondDerivCtx.strokeStyle = '#3a3a3a';
+            secondDerivCtx.lineWidth = 1;
+            for (let i = -3; i <= 3; i++) {
+                const x = kToPixel(i, secondDerivCanvas);
+                secondDerivCtx.beginPath();
+                secondDerivCtx.moveTo(x, 0);
+                secondDerivCtx.lineTo(x, secondDerivCanvas.height);
+                secondDerivCtx.stroke();
+            }
+            
+            // Axes
+            secondDerivCtx.strokeStyle = '#6a6a6a';
+            secondDerivCtx.lineWidth = 2;
+            secondDerivCtx.beginPath();
+            secondDerivCtx.moveTo(0, secondDerivCanvas.height - 20);
+            secondDerivCtx.lineTo(secondDerivCanvas.width, secondDerivCanvas.height - 20);
+            secondDerivCtx.moveTo(secondDerivCanvas.width / 2, 0);
+            secondDerivCtx.lineTo(secondDerivCanvas.width / 2, secondDerivCanvas.height);
+            secondDerivCtx.stroke();
+            
+            // Constant inverse second derivative (horizontal line)
+            const invD2E = calculateInverseSecondDerivative();
+            const y = inverseSecondDerivToPixel(invD2E, secondDerivCanvas);
+            
+            secondDerivCtx.strokeStyle = '#4a9eff';
+            secondDerivCtx.lineWidth = 3;
+            secondDerivCtx.beginPath();
+            secondDerivCtx.moveTo(0, y);
+            secondDerivCtx.lineTo(secondDerivCanvas.width, y);
+            secondDerivCtx.stroke();
+            
+            // Current point
+            const kCurrent = mouseK !== null ? mouseK : currentK;
+            const xCurrent = kToPixel(kCurrent, secondDerivCanvas);
+            
+            secondDerivCtx.fillStyle = '#ff9a4a';
+            secondDerivCtx.beginPath();
+            secondDerivCtx.arc(xCurrent, y, 6, 0, 2 * Math.PI);
+            secondDerivCtx.fill();
+            
+            // Labels
+            const fontSize = secondDerivCanvas.width < 600 ? '10px' : '14px';
+            secondDerivCtx.fillStyle = '#e0e0e0';
+            secondDerivCtx.font = fontSize + ' Times New Roman';
+            secondDerivCtx.fillText('k (π/a)', secondDerivCanvas.width - 50, secondDerivCanvas.height - 5);
+            const labelText = secondDerivCanvas.width < 600 ? '1/(d²E/dk²)' : '1/(d²E/dk²) (×10³⁷ s²/(kg·m²))';
+            secondDerivCtx.fillText(labelText, 10, 20);
+        }
+        
+        function updateInfo() {
+            const k = mouseK !== null ? mouseK : currentK;
+            const E = calculateEnergy(k);
+            const v = calculateVelocity(k);
+            const invCurvature = calculateInverseSecondDerivative();
+            
+            kInfo.textContent = k.toFixed(2);
+            energyInfo.textContent = E.toFixed(2);
+            velocityInfo.textContent = (v / 1e6).toFixed(2);
+            curvatureInfo.textContent = (invCurvature / 1e37).toFixed(2);
+            massInfo.textContent = effectiveMass.toFixed(2);
+        }
+        
+        function draw() {
+            drawDispersion();
+            drawVelocity();
+            drawInverseSecondDerivative();
+            updateInfo();
+        }
+        
+        // Event listeners for controls
+        massSlider.addEventListener('input', (e) => {
+            effectiveMass = parseFloat(e.target.value);
+            massValue.textContent = effectiveMass.toFixed(1);
+            draw();
+        });
+        
+        kSlider.addEventListener('input', (e) => {
+            currentK = parseFloat(e.target.value);
+            kValue.textContent = currentK.toFixed(1);
+            mouseK = null;
+            draw();
+        });
+        
+        // Mouse and touch interaction
+        function handleInteraction(e, canvas) {
+            const rect = canvas.getBoundingClientRect();
+            let x;
+            
+            if (e.type.startsWith('touch')) {
+                e.preventDefault();
+                x = e.touches[0].clientX - rect.left;
+            } else {
+                x = e.clientX - rect.left;
+            }
+            
+            mouseK = pixelToK(x, canvas);
+            if (mouseK < -3) mouseK = -3;
+            if (mouseK > 3) mouseK = 3;
+            draw();
+        }
+        
+        function handleInteractionEnd() {
+            mouseK = null;
+            draw();
+        }
+        
+        // Add event listeners for both mouse and touch
+        [dispCanvas, velCanvas, secondDerivCanvas].forEach(canvas => {
+            // Mouse events
+            canvas.addEventListener('mousemove', (e) => handleInteraction(e, canvas));
+            canvas.addEventListener('mouseleave', handleInteractionEnd);
+            
+            // Touch events
+            canvas.addEventListener('touchstart', (e) => handleInteraction(e, canvas));
+            canvas.addEventListener('touchmove', (e) => handleInteraction(e, canvas));
+            canvas.addEventListener('touchend', handleInteractionEnd);
+            canvas.addEventListener('touchcancel', handleInteractionEnd);
+        });
+    </script>
+</body>
+</html>
