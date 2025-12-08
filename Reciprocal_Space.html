@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crystal Lattice Visualization</title>
+<style>
+body {
+  margin: 0;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  background-color: #f5f5f5;
+}
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+h1 {
+  color: #333;
+  margin-bottom: 20px;
+}
+.controls {
+  background: white;
+  padding: 20px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.control-group {
+  margin-bottom: 15px;
+}
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #555;
+}
+select, input {
+  width: 100%;
+  padding: 8px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+.canvas-wrapper {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.canvas-box {
+  flex: 1;
+  min-width: 300px;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+canvas {
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+.label {
+  text-align: center;
+  margin-top: 10px;
+  font-size: 14px;
+  color: #666;
+}
+.info {
+  background: white;
+  padding: 15px;
+  margin-top: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  font-size: 14px;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Crystal Lattice Visualization</h1>
+  
+  <div class="controls">
+    <div class="control-group">
+      <label for="latticeType">Lattice Type</label>
+      <select id="latticeType">
+        <option value="square">Square (2D)</option>
+        <option value="hexagonal">Hexagonal (2D)</option>
+      </select>
+    </div>
+    
+    <div class="control-group">
+      <label for="latticeConstant">Lattice Constant: <span id="aValue">1.00</span> Angstrom</label>
+      <input type="range" id="latticeConstant" min="0.5" max="2.0" step="0.05" value="1.0">
+    </div>
+  </div>
+  
+  <div class="canvas-wrapper">
+    <div class="canvas-box">
+      <canvas id="canvasReal" width="400" height="400"></canvas>
+      <div class="label">Real space (blue dots)</div>
+    </div>
+    
+    <div class="canvas-box">
+      <canvas id="canvasReciprocal" width="400" height="400"></canvas>
+      <div class="label">Reciprocal space (green dots)</div>
+    </div>
+  </div>
+  
+  <div class="info">
+    <strong>Relations:</strong> Square: b = 2pi/a | Hexagonal: |b| = 4pi/(sqrt(3)*a)
+  </div>
+</div>
+
+<script>
+(function() {
+  var canvasReal = document.getElementById('canvasReal');
+  var canvasReciprocal = document.getElementById('canvasReciprocal');
+  var ctxReal = canvasReal.getContext('2d');
+  var ctxReciprocal = canvasReciprocal.getContext('2d');
+  var latticeTypeSelect = document.getElementById('latticeType');
+  var latticeConstantSlider = document.getElementById('latticeConstant');
+  var aValueSpan = document.getElementById('aValue');
+
+  function drawSquareLattice(ctx, cx, cy, spacing) {
+    var range = 6;
+    var i, j, x, y;
+    
+    ctx.fillStyle = '#3b82f6';
+    for (i = -range; i <= range; i = i + 1) {
+      for (j = -range; j <= range; j = j + 1) {
+        x = cx + i * spacing;
+        y = cy + j * spacing;
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    }
+    
+
+  }
+
+  function drawHexagonalLattice(ctx, cx, cy, spacing) {
+    var range = 6;
+    var a1x = spacing;
+    var a1y = 0;
+    var a2x = spacing * Math.cos(Math.PI / 3);
+    var a2y = spacing * Math.sin(Math.PI / 3);
+    var i, j, x, y;
+    
+    ctx.fillStyle = '#3b82f6';
+    for (i = -range; i <= range; i = i + 1) {
+      for (j = -range; j <= range; j = j + 1) {
+        x = cx + i * a1x + j * a2x;
+        y = cy + i * a1y + j * a2y;
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    }
+    
+
+  }
+
+  function drawHexagonalReciprocalLattice(ctx, cx, cy, spacing) {
+    var range = 5;
+    var b1x = spacing;
+    var b1y = -spacing / Math.sqrt(3);
+    var b2x = 0;
+    var b2y = 2 * spacing / Math.sqrt(3);
+    var i, j, x, y, angle, hexRadius;
+    
+    ctx.fillStyle = '#10b981';
+    for (i = -range; i <= range; i = i + 1) {
+      for (j = -range; j <= range; j = j + 1) {
+        x = cx + i * b1x + j * b2x;
+        y = cy + i * b1y + j * b2y;
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    }
+    
+
+  }
+
+  function drawAxes(ctx, cx, cy, width, height, label) {
+    ctx.strokeStyle = '#d1d5db';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(0, cy);
+    ctx.lineTo(width, cy);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx, 0);
+    ctx.lineTo(cx, height);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    ctx.fillStyle = '#1f2937';
+    ctx.font = 'bold 16px Arial';
+    ctx.fillText(label, 10, 25);
+  }
+
+  function drawLattices() {
+    var latticeType = latticeTypeSelect.value;
+    var a = parseFloat(latticeConstantSlider.value);
+    var width = canvasReal.width;
+    var height = canvasReal.height;
+    var centerX = width / 2;
+    var centerY = height / 2;
+    var baseScale = 40;
+    var realSpacing = baseScale * a;
+    var recipSpacing = baseScale / a;
+    
+    aValueSpan.textContent = a.toFixed(2);
+    
+    ctxReal.clearRect(0, 0, width, height);
+    ctxReciprocal.clearRect(0, 0, width, height);
+    
+    if (latticeType === 'square') {
+      drawSquareLattice(ctxReal, centerX, centerY, realSpacing);
+      drawSquareLattice(ctxReciprocal, centerX, centerY, recipSpacing);
+    } else {
+      drawHexagonalLattice(ctxReal, centerX, centerY, realSpacing);
+      drawHexagonalReciprocalLattice(ctxReciprocal, centerX, centerY, recipSpacing);
+    }
+    
+    drawAxes(ctxReal, centerX, centerY, width, height, 'Real Space');
+    drawAxes(ctxReciprocal, centerX, centerY, width, height, 'Reciprocal Space');
+  }
+
+  latticeTypeSelect.addEventListener('change', drawLattices);
+  latticeConstantSlider.addEventListener('input', drawLattices);
+  
+  drawLattices();
+})();
+</script>
+
+</body>
+</html>
