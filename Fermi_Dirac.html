@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thermal Excitation in Semiconductor Band Structure</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(to bottom right, #f8fafc, #dbeafe);
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 1.875rem;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #1e293b;
+        }
+
+        .card {
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #334155;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 0.5rem;
+            background: #e2e8f0;
+            border-radius: 0.5rem;
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            box-shadow: 0 0 2px rgba(0,0,0,0.2);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 2px rgba(0,0,0,0.2);
+        }
+
+        .range-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        button {
+            flex: 1;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button.active {
+            background: #3b82f6;
+            color: white;
+        }
+
+        button:not(.active) {
+            background: #e2e8f0;
+            color: #334155;
+        }
+
+        button:not(.active):hover {
+            background: #cbd5e1;
+        }
+
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+
+        canvas {
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            max-width: 100%;
+        }
+
+        .guide {
+            font-size: 0.875rem;
+            color: #475569;
+        }
+
+        .guide ul {
+            margin-left: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .guide li {
+            margin-bottom: 0.25rem;
+        }
+
+        .guide strong {
+            font-weight: 600;
+        }
+
+        .physics-params {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            font-size: 0.875rem;
+        }
+
+        h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #1e293b;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .physics-params {
+                grid-template-columns: 1fr;
+            }
+
+            input[type="range"]::-webkit-slider-thumb {
+                width: 1.75rem;
+                height: 1.75rem;
+            }
+
+            input[type="range"]::-moz-range-thumb {
+                width: 1.75rem;
+                height: 1.75rem;
+            }
+        }
+
+        .color-red {
+            color: #ef4444;
+            font-weight: 500;
+        }
+
+        .color-teal {
+            color: #14b8a6;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Thermal Excitation in Semiconductor Band Structure</h1>
+        
+        <div class="card">
+            <div class="controls">
+                <div class="control-group">
+                    <label for="bandgap">Band Gap: <span id="bandgap-value">0.60</span> eV</label>
+                    <input type="range" id="bandgap" min="0.1" max="1.0" step="0.1" value="0.6">
+                    <div class="range-labels">
+                        <span>0.1 eV</span>
+                        <span>1.0 eV</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label for="temperature">Temperature: <span id="temp-value">0.1</span> K</label>
+                    <input type="range" id="temperature" min="0.1" max="1000" step="0.1" value="0.1">
+                    <div class="range-labels">
+                        <span>0.1 K</span>
+                        <span>1000 K</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Density of States</label>
+                    <div class="button-group">
+                        <button class="dos-btn" data-level="low">Low</button>
+                        <button class="dos-btn active" data-level="medium">Medium</button>
+                        <button class="dos-btn" data-level="high">High</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="canvas-container">
+                <canvas id="bandStructure"></canvas>
+            </div>
+
+            <div class="guide">
+                <p><strong>Visualization Guide:</strong></p>
+                <ul>
+                    <li>The <span class="color-red">red curve</span> shows the Fermi-Dirac distribution f(E)</li>
+                    <li><span class="color-teal">Filled circles</span> represent occupied electron states according to f(E)</li>
+                    <li>Circle spacing represents density of states: close spacing = high DOS, wide spacing = low DOS</li>
+                    <li>Higher temperature broadens the Fermi-Dirac distribution and increases excitation</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Physics Parameters</h2>
+            <div class="physics-params">
+                <div>
+                    <p><strong>Thermal Energy (kT):</strong> <span id="kt-value">0.000</span> eV</p>
+                    <p><strong>Band Gap Ratio (Eg/kT):</strong> <span id="ratio-value">∞</span></p>
+                </div>
+                <div>
+                    <p><strong>Intrinsic Carrier Density ∝ exp(-Eg/2kT)</strong></p>
+                    <p><strong>Excitation Probability:</strong> <span id="prob-value">0%</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Physical constants
+        const kB = 8.617e-5; // Boltzmann constant in eV/K
+
+        // State variables
+        let bandGap = 0.6;
+        let temperature = 0.1;
+        let dosLevel = 'medium';
+        let isMobile = window.innerWidth < 768;
+
+        // Canvas setup
+        const canvas = document.getElementById('bandStructure');
+        const ctx = canvas.getContext('2d');
+
+        // Responsive dimensions
+        function getCanvasDimensions() {
+            if (isMobile) {
+                return { width: 350, height: 450, padding: 55 };
+            }
+            return { width: 800, height: 600, padding: 80 };
+        }
+
+        function resizeCanvas() {
+            isMobile = window.innerWidth < 768;
+            const dims = getCanvasDimensions();
+            canvas.width = dims.width;
+            canvas.height = dims.height;
+            drawVisualization();
+        }
+
+        // Initialize canvas
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Fermi-Dirac distribution
+        function fermiDirac(energy, fermiLevel, temp) {
+            const kT = kB * temp;
+            if (Math.abs(energy - fermiLevel) / kT > 50) {
+                return energy < fermiLevel ? 1 : 0;
+            }
+            return 1 / (1 + Math.exp((energy - fermiLevel) / kT));
+        }
+
+        // DOS spacing
+        function getDosSpacing() {
+            switch(dosLevel) {
+                case 'low': return 0.4;
+                case 'medium': return 0.2;
+                case 'high': return 0.1;
+                default: return 0.2;
+            }
+        }
+
+        // Main drawing function
+        function drawVisualization() {
+            const { width, height, padding } = getCanvasDimensions();
+            ctx.clearRect(0, 0, width, height);
+
+            const energyRange = 4;
+            const energyMin = -energyRange/2;
+            const energyMax = energyRange/2;
+            const fermiLevel = 0;
+
+            const distributionWidth = isMobile ? 60 : 100;
+            const bandWidth = width - 2 * padding - distributionWidth - 5;
+
+            const energyToY = (energy) => height - padding - ((energy - energyMin) / (energyMax - energyMin)) * (height - 2 * padding);
+            const kToX = (k) => padding + (k + 3) / 6 * bandWidth;
+
+            // Draw y-axis
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, height - padding);
+            ctx.stroke();
+
+            // Draw energy scale and grid
+            ctx.fillStyle = '#333';
+            ctx.font = isMobile ? '10px Arial' : '12px Arial';
+            ctx.textAlign = 'right';
+            for (let i = 0; i <= 8; i++) {
+                const energy = energyMin + i * (energyMax - energyMin) / 8;
+                const y = energyToY(energy);
+                ctx.fillText(energy.toFixed(1) + ' eV', padding - 10, y + 4);
+
+                ctx.strokeStyle = '#eee';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(padding + bandWidth, y);
+                ctx.stroke();
+            }
+
+            // Y-axis label
+            ctx.save();
+            ctx.translate(8, height/2);
+            ctx.rotate(-Math.PI/2);
+            ctx.fillStyle = '#333';
+            ctx.textAlign = 'center';
+            ctx.font = isMobile ? '10px Arial' : '12px Arial';
+            ctx.fillText('Energy (eV)', 0, 0);
+            ctx.restore();
+
+            // Calculate band edges
+            const valenceBandMax = fermiLevel - bandGap/2;
+            const conductionBandMin = fermiLevel + bandGap/2;
+
+            // Draw bands
+            const kRange = 3;
+            const numPoints = 200;
+
+            // Valence band
+            ctx.strokeStyle = '#4ecdc4';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            for (let i = 0; i <= numPoints; i++) {
+                const k = -kRange + (2 * kRange * i) / numPoints;
+                const energy = valenceBandMax - 0.5 * k * k;
+                const x = kToX(k);
+                const y = energyToY(energy);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Conduction band
+            ctx.strokeStyle = '#95e1d3';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            for (let i = 0; i <= numPoints; i++) {
+                const k = -kRange + (2 * kRange * i) / numPoints;
+                const energy = conductionBandMin + 0.5 * k * k;
+                const x = kToX(k);
+                const y = energyToY(energy);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Draw DOS circles
+            const dosSpacing = getDosSpacing();
+            const circleRadius = isMobile ? 4 : 6;
+
+            // Valence band circles
+            for (let k = -kRange; k <= kRange; k += dosSpacing) {
+                const valenceEnergy = valenceBandMax - 0.5 * k * k;
+                const fillProbability = fermiDirac(valenceEnergy, fermiLevel, temperature);
+
+                const x = kToX(k);
+                const y = energyToY(valenceEnergy);
+
+                if (fillProbability > 0.99) {
+                    ctx.fillStyle = 'rgba(78, 205, 196, 1)';
+                    ctx.beginPath();
+                    ctx.arc(x, y, circleRadius, 0, 2 * Math.PI);
+                    ctx.fill();
+                } else if (fillProbability > 0.01) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.strokeStyle = 'rgba(78, 205, 196, 0.8)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(x, y, circleRadius, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            }
+
+            // Conduction band circles
+            for (let k = -kRange; k <= kRange; k += dosSpacing) {
+                const conductionEnergy = conductionBandMin + 0.5 * k * k;
+                const fillProbability = fermiDirac(conductionEnergy, fermiLevel, temperature);
+
+                const x = kToX(k);
+                const y = energyToY(conductionEnergy);
+
+                if (fillProbability > 0.01) {
+                    ctx.fillStyle = `rgba(149, 225, 211, ${Math.min(fillProbability * 10, 1)})`;
+                    ctx.beginPath();
+                    ctx.arc(x, y, circleRadius, 0, 2 * Math.PI);
+                    ctx.fill();
+
+                    ctx.strokeStyle = 'rgba(149, 225, 211, 1)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            }
+
+            // Draw Fermi-Dirac distribution
+            const distributionX = padding + bandWidth - 50;
+
+            ctx.strokeStyle = '#ff6b6b';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+
+            const energySteps = 200;
+            for (let i = 0; i <= energySteps; i++) {
+                const energy = energyMin + (energyMax - energyMin) * i / energySteps;
+                const probability = fermiDirac(energy, fermiLevel, temperature);
+                const y = energyToY(energy);
+                const x = distributionX + probability * distributionWidth;
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Fermi level line
+            const fermiY = energyToY(fermiLevel);
+            ctx.strokeStyle = '#ff6b6b';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(distributionX, fermiY);
+            ctx.lineTo(distributionX + distributionWidth, fermiY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Distribution labels
+            ctx.fillStyle = '#333';
+            ctx.textAlign = 'center';
+            ctx.font = isMobile ? '8px Arial' : '10px Arial';
+            ctx.fillText('0', distributionX, height - padding + 15);
+            ctx.fillText('1', distributionX + distributionWidth, height - padding + 15);
+            ctx.fillText('f(E)', distributionX + distributionWidth/2, height - padding + 25);
+
+            ctx.fillStyle = '#ff6b6b';
+            ctx.textAlign = 'left';
+            ctx.font = isMobile ? '8px Arial' : '10px Arial';
+            ctx.fillText('E_F', distributionX + distributionWidth + 5, fermiY + 3);
+
+            // Parameters in corner
+            ctx.fillStyle = '#333';
+            ctx.textAlign = 'right';
+            ctx.font = isMobile ? '10px Arial' : '14px Arial';
+            const infoX = width - 15;
+            const infoY = 25;
+
+            ctx.fillText(`Gap: ${bandGap.toFixed(2)} eV`, infoX, infoY);
+            ctx.fillText(`T: ${temperature} K`, infoX, infoY + 15);
+            ctx.fillText(`kT: ${(kB * temperature).toFixed(3)} eV`, infoX, infoY + 30);
+
+            updatePhysicsParams();
+        }
+
+        function updatePhysicsParams() {
+            const kT = kB * temperature;
+            document.getElementById('kt-value').textContent = kT.toFixed(3);
+            
+            const ratio = kT > 0 ? (bandGap / kT).toFixed(1) : '∞';
+            document.getElementById('ratio-value').textContent = ratio;
+
+            const prob = 100 * Math.exp(-bandGap / (2 * kT));
+            const probStr = prob < 1e-100 ? "0%" : parseFloat(prob.toFixed(1)).toString() + "%";
+            document.getElementById('prob-value').textContent = probStr;
+        }
+
+        // Event listeners
+        document.getElementById('bandgap').addEventListener('input', (e) => {
+            bandGap = parseFloat(e.target.value);
+            document.getElementById('bandgap-value').textContent = bandGap.toFixed(2);
+            drawVisualization();
+        });
+
+        document.getElementById('temperature').addEventListener('input', (e) => {
+            temperature = parseFloat(e.target.value);
+            document.getElementById('temp-value').textContent = temperature;
+            drawVisualization();
+        });
+
+        document.querySelectorAll('.dos-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.dos-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                dosLevel = e.target.dataset.level;
+                drawVisualization();
+            });
+        });
+
+        // Initial draw
+        drawVisualization();
+    </script>
+</body>
+</html>
