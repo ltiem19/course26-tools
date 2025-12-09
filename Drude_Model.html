@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scatterer Density Demonstration</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0a0a;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .controls {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+        }
+        .chamber-box {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            text-align: center;
+        }
+        canvas {
+            border: 2px solid #444;
+            background: linear-gradient(90deg, #001122 0%, #000611 100%);
+        }
+        .slider-group {
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        label {
+            min-width: 160px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        input[type="range"] {
+            flex: 1;
+            max-width: 300px;
+            height: 8px;
+        }
+        .value {
+            min-width: 100px;
+            font-family: monospace;
+            color: #00ff41;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        button {
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 8px;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #444;
+        }
+        button.active {
+            background: #0066cc;
+        }
+        .physics-analogy {
+            background: #2a1a1a;
+            padding: 20px;
+            border-left: 4px solid #ff6b35;
+            margin: 15px 0;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .equation {
+            background: #1a2a1a;
+            padding: 12px;
+            border-left: 4px solid #00ff41;
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+        h1 {
+            color: #00ff41;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #00ff41;
+            margin-bottom: 15px;
+        }
+        .key-insight {
+            background: #2a1a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-size: 14px;
+            border-left: 4px solid #ffff44;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls">
+            <div class="slider-group">
+                <label>Scatterer density:</label>
+                <input type="range" id="scattererCount" min="5" max="120" step="5" value="30">
+                <span class="value" id="scattererCountValue">30</span>
+            </div>
+            
+            <div class="slider-group">
+                <label>Electric field:</label>
+                <input type="range" id="drivingVelocity" min="0" max="5" step="0.2" value="3">
+            </div>
+        </div>
+
+        <div class="chamber-box">
+            <canvas id="chamberCanvas" width="720" height="400"></canvas>
+            <div style="margin-top: 15px; font-size: 14px; color: #888;">
+                Ballistic acceleration between collisions → momentum relaxation at scattering → steady-state drift
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class ScatteringDemo {
+            constructor() {
+                this.canvas = document.getElementById('chamberCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                // Fixed physics parameters
+                this.launchRate = 4;          // Fixed rate 4/s
+                this.acceleration = 0.015;    // Ballistic acceleration (like eE/m)
+                this.thermalSpeed = 0.5;      // Thermal velocity spread after collision
+                
+                // Fixed injection velocity (calibrated for 10 scatterers steady-state)
+                const referenceScatterers = 10;
+                const referenceMeanFreePath = (720 * 400) / (referenceScatterers * 150);
+                this.injectionVelocity = this.acceleration * referenceMeanFreePath;
+                
+                // Variable parameters
+                this.scattererCount = 30;
+                this.drivingVelocity = 3;     // Label only (not used in physics)
+                
+                // Simulation state
+                this.electrons = [];
+                this.scatterers = [];
+                this.isRunning = false;
+                this.lastLaunch = 0;
+                this.electronId = 0;
+                
+                // Display update timing
+                this.displayedDriftV = 0;
+                this.lastDisplayUpdate = 0;
+                
+                this.setupEventListeners();
+                this.generateScatterers();
+                this.draw();
+                
+                // Auto-start simulation
+                this.isRunning = true;
+                this.animate();
+            }
+            
+            setupEventListeners() {
+                document.getElementById('scattererCount').addEventListener('input', (e) => {
+                    this.scattererCount = parseInt(e.target.value);
+                    document.getElementById('scattererCountValue').textContent = this.scattererCount;
+                    this.restart();
+                });
+                
+                document.getElementById('drivingVelocity').addEventListener('input', (e) => {
+                    this.drivingVelocity = parseFloat(e.target.value);
+                    // Update acceleration to scale expected drift velocity
+                    this.acceleration = this.drivingVelocity * 0.005;
+                    // Recalculate injection velocity for new acceleration
+                    const referenceScatterers = 10;
+                    const referenceMeanFreePath = (720 * 400) / (referenceScatterers * 150);
+                    this.injectionVelocity = this.acceleration * referenceMeanFreePath;
+                    this.restart();
+                });
+            }
+            
+            restart() {
+                this.generateScatterers();
+                this.electrons = [];
+                this.electronId = 0;
+                this.displayedDriftV = 0;
+                this.lastDisplayUpdate = Date.now();
+                // Force complete canvas clear
+                this.ctx.fillStyle = 'rgba(0, 6, 17, 1)';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            }
+            
+            generateScatterers() {
+                this.scatterers = [];
+                const chamberWidth = this.canvas.width - 120;
+                const chamberHeight = this.canvas.height - 60;
+                
+                for (let i = 0; i < this.scattererCount; i++) {
+                    this.scatterers.push({
+                        x: 100 + Math.random() * chamberWidth,
+                        y: 30 + Math.random() * chamberHeight,
+                        radius: 5
+                    });
+                }
+            }
+            
+            createElectron() {
+                // Launch from left edge with FIXED injection velocity (calibrated for n=10)
+                const y = 60 + Math.random() * (this.canvas.height - 120);
+                const angle = Math.random() * 2 * Math.PI;
+                
+                // Fixed injection velocity + thermal fluctuation
+                return {
+                    id: this.electronId++,
+                    x: 30,
+                    y: y,
+                    vx: this.injectionVelocity + this.thermalSpeed * Math.cos(angle),
+                    vy: this.thermalSpeed * Math.sin(angle),
+                    radius: 3,
+                    active: true,
+                    trail: []
+                };
+            }
+            
+            updateElectrons() {
+                const now = Date.now();
+                
+                // Launch new electrons
+                if (now - this.lastLaunch > 1000 / this.launchRate) {
+                    this.electrons.push(this.createElectron());
+                    this.lastLaunch = now;
+                }
+                
+                // Update existing electrons
+                for (let i = this.electrons.length - 1; i >= 0; i--) {
+                    const electron = this.electrons[i];
+                    
+                    if (!electron.active) continue;
+                    
+                    // Add current position to trail
+                    electron.trail.push({ x: electron.x, y: electron.y });
+                    if (electron.trail.length > 15) {
+                        electron.trail.shift();
+                    }
+                    
+                    // DRUDE MODEL: Ballistic acceleration between collisions
+                    electron.vx += this.acceleration;
+                    
+                    // Update position
+                    electron.x += electron.vx;
+                    electron.y += electron.vy;
+                    
+                    // Check for collisions with scatterers - momentum relaxation
+                    for (const scatterer of this.scatterers) {
+                        const dx = electron.x - scatterer.x;
+                        const dy = electron.y - scatterer.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < electron.radius + scatterer.radius) {
+                            // DRUDE COLLISION: Randomize velocity (momentum relaxation)
+                            const angle = Math.random() * 2 * Math.PI;
+                            
+                            electron.vx = this.thermalSpeed * Math.cos(angle);
+                            electron.vy = this.thermalSpeed * Math.sin(angle);
+                            
+                            // Separate from scatterer
+                            const nx = dx / distance;
+                            const ny = dy / distance;
+                            const overlap = electron.radius + scatterer.radius - distance + 1;
+                            electron.x += nx * overlap;
+                            electron.y += ny * overlap;
+                        }
+                    }
+                    
+                    // Wall collisions (y-walls reflect)
+                    if (electron.y < electron.radius || electron.y > this.canvas.height - electron.radius) {
+                        electron.vy = -electron.vy * 0.8;
+                        electron.y = Math.max(electron.radius, Math.min(this.canvas.height - electron.radius, electron.y));
+                    }
+                    
+                    // Remove electrons that go off screen
+                    if (electron.x > this.canvas.width + 50 || electron.x < -50) {
+                        this.electrons.splice(i, 1);
+                    }
+                }
+            }
+            
+            draw() {
+                const ctx = this.ctx;
+                const canvas = this.canvas;
+                
+                // Clear with fade effect for trails
+                ctx.fillStyle = 'rgba(0, 6, 17, 0.1)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Calculate average drift velocity
+                let avgVx = 0;
+                let count = 0;
+                for (const electron of this.electrons) {
+                    if (electron.active) {
+                        avgVx += electron.vx;
+                        count++;
+                    }
+                }
+                if (count > 0) {
+                    avgVx /= count;
+                }
+                
+                // Update displayed value only every 2 seconds
+                const now = Date.now();
+                if (now - this.lastDisplayUpdate > 2000) {
+                    this.displayedDriftV = avgVx;
+                    this.lastDisplayUpdate = now;
+                }
+                
+                // Draw scatterers
+                ctx.fillStyle = '#4444ff';
+                for (const scatterer of this.scatterers) {
+                    ctx.beginPath();
+                    ctx.arc(scatterer.x, scatterer.y, scatterer.radius, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+                
+                // Draw electrons and their trails
+                for (const electron of this.electrons) {
+                    if (!electron.active) continue;
+                    
+                    // Draw trail
+                    if (electron.trail.length > 1) {
+                        ctx.strokeStyle = 'rgba(255, 100, 100, 0.3)';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        for (let j = 0; j < electron.trail.length; j++) {
+                            const point = electron.trail[j];
+                            if (j === 0) ctx.moveTo(point.x, point.y);
+                            else ctx.lineTo(point.x, point.y);
+                        }
+                        ctx.stroke();
+                    }
+                    
+                    // Draw electron - color based on speed
+                    const speed = Math.sqrt(electron.vx * electron.vx + electron.vy * electron.vy);
+                    const maxSpeed = this.drivingVelocity * 1.5; // Scale color based on expected range
+                    const intensity = Math.min(speed / maxSpeed, 1);
+                    const red = 255;
+                    const green = Math.floor(100 * (1 - intensity));
+                    const blue = Math.floor(100 * (1 - intensity));
+                    
+                    ctx.fillStyle = `rgb(${red}, ${green}, ${blue})`;
+                    ctx.beginPath();
+                    ctx.arc(electron.x, electron.y, electron.radius, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+                
+                // Draw launch zone
+                ctx.strokeStyle = '#888';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(20, 20);
+                ctx.lineTo(20, canvas.height - 20);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                ctx.fillStyle = '#888';
+                ctx.font = '12px Courier New';
+                ctx.fillText('Launch', 22, 35);
+                ctx.fillText('Ballistic acceleration → collision → relaxation', canvas.width/2 - 120, 20);
+                
+                // Display drift velocity in upper left (updated every 2s)
+                ctx.fillStyle = '#00ff41';
+                ctx.font = 'bold 16px Courier New';
+                ctx.fillText(`⟨v_drift⟩ = ${this.displayedDriftV.toFixed(3)}`, 40, 25);
+            }
+            
+            animate() {
+                if (!this.isRunning) return;
+                
+                this.updateElectrons();
+                this.draw();
+                
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+        
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            new ScatteringDemo();
+        });
+    </script>
+</body>
+</html>
