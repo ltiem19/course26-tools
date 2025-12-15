@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2DES Electrostatic Gating</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f8f9fa;
+            padding: 12px;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        h2 {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #212529;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        
+        h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #212529;
+        }
+        
+        .control-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #212529;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+            touch-action: manipulation;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #007bff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #007bff;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .range-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 4px;
+        }
+        
+        .svg-container {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        svg {
+            border: 1px solid #dee2e6;
+            display: block;
+            min-width: 600px;
+            width: 100%;
+        }
+        
+        .text-xs {
+            font-size: 11px;
+        }
+        
+        @media (min-width: 640px) {
+            body {
+                padding: 24px;
+            }
+            
+            h2 {
+                font-size: 28px;
+            }
+            
+            h3 {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>2DES Electrostatic Gating</h2>
+        
+        <!-- Gate Voltage Control -->
+        <div class="card">
+            <label class="control-label">
+                Gate Voltage: <span id="voltage-display">-1.0</span> V
+            </label>
+            <input type="range" id="voltage-slider" min="-0.5" max="0.5" step="0.1" value="-1.0">
+            <div class="range-labels">
+                <span>-0.5V (depletion)</span>
+                <span>0V</span>
+                <span>+0.5V (accumulation)</span>
+            </div>
+        </div>
+        
+        <!-- Cross-section View -->
+        <div class="card">
+            <h3>Cross-section & Electric Field</h3>
+            <div class="svg-container">
+                <svg id="cross-section" width="100%" height="250" viewBox="0 0 800 250"></svg>
+            </div>
+        </div>
+        
+        <!-- Carrier Density n(x) -->
+        <div class="card">
+            <h3>Carrier Density n(x)</h3>
+            <div class="svg-container">
+                <svg id="density-plot" width="100%" height="200" viewBox="0 0 800 200"></svg>
+            </div>
+        </div>
+        
+        <!-- Carrier Density vs Voltage -->
+        <div class="card">
+            <h3>Carrier Density vs Gate Voltage</h3>
+            <div class="svg-container">
+                <svg id="voltage-plot" width="100%" height="200" viewBox="0 0 800 200"></svg>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Physical parameters
+        const eps_r = 12.9;
+        const d_gate = 100;
+        const gate_width = 200;
+        const total_width = 800;
+        const n0 = 2e11;
+        
+        let gateVoltage = -1.0;
+        
+        // Calculate density
+        function calculateDensity(x, V_g) {
+            const x_center = total_width / 2;
+            const gate_left = x_center - gate_width / 2;
+            const gate_right = x_center + gate_width / 2;
+            
+            let delta_n = 0;
+            
+            if (x >= gate_left && x <= gate_right) {
+                delta_n = eps_r * 8.854e-14 * V_g / (1.602e-19 * d_gate * 1e-7);
+            } else {
+                const dist_to_left = Math.abs(x - gate_left);
+                const dist_to_right = Math.abs(x - gate_right);
+                const min_dist = Math.min(dist_to_left, dist_to_right);
+                
+                const fringe_factor = Math.exp(-min_dist / (1.5 * d_gate)) * 
+                                     (gate_width / (gate_width + 2 * min_dist));
+                delta_n = eps_r * 8.854e-14 * V_g * fringe_factor / (1.602e-19 * d_gate * 1e-7);
+            }
+            
+            const total_density = n0 + delta_n;
+            return Math.max(0, total_density / 1e11);
+        }
+        
+        // Generate field lines
+        function generateFieldLines(V_g) {
+            const lines = [];
+            const gate_center = total_width / 2;
+            const gate_left = gate_center - gate_width / 2;
+            const gate_right = gate_center + gate_width / 2;
+            
+            const gate_left_screen = 100 + (gate_left * 600 / total_width);
+            const gate_right_screen = 100 + (gate_right * 600 / total_width);
+            
+            const num_lines = Math.max(7, Math.floor(Math.abs(V_g) * 3 + 7));
+            
+            for (let i = 0; i < num_lines; i++) {
+                const line = [];
+                
+                const x_start = gate_left_screen + (i / (num_lines - 1)) * (gate_right_screen - gate_left_screen);
+                let x = x_start;
+                let y = 120;
+                
+                while (y < 180 && x > 50 && x < 750) {
+                    line.push({ x: x, y: y });
+                    
+                    let E_x = 0;
+                    let E_y = 1;
+                    
+                    const progress = (y - 120) / 60;
+                    const dist_to_left_edge = x - gate_left_screen;
+                    const dist_to_right_edge = gate_right_screen - x;
+                    const gate_width_screen = gate_right_screen - gate_left_screen;
+                    
+                    if (i < 2 || i >= num_lines - 2) {
+                        const edge_strength = Math.abs(V_g) * 0.8 * progress;
+                        if (i < 2) {
+                            E_x = -edge_strength * (2 - i) / 2;
+                        } else {
+                            E_x = edge_strength * (i - (num_lines - 3)) / 2;
+                        }
+                    } else {
+                        const relative_pos = (x - gate_left_screen) / gate_width_screen - 0.5;
+                        E_x = relative_pos * Math.abs(V_g) * 0.2 * progress * progress;
+                    }
+                    
+                    const mag = Math.sqrt(E_x*E_x + E_y*E_y);
+                    x += (E_x / mag) * 2.5;
+                    y += (E_y / mag) * 2.0;
+                }
+                
+                if (line.length > 8) lines.push(line);
+            }
+            
+            return lines;
+        }
+        
+        // Update cross-section view
+        function updateCrossSection() {
+            const svg = document.getElementById('cross-section');
+            svg.innerHTML = '';
+            
+            const gate_left_screen = 100 + (300 * 600 / total_width);
+            const gate_right_screen = 100 + (500 * 600 / total_width);
+            
+            // Background
+            svg.innerHTML += '<rect width="800" height="250" fill="#f8f9fa"/>';
+            
+            // GaAs substrate
+            svg.innerHTML += '<rect x="0" y="120" width="800" height="130" fill="#e9ecef" stroke="#6c757d"/>';
+            svg.innerHTML += '<text x="10" y="140" class="text-xs" fill="#6c757d">GaAs</text>';
+            
+            // Gate
+            const gateColor = gateVoltage < 0 ? '#007bff' : '#ffc107';
+            svg.innerHTML += `<rect x="${gate_left_screen}" y="100" width="${gate_right_screen - gate_left_screen}" height="20" fill="${gateColor}" stroke="#000" stroke-width="2"/>`;
+            svg.innerHTML += `<text x="${gate_left_screen + 10}" y="95" class="text-xs" font-weight="bold">Gate (${gateVoltage.toFixed(1)}V)</text>`;
+            
+            // 2DES density visualization
+            for (let i = 0; i <= 200; i += 4) {
+                const x = (i / 200) * total_width;
+                const density = calculateDensity(x, gateVoltage);
+                const n0_units = n0 / 1e11;
+                const density_ratio = density / n0_units;
+                
+                let r, g, b;
+                if (density_ratio >= 1.0) {
+                    const excess = Math.min(density_ratio - 1.0, 1.0);
+                    r = Math.floor(180 + excess * 75);
+                    g = Math.floor(60 - excess * 40);
+                    b = Math.floor(60 - excess * 40);
+                } else {
+                    r = Math.floor(180 * density_ratio);
+                    g = Math.floor(60 * density_ratio);
+                    b = Math.floor(60 * density_ratio);
+                }
+                
+                const x_screen = i * 3 + 100;
+                svg.innerHTML += `<rect x="${x_screen - 3}" y="177" width="6" height="6" fill="rgb(${r}, ${g}, ${b})"/>`;
+            }
+            svg.innerHTML += '<text x="720" y="185" class="text-xs" fill="#dc3545">2DES</text>';
+            
+            // Field lines
+            const fieldLines = generateFieldLines(gateVoltage);
+            const lineColor = gateVoltage < 0 ? '#0066cc' : '#ff6600';
+            fieldLines.forEach(line => {
+                const points = line.map(p => `${p.x},${p.y}`).join(' ');
+                svg.innerHTML += `<polyline points="${points}" fill="none" stroke="${lineColor}" stroke-width="2" opacity="0.8"/>`;
+                
+                if (line.length > 5) {
+                    const last = line[line.length - 1];
+                    const arrowPoints = gateVoltage > 0 ? 
+                        `${last.x-2},${last.y-3} ${last.x+2},${last.y-3} ${last.x},${last.y+2}` :
+                        `${last.x-2},${last.y+2} ${last.x+2},${last.y+2} ${last.x},${last.y-3}`;
+                    svg.innerHTML += `<polygon points="${arrowPoints}" fill="${lineColor}"/>`;
+                }
+            });
+            
+            svg.innerHTML += '<text x="720" y="140" class="text-xs" fill="#6c757d">d = 100 nm</text>';
+        }
+        
+        // Update density plot
+        function updateDensityPlot() {
+            const svg = document.getElementById('density-plot');
+            svg.innerHTML = '';
+            
+            // Grid and axes
+            for (let i = 0; i <= 5; i++) {
+                const y = 40 + i * 24;
+                svg.innerHTML += `<line x1="100" y1="${y}" x2="700" y2="${y}" stroke="#e9ecef" stroke-width="1"/>`;
+                svg.innerHTML += `<text x="80" y="${y + 5}" class="text-xs" fill="#6c757d">${(5-i).toFixed(1)}</text>`;
+            }
+            
+            svg.innerHTML += '<line x1="100" y1="40" x2="100" y2="160" stroke="#000" stroke-width="2"/>';
+            svg.innerHTML += '<line x1="100" y1="160" x2="700" y2="160" stroke="#000" stroke-width="2"/>';
+            svg.innerHTML += '<text x="40" y="105" class="text-xs" transform="rotate(-90, 40, 105)">n (10¹¹ cm⁻²)</text>';
+            svg.innerHTML += '<text x="400" y="185" class="text-xs">Position (μm)</text>';
+            
+            [0, 0.2, 0.4, 0.6, 0.8].forEach((pos, i) => {
+                svg.innerHTML += `<text x="${100 + i * 150 - 10}" y="175" class="text-xs" fill="#6c757d">${pos.toFixed(1)}</text>`;
+            });
+            
+            // Background density line
+            const n0_y = 160 - (n0/1e11) * 24;
+            svg.innerHTML += `<line x1="100" y1="${n0_y}" x2="700" y2="${n0_y}" stroke="#666" stroke-width="1" stroke-dasharray="5,5"/>`;
+            svg.innerHTML += `<text x="710" y="${n0_y + 5}" class="text-xs" fill="#6c757d">n₀</text>`;
+            
+            // Density curve
+            const points = [];
+            for (let i = 0; i <= 200; i++) {
+                const x = (i / 200) * total_width;
+                const density = calculateDensity(x, gateVoltage);
+                const x_screen = i * 3 + 100;
+                const y_screen = 160 - (density / 5) * 120;
+                points.push(`${x_screen},${y_screen}`);
+            }
+            svg.innerHTML += `<polyline points="${points.join(' ')}" fill="none" stroke="#dc3545" stroke-width="3"/>`;
+        }
+        
+        // Update voltage plot
+        function updateVoltagePlot() {
+            const svg = document.getElementById('voltage-plot');
+            svg.innerHTML = '';
+            
+            // Grid and axes
+            for (let i = 0; i <= 5; i++) {
+                const y = 40 + i * 24;
+                svg.innerHTML += `<line x1="100" y1="${y}" x2="700" y2="${y}" stroke="#e9ecef" stroke-width="1"/>`;
+                svg.innerHTML += `<text x="80" y="${y + 5}" class="text-xs" fill="#6c757d">${(5-i).toFixed(1)}</text>`;
+            }
+            
+            svg.innerHTML += '<line x1="100" y1="40" x2="100" y2="160" stroke="#000" stroke-width="2"/>';
+            svg.innerHTML += '<line x1="100" y1="160" x2="700" y2="160" stroke="#000" stroke-width="2"/>';
+            svg.innerHTML += '<text x="30" y="105" class="text-xs" transform="rotate(-90, 30, 105)">n (10¹¹ cm⁻²)</text>';
+            svg.innerHTML += '<text x="400" y="185" class="text-xs">Gate Voltage (V)</text>';
+            
+            [-0.5, -0.25, 0, 0.25, 0.5].forEach((voltage, i) => {
+                const x = 100 + i * 150;
+                svg.innerHTML += `<line x1="${x}" y1="160" x2="${x}" y2="165" stroke="#000" stroke-width="1"/>`;
+                svg.innerHTML += `<text x="${x - 15}" y="175" class="text-xs" fill="#6c757d">${voltage.toFixed(2)}</text>`;
+            });
+            
+            // Background density line
+            const n0_y = 160 - (n0/1e11) * 24;
+            svg.innerHTML += `<line x1="100" y1="${n0_y}" x2="700" y2="${n0_y}" stroke="#666" stroke-width="1" stroke-dasharray="5,5"/>`;
+            svg.innerHTML += `<text x="710" y="${n0_y + 5}" class="text-xs" fill="#6c757d">n₀</text>`;
+            
+            // n(V) curve
+            const points = [];
+            for (let i = 0; i <= 100; i++) {
+                const V = -0.5 + (i / 100) * 1.0;
+                const x_center = total_width / 2;
+                const density = calculateDensity(x_center, V);
+                const x_screen = 100 + (V + 0.5) / 1.0 * 600;
+                const y_screen = 160 - (density / 5) * 120;
+                points.push(`${x_screen},${y_screen}`);
+            }
+            svg.innerHTML += `<polyline points="${points.join(' ')}" fill="none" stroke="#28a745" stroke-width="3"/>`;
+            
+            // Current voltage indicator
+            const current_x = 100 + ((gateVoltage + 0.5) / 1.0) * 600;
+            const current_y = 160 - (calculateDensity(total_width / 2, gateVoltage) / 5) * 120;
+            svg.innerHTML += `<circle cx="${current_x}" cy="${current_y}" r="6" fill="#dc3545" stroke="#fff" stroke-width="2"/>`;
+            svg.innerHTML += `<text x="${current_x + 10}" y="${current_y - 10}" class="text-xs" font-weight="bold" fill="#dc3545">${gateVoltage.toFixed(1)}V</text>`;
+        }
+        
+        // Update all plots
+        function updateAll() {
+            updateCrossSection();
+            updateDensityPlot();
+            updateVoltagePlot();
+        }
+        
+        // Event listener for voltage slider
+        document.getElementById('voltage-slider').addEventListener('input', function(e) {
+            gateVoltage = parseFloat(e.target.value);
+            document.getElementById('voltage-display').textContent = gateVoltage.toFixed(1);
+            updateAll();
+        });
+        
+        // Initial render
+        document.getElementById('voltage-slider').value = -1.0;
+        gateVoltage = -1.0;
+        document.getElementById('voltage-display').textContent = gateVoltage.toFixed(1);
+        updateAll();
+    </script>
+</body>
+</html>
