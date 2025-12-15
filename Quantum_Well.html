@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Quantum Well Simulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 16px;
+            touch-action: manipulation;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .controls {
+            margin-bottom: 24px;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+        }
+        
+        .control-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #555;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 40px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-webkit-slider-track {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            border: 1px solid #d1d5db;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            background: #2563eb;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -8px;
+        }
+        
+        input[type="range"]::-moz-range-track {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            border: 1px solid #d1d5db;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            background: #2563eb;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+        
+        canvas {
+            width: 100%;
+            height: 400px;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            display: block;
+            touch-action: none;
+        }
+        
+        @media (max-width: 640px) {
+            body {
+                padding: 8px;
+            }
+            
+            .container {
+                padding: 12px;
+            }
+            
+            h1 {
+                font-size: 18px;
+                margin-bottom: 16px;
+            }
+            
+            canvas {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Infinite Quantum Well: Energy Levels & Wavefunctions</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label class="control-label" id="widthLabel">Well Width: 20.0 nm (from 5 to 25.0 nm)</label>
+                <input type="range" id="wellWidth" min="10" max="45" step="0.5" value="20">
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label" id="massLabel">m*/m₀: 0.200</label>
+                <input type="range" id="effectiveMass" min="0.1" max="0.5" step="0.001" value="0.2">
+            </div>
+        </div>
+        
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script>
+        // Physical constants
+        const hbar = 1.054571817e-34; // J⋅s
+        const m_e = 9.1093837015e-31; // kg
+        const e = 1.602176634e-19; // C
+        const barrierHeight = 300; // meV
+        const wellStart = 5; // nm
+        
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const widthSlider = document.getElementById('wellWidth');
+        const massSlider = document.getElementById('effectiveMass');
+        const widthLabel = document.getElementById('widthLabel');
+        const massLabel = document.getElementById('massLabel');
+        
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            draw();
+        }
+        
+        function calculateEnergies(wellWidth, effectiveMass) {
+            const L = wellWidth * 1e-9;
+            const m_eff = effectiveMass * m_e;
+            const energyFactor = (Math.PI * Math.PI * hbar * hbar) / (2 * m_eff * L * L);
+            return [1, 2, 3].map(n => energyFactor * n * n / e * 1000);
+        }
+        
+        function wavefunction(x, n, wellWidth) {
+            if (x >= wellStart && x < wellStart + wellWidth) {
+                return Math.sqrt(2 / wellWidth) * Math.sin(n * Math.PI * (x - wellStart) / wellWidth);
+            }
+            return 0;
+        }
+        
+        function draw() {
+            const rect = canvas.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+            
+            ctx.clearRect(0, 0, w, h);
+            
+            const wellWidth = parseFloat(widthSlider.value);
+            const effectiveMass = parseFloat(massSlider.value);
+            const wellEnd = wellStart + wellWidth;
+            
+            // Update labels
+            widthLabel.textContent = `Well Width: ${wellWidth.toFixed(1)} nm (from ${wellStart} to ${wellEnd.toFixed(1)} nm)`;
+            massLabel.textContent = `m*/m₀: ${effectiveMass.toFixed(3)}`;
+            
+            // Calculate energies
+            const energies = calculateEnergies(wellWidth, effectiveMass);
+            
+            // Margins
+            const margin = { top: 20, right: 20, bottom: 50, left: 60 };
+            const plotW = w - margin.left - margin.right;
+            const plotH = h - margin.top - margin.bottom;
+            
+            // Scales
+            const xScale = (x) => margin.left + (x / 60) * plotW;
+            const yScale = (y) => margin.top + plotH - (y / 400) * plotH;
+            
+            // Draw axes
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(margin.left, margin.top);
+            ctx.lineTo(margin.left, margin.top + plotH);
+            ctx.lineTo(margin.left + plotW, margin.top + plotH);
+            ctx.stroke();
+            
+            // Draw grid
+            ctx.strokeStyle = '#eee';
+            ctx.setLineDash([3, 3]);
+            for (let i = 0; i <= 6; i++) {
+                const x = xScale(i * 10);
+                ctx.beginPath();
+                ctx.moveTo(x, margin.top);
+                ctx.lineTo(x, margin.top + plotH);
+                ctx.stroke();
+            }
+            for (let i = 0; i <= 4; i++) {
+                const y = yScale(i * 100);
+                ctx.beginPath();
+                ctx.moveTo(margin.left, y);
+                ctx.lineTo(margin.left + plotW, y);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+            
+            // Draw axis labels
+            ctx.fillStyle = '#333';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            
+            // X-axis labels
+            for (let i = 0; i <= 6; i++) {
+                ctx.fillText((i * 10).toString(), xScale(i * 10), margin.top + plotH + 20);
+            }
+            ctx.fillText('Position (nm)', margin.left + plotW / 2, h - 10);
+            
+            // Y-axis labels
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            for (let i = 0; i <= 4; i++) {
+                ctx.fillText((i * 100).toString(), margin.left - 10, yScale(i * 100));
+            }
+            ctx.save();
+            ctx.translate(15, margin.top + plotH / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.textAlign = 'center';
+            ctx.fillText('Energy (meV)', 0, 0);
+            ctx.restore();
+            
+            // Draw potential well
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(xScale(0), yScale(barrierHeight));
+            ctx.lineTo(xScale(wellStart), yScale(barrierHeight));
+            ctx.lineTo(xScale(wellStart), yScale(0));
+            ctx.lineTo(xScale(wellEnd), yScale(0));
+            ctx.lineTo(xScale(wellEnd), yScale(barrierHeight));
+            ctx.lineTo(xScale(60), yScale(barrierHeight));
+            ctx.stroke();
+            
+            // Draw energy levels and wavefunctions
+            const colors = ['#2563eb', '#dc2626', '#16a34a'];
+            const numPoints = 300;
+            
+            for (let n = 0; n < 3; n++) {
+                if (energies[n] >= barrierHeight) continue;
+                
+                // Draw energy level
+                ctx.strokeStyle = colors[n];
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(xScale(0), yScale(energies[n]));
+                ctx.lineTo(xScale(60), yScale(energies[n]));
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Draw wavefunction
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                let firstPoint = true;
+                for (let i = 0; i <= numPoints; i++) {
+                    const x = (i / numPoints) * 60;
+                    const psi = wavefunction(x, n + 1, wellWidth);
+                    const y = energies[n] + psi * 25;
+                    
+                    if (firstPoint) {
+                        ctx.moveTo(xScale(x), yScale(y));
+                        firstPoint = false;
+                    } else {
+                        ctx.lineTo(xScale(x), yScale(y));
+                    }
+                }
+                ctx.stroke();
+            }
+        }
+        
+        widthSlider.addEventListener('input', draw);
+        massSlider.addEventListener('input', draw);
+        window.addEventListener('resize', resizeCanvas);
+        
+        resizeCanvas();
+    </script>
+</body>
+</html>
