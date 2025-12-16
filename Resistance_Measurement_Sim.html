@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Interactive Resistance Measurement</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 10px;
+        }
+        
+
+        
+        .controls {
+            background: #333;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .control-group label {
+            min-width: 120px;
+            color: #ccc;
+            font-size: 0.9em;
+        }
+        
+        input[type="range"] {
+            flex: 1;
+        }
+        
+        .value-display {
+            min-width: 70px;
+            color: #4CAF50;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        
+        .experiment-panel {
+            background: #2d2d2d;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        
+        svg {
+            background: #f8f8f8;
+            border-radius: 8px;
+            border: 2px solid #666;
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .measurement-display {
+            display: none;
+        }
+        
+        .preset-buttons {
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .control-group label { font-size: 0.85em; min-width: 100px; }
+            .value-display { min-width: 60px; font-size: 0.85em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="text-align: center; color: #4CAF50;">Interactive Resistance Measurement</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>Contact Resistance:</label>
+                <input type="range" id="contactR" min="0.1" max="50" step="0.1" value="10">
+                <span class="value-display" id="contactRValue">10.0 Ω</span>
+            </div>
+        </div>
+        
+        <div class="experiment-panel">
+            <svg width="800" height="350" viewBox="0 0 800 350">
+                <defs>
+                    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#f44336"/>
+                    </marker>
+                </defs>
+                
+                <!-- Preset buttons in canvas -->
+                <rect x="20" y="20" width="90" height="35" rx="5" fill="#f44336" style="cursor: pointer;" onclick="set2T()"/>
+                <text x="65" y="43" fill="white" text-anchor="middle" font-weight="bold" font-size="14px" style="pointer-events: none;">2-Terminal</text>
+                
+                <rect x="20" y="65" width="90" height="35" rx="5" fill="#2196F3" style="cursor: pointer;" onclick="set4T()"/>
+                <text x="65" y="88" fill="white" text-anchor="middle" font-weight="bold" font-size="14px" style="pointer-events: none;">4-Terminal</text>
+                
+                <!-- Measurement display in canvas -->
+                <text x="580" y="30" fill="#333" font-size="11px" font-weight="bold">R = V_measured / 1 mA</text>
+                <text id="resistanceText" x="580" y="50" fill="#4CAF50" font-size="14px" font-weight="bold">= 70.0 Ω</text>
+                
+                <text x="580" y="75" fill="#333" font-size="11px" font-weight="bold">Calculated resistivity:</text>
+                <text id="resistivityText" x="580" y="95" fill="#4CAF50" font-size="14px" font-weight="bold">62.5 Ω/mm</text>
+                
+                <text x="580" y="120" fill="#666" font-size="11px">Separation:</text>
+                <text id="separationText" x="580" y="135" fill="#666" font-size="11px">0.625 mm</text>
+                
+                <!-- Voltmeter -->
+                <circle cx="400" cy="50" r="25" fill="white" stroke="#333" stroke-width="2"/>
+                <text x="400" y="55" fill="#333" text-anchor="middle" font-weight="bold">V</text>
+                <text x="400" y="20" fill="#666" text-anchor="middle" font-size="12px">Voltmeter</text>
+                
+                <!-- Current wires -->
+                <line x1="75" y1="250" x2="75" y2="200" stroke="#f44336" stroke-width="4"/>
+                <line x1="75" y1="200" x2="125" y2="200" stroke="#f44336" stroke-width="4"/>
+                <line x1="125" y1="200" x2="565" y2="200" stroke="#f44336" stroke-width="4"/>
+                <line x1="565" y1="200" x2="725" y2="200" stroke="#f44336" stroke-width="4"/>
+                <line x1="725" y1="200" x2="725" y2="250" stroke="#f44336" stroke-width="4"/>
+                <line x1="725" y1="250" x2="75" y2="250" stroke="#f44336" stroke-width="4"/>
+                
+                <!-- Left contact (on top of wires) -->
+                <rect x="125" y="180" width="20" height="40" fill="#FFD700" stroke="#F57F17" stroke-width="2"/>
+                <text x="135" y="235" fill="#666" text-anchor="middle" font-size="12px">Source</text>
+                
+                <!-- Sample bar (on top of wires) -->
+                <rect x="145" y="185" width="400" height="30" fill="#4CAF50" stroke="#2E7D32" stroke-width="2"/>
+                <text x="345" y="205" fill="white" text-anchor="middle" font-weight="bold">Sample</text>
+                
+                <!-- Right contact (on top of wires) -->
+                <rect x="545" y="180" width="20" height="40" fill="#FFD700" stroke="#F57F17" stroke-width="2"/>
+                <text x="555" y="235" fill="#666" text-anchor="middle" font-size="12px">Drain</text>
+                
+                <!-- Distance line -->
+                <line id="distLine" x1="200" y1="270" x2="400" y2="270" stroke="#FFD700" stroke-width="2" stroke-dasharray="3,3"/>
+                <text id="distText" x="300" y="285" fill="#FFD700" text-anchor="middle" font-weight="bold" font-size="12px">625 μm</text>
+                
+                <!-- Voltage wires -->
+                <line id="vwire1" x1="200" y1="170" x2="200" y2="100" stroke="#2196F3" stroke-width="3" stroke-dasharray="5,5"/>
+                <line id="vwire2" x1="400" y1="170" x2="400" y2="100" stroke="#2196F3" stroke-width="3" stroke-dasharray="5,5"/>
+                <line id="vwire3" x1="200" y1="100" x2="375" y2="100" stroke="#2196F3" stroke-width="3" stroke-dasharray="5,5"/>
+                <line id="vwire4" x1="400" y1="100" x2="425" y2="100" stroke="#2196F3" stroke-width="3" stroke-dasharray="5,5"/>
+                <line x1="375" y1="100" x2="375" y2="75" stroke="#2196F3" stroke-width="3" stroke-dasharray="5,5"/>
+                <line x1="425" y1="100" x2="425" y2="75" stroke="#2196F3" stroke-width="3" stroke-dasharray="5,5"/>
+                
+                <!-- Voltage probes -->
+                <circle id="probe1" cx="200" cy="170" r="16" fill="#2196F3" stroke="#1976D2" stroke-width="3" style="cursor: grab;"/>
+                <circle id="probe2" cx="400" cy="170" r="16" fill="#2196F3" stroke="#1976D2" stroke-width="3" style="cursor: grab;"/>
+                
+                <!-- Probe labels -->
+                <text id="label1" x="200" y="160" fill="#666" text-anchor="middle" font-size="12px">V+</text>
+                <text id="label2" x="400" y="160" fill="#666" text-anchor="middle" font-size="12px">V-</text>
+                
+                <!-- Current arrows -->
+                <line x1="100" y1="200" x2="120" y2="200" stroke="#f44336" stroke-width="4" marker-end="url(#arrow)"/>
+                <line x1="570" y1="200" x2="590" y2="200" stroke="#f44336" stroke-width="4" marker-end="url(#arrow)"/>
+                
+                <!-- Current source (on top layer) -->
+                <circle cx="650" cy="200" r="25" fill="white" stroke="#333" stroke-width="2"/>
+                <text x="650" y="205" fill="#333" text-anchor="middle" font-weight="bold">I</text>
+                <text x="650" y="240" fill="#666" text-anchor="middle" font-size="12px">1.0 mA</text>
+                
+                <!-- Labels -->
+                <text x="135" y="175" fill="#666" text-anchor="middle" font-size="12px">R_c</text>
+                <text x="345" y="175" fill="#666" text-anchor="middle" font-size="12px">R_sample = 50 Ω</text>
+                <text x="555" y="175" fill="#666" text-anchor="middle" font-size="12px">R_c</text>
+            </svg>
+        </div>
+    </div>
+
+    <script>
+        // Physical constants
+        const SAMPLE_START = 145;
+        const SAMPLE_END = 545;
+        const SAMPLE_LENGTH_MM = 1.0; // Total sample length in mm
+        const LEFT_CONTACT_START = 125;
+        const LEFT_CONTACT_END = 145;
+        const RIGHT_CONTACT_START = 545;
+        const RIGHT_CONTACT_END = 565;
+        const LEFT_CONTACT_CENTER = 135;
+        const RIGHT_CONTACT_CENTER = 555;
+        const CURRENT_MA = 1.0;
+        
+        // Drag state
+        let isDragging = false;
+        let activeProbe = null;
+        
+        // Get elements
+        const probe1 = document.getElementById('probe1');
+        const probe2 = document.getElementById('probe2');
+        const contactRSlider = document.getElementById('contactR');
+        const SAMPLE_R = 50; // Fixed sample resistance in Ohms
+        
+        function moveProbe(probe, newX) {
+            // Constrain to device bounds
+            newX = Math.max(LEFT_CONTACT_START, Math.min(RIGHT_CONTACT_END, newX));
+            
+            // Check contact snapping
+            if (newX >= LEFT_CONTACT_START && newX <= LEFT_CONTACT_END) {
+                newX = LEFT_CONTACT_CENTER; // Snap to left contact
+            } else if (newX >= RIGHT_CONTACT_START && newX <= RIGHT_CONTACT_END) {
+                newX = RIGHT_CONTACT_CENTER; // Snap to right contact
+            }
+            
+            // Apply crossing constraint
+            const probe1X = parseFloat(probe1.getAttribute('cx'));
+            const probe2X = parseFloat(probe2.getAttribute('cx'));
+            
+            if (probe === probe1 && newX > probe2X) {
+                newX = probe2X; // probe1 cannot pass probe2
+            } else if (probe === probe2 && newX < probe1X) {
+                newX = probe1X; // probe2 cannot pass probe1
+            }
+            
+            // Set position
+            probe.setAttribute('cx', newX);
+            
+            // Update visual elements
+            updateDisplay();
+        }
+        
+        function updateDisplay() {
+            const probe1X = parseFloat(probe1.getAttribute('cx'));
+            const probe2X = parseFloat(probe2.getAttribute('cx'));
+            const leftX = Math.min(probe1X, probe2X);
+            const rightX = Math.max(probe1X, probe2X);
+            
+            // Update voltage wires
+            document.getElementById('vwire1').setAttribute('x1', probe1X);
+            document.getElementById('vwire1').setAttribute('x2', probe1X);
+            document.getElementById('vwire2').setAttribute('x1', probe2X);
+            document.getElementById('vwire2').setAttribute('x2', probe2X);
+            document.getElementById('vwire3').setAttribute('x1', probe1X);
+            document.getElementById('vwire4').setAttribute('x1', probe2X);
+            
+            // Update labels
+            document.getElementById('label1').setAttribute('x', probe1X);
+            document.getElementById('label2').setAttribute('x', probe2X);
+            
+            // For distance line, use sample edges
+            const includesLeftContact = leftX <= LEFT_CONTACT_CENTER;
+            const includesRightContact = rightX >= RIGHT_CONTACT_CENTER;
+            const sampleLeft = includesLeftContact ? SAMPLE_START : Math.max(leftX, SAMPLE_START);
+            const sampleRight = includesRightContact ? SAMPLE_END : Math.min(rightX, SAMPLE_END);
+            
+            // Update distance line to show sample measurement region
+            document.getElementById('distLine').setAttribute('x1', sampleLeft);
+            document.getElementById('distLine').setAttribute('x2', sampleRight);
+            document.getElementById('distText').setAttribute('x', (sampleLeft + sampleRight) / 2);
+            
+            // Calculate measurements
+            calculateMeasurements(leftX, rightX);
+        }
+        
+        function calculateMeasurements(leftX, rightX) {
+            const contactR = parseFloat(contactRSlider.value);
+            
+            // Determine what we're measuring
+            let measuredR = 0;
+            
+            // Check if probes include contacts
+            const includesLeftContact = leftX <= LEFT_CONTACT_CENTER;
+            const includesRightContact = rightX >= RIGHT_CONTACT_CENTER;
+            
+            // Calculate sample fraction - map probe positions to sample edges
+            const effectiveLeft = Math.max(leftX, SAMPLE_START);
+            const effectiveRight = Math.min(rightX, SAMPLE_END);
+            
+            // Clamp to sample boundaries for distance calculation
+            const sampleLeft = includesLeftContact ? SAMPLE_START : effectiveLeft;
+            const sampleRight = includesRightContact ? SAMPLE_END : effectiveRight;
+            
+            const sampleFraction = Math.max(0, (effectiveRight - effectiveLeft) / (SAMPLE_END - SAMPLE_START));
+            
+            // Build resistance
+            if (includesLeftContact) measuredR += contactR;
+            measuredR += SAMPLE_R * sampleFraction;
+            if (includesRightContact) measuredR += contactR;
+            
+            // Voltage and resistivity - use sample edges only
+            const voltage = measuredR * CURRENT_MA;
+            const separationMM = Math.abs(sampleRight - sampleLeft) * SAMPLE_LENGTH_MM / (SAMPLE_END - SAMPLE_START);
+            const resistivity = separationMM > 0 ? measuredR / separationMM : 0;
+            
+            // Update displays with equations
+            document.getElementById('resistanceText').textContent = `= ${measuredR.toFixed(1)} Ω`;
+            document.getElementById('resistivityText').textContent = `${resistivity.toFixed(1)} Ω/mm`;
+            document.getElementById('separationText').textContent = `${separationMM.toFixed(3)} mm`;
+            document.getElementById('distText').textContent = (separationMM * 1000).toFixed(0) + ' μm';
+        }
+        
+        function set2T() {
+            moveProbe(probe1, LEFT_CONTACT_CENTER);
+            moveProbe(probe2, RIGHT_CONTACT_CENTER);
+            updateDisplay();
+        }
+        
+        function set4T() {
+            moveProbe(probe1, 200);
+            moveProbe(probe2, 450);
+            updateDisplay();
+        }
+        
+        // Mouse events
+        [probe1, probe2].forEach(probe => {
+            probe.addEventListener('mousedown', e => {
+                isDragging = true;
+                activeProbe = probe;
+                e.preventDefault();
+            });
+        });
+        
+        document.addEventListener('mousemove', e => {
+            if (isDragging && activeProbe) {
+                const svg = activeProbe.ownerSVGElement;
+                const rect = svg.getBoundingClientRect();
+                const x = (e.clientX - rect.left) * (800 / rect.width); // Handle viewBox scaling
+                moveProbe(activeProbe, x);
+            }
+        });
+        
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            activeProbe = null;
+        });
+        
+        // Touch events
+        [probe1, probe2].forEach(probe => {
+            probe.addEventListener('touchstart', e => {
+                isDragging = true;
+                activeProbe = probe;
+                e.preventDefault();
+            }, { passive: false });
+        });
+        
+        document.addEventListener('touchmove', e => {
+            if (isDragging && activeProbe) {
+                const svg = activeProbe.ownerSVGElement;
+                const rect = svg.getBoundingClientRect();
+                const touch = e.touches[0];
+                const x = (touch.clientX - rect.left) * (800 / rect.width);
+                moveProbe(activeProbe, x);
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        document.addEventListener('touchend', () => {
+            isDragging = false;
+            activeProbe = null;
+        });
+        
+        // Slider events
+        contactRSlider.addEventListener('input', () => {
+            document.getElementById('contactRValue').textContent = parseFloat(contactRSlider.value).toFixed(1) + ' Ω';
+            updateDisplay();
+        });
+        
+        // Initialize
+        updateDisplay();
+    </script>
+</body>
+</html>
