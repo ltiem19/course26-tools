@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Band Flattening and DOS</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.26.0/plotly.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            font-size: clamp(20px, 5vw, 28px);
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: clamp(12px, 3vw, 14px);
+        }
+        .controls {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        .slider-label {
+            font-weight: bold;
+            font-size: clamp(14px, 3.5vw, 16px);
+        }
+        #vSlider {
+            flex: 1;
+            min-width: 200px;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        #vSlider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #764ba2;
+            cursor: pointer;
+        }
+        #vSlider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #764ba2;
+            cursor: pointer;
+            border: none;
+        }
+        #vValue {
+            font-weight: bold;
+            color: #764ba2;
+            font-size: clamp(16px, 4vw, 18px);
+            min-width: 100px;
+        }
+        .plot-container {
+            background: white;
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        #flatIndicator {
+            display: none;
+            background: #ff6b6b;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: clamp(12px, 3vw, 14px);
+        }
+        #flatIndicator.show {
+            display: block;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; }
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            .controls {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Band Flattening and Density of States</h1>
+        <div class="subtitle">Linear dispersion E = ±vk and DOS ∝ |E|/v²</div>
+        
+        <div class="controls">
+            <div class="slider-container">
+                <span class="slider-label">Fermi velocity v:</span>
+                <input type="range" id="vSlider" min="0.04" max="6.58" step="0.01" value="3.5">
+                <span id="vValue">3.5 eV·Å</span>
+            </div>
+            <div id="flatIndicator">🎯 Nearly Flat Bands - Diverging DOS!</div>
+        </div>
+        
+        <div class="plot-container">
+            <div id="combinedPlot"></div>
+        </div>
+    </div>
+
+    <script>
+        // Reference DOS for scaling
+        let referenceDOS = null;
+        
+        // Calculate simple linear bands E = ±vk
+        function calculateBands(v, npoints = 100) {
+            const isFlat = v < 1.0;
+            
+            // FIXED k-path so bands actually flatten as v decreases
+            const kmax = 0.15; // Fixed k-range in 1/Å
+            const kpath = [];
+            const bandPlus = [];
+            const bandMinus = [];
+            
+            for (let i = 0; i <= npoints; i++) {
+                const t = i / npoints;
+                const k = kmax * (2 * t - 1); // -kmax to +kmax
+                
+                kpath.push(2 * t - 1); // -1 to +1 for plotting
+                
+                // Linear dispersion E = ±vk (in meV)
+                bandPlus.push(v * k * 1000);
+                bandMinus.push(-v * k * 1000);
+            }
+            
+            const eMax = v * kmax * 1000; // Maximum energy reached by bands
+            
+            return {bands: [bandMinus, bandPlus], kpath, isFlat, eMax};
+        }
+        
+        // Calculate DOS: for linear dispersion in 2D, DOS(E) ∝ |E|/v²
+        function calculateDOS(v, eMax, nbins = 80) {
+            const emin = -150;
+            const emax = 150;
+            const de = (emax - emin) / nbins;
+            const dos = new Array(nbins).fill(0);
+            const ebins = [];
+            
+            for (let i = 0; i < nbins; i++) {
+                ebins.push(emin + (i + 0.5) * de);
+            }
+            
+            // 2D Dirac cone: DOS(E) ∝ |E|/v²
+            // Only compute DOS where states actually exist
+            ebins.forEach((E, i) => {
+                if (Math.abs(E) <= eMax) {
+                    dos[i] = Math.abs(E) / (v * v);
+                } else {
+                    dos[i] = 0; // No states beyond band cutoff
+                }
+            });
+            
+            // Initialize reference DOS at v = 6.58 if not set
+            if (referenceDOS === null) {
+                const vRef = 6.58;
+                // Take reference at some typical energy, say E = 100 meV
+                referenceDOS = 100.0 / (vRef * vRef);
+            }
+            
+            // Scale relative to reference DOS
+            const dosScaled = dos.map(d => d / referenceDOS);
+            
+            return {energy: ebins, dos: dosScaled};
+        }
+        
+        // Update plot
+        function updatePlot(v) {
+            const {bands, kpath, isFlat, eMax} = calculateBands(v);
+            const {energy, dos} = calculateDOS(v, eMax);
+            
+            // Show flat band indicator
+            const indicator = document.getElementById('flatIndicator');
+            if (isFlat) {
+                indicator.classList.add('show');
+            } else {
+                indicator.classList.remove('show');
+            }
+            
+            // Create band traces - just 2 linear bands
+            const bandTraces = [];
+            const color = isFlat ? 'rgb(214, 39, 40)' : 'rgb(31, 119, 180)';
+            
+            bands.forEach((band, i) => {
+                bandTraces.push({
+                    x: kpath,
+                    y: band,
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: {
+                        color: color,
+                        width: 2.5
+                    },
+                    showlegend: false,
+                    hovertemplate: 'E: %{y:.1f} meV<extra></extra>'
+                });
+            });
+            
+            // DOS baseline (draw first for fill to work)
+            bandTraces.push({
+                x: Array(energy.length).fill(1.2),
+                y: energy,
+                type: 'scatter',
+                mode: 'lines',
+                line: {color: 'rgba(0,0,0,0.2)', width: 1, dash: 'dot'},
+                showlegend: false,
+                hoverinfo: 'skip',
+                fill: 'tonexty',
+                fillcolor: 'rgba(0,0,0,0)'
+            });
+            
+            // DOS trace - FILLED area from baseline
+            const dosScaleFactor = 0.015;
+            const dosScaled = dos.map(d => 1.2 + d * dosScaleFactor);
+            const maxDosValue = Math.max(...dos);
+            
+            // Create filled area for DOS
+            bandTraces.push({
+                x: dosScaled,
+                y: energy,
+                type: 'scatter',
+                mode: 'lines',
+                fill: 'tonexty',
+                fillcolor: 'rgba(44, 160, 44, 0.3)',
+                line: {color: 'rgb(44, 160, 44)', width: 2},
+                showlegend: false,
+                hovertemplate: `DOS (${maxDosValue.toFixed(1)}× ref.)<br>E: %{y:.1f} meV<extra></extra>`
+            });
+            
+            const isMobile = window.innerWidth < 768;
+            
+            const layout = {
+                title: {
+                    text: `v = ${v.toFixed(2)} eV·Å`,
+                    font: {size: isMobile ? 14 : 18}
+                },
+                height: isMobile ? 400 : 500,
+                xaxis: {
+                    range: [-1.1, 3.5],
+                    tickvals: [-1, -0.5, 0, 0.5, 1, 1.2, 2.0, 3.0],
+                    ticktext: ['-k', '-k/2', '0', 'k/2', 'k', '0', '', ''],
+                    showgrid: false,
+                    zeroline: true,
+                    zerolinecolor: 'rgba(0,0,0,0.3)',
+                    tickfont: {size: isMobile ? 10 : 12}
+                },
+                yaxis: {
+                    title: {text: 'E [meV]', font: {size: isMobile ? 12 : 14}},
+                    range: [-150, 150],
+                    zeroline: true,
+                    zerolinecolor: 'rgba(0,0,0,0.3)',
+                    zerolinewidth: 2,
+                    gridcolor: 'rgba(0,0,0,0.1)',
+                    tickfont: {size: isMobile ? 10 : 12}
+                },
+                annotations: [
+                    {
+                        text: 'Band Structure E = ±vk',
+                        x: 0.25, y: 1.08,
+                        xref: 'paper', yref: 'paper',
+                        showarrow: false,
+                        font: {size: isMobile ? 11 : 13, color: '#666'}
+                    },
+                    {
+                        text: 'DOS ∝ |E|/v²',
+                        x: 0.75, y: 1.08,
+                        xref: 'paper', yref: 'paper',
+                        showarrow: false,
+                        font: {size: isMobile ? 11 : 13, color: '#666'}
+                    }
+                ],
+                margin: {
+                    l: isMobile ? 45 : 60,
+                    r: isMobile ? 20 : 40,
+                    t: isMobile ? 60 : 80,
+                    b: isMobile ? 40 : 60
+                },
+                plot_bgcolor: 'rgba(240,240,240,0.3)',
+                paper_bgcolor: 'white'
+            };
+            
+            const config = {
+                responsive: true, 
+                displayModeBar: false,
+                staticPlot: true
+            };
+            
+            Plotly.newPlot('combinedPlot', bandTraces, layout, config);
+        }
+        
+        // Initialize
+        const slider = document.getElementById('vSlider');
+        const vValue = document.getElementById('vValue');
+        
+        slider.addEventListener('input', function() {
+            const v = parseFloat(this.value);
+            vValue.textContent = v.toFixed(2) + ' eV·Å';
+            updatePlot(v);
+        });
+        
+        window.addEventListener('resize', () => {
+            const v = parseFloat(slider.value);
+            updatePlot(v);
+        });
+        
+        // Initial plot
+        updatePlot(parseFloat(slider.value));
+    </script>
+</body>
+</html>
