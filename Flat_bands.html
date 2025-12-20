@@ -294,20 +294,20 @@
                     gridcolor: 'rgba(0,0,0,0.1)',
                     tickfont: {size: isMobile ? 10 : 12}
                 },
-                annotations: [
+                annotations: isMobile ? [] : [
                     {
                         text: 'Band Structure E = ±vk',
                         x: 0.25, y: 1.08,
                         xref: 'paper', yref: 'paper',
                         showarrow: false,
-                        font: {size: isMobile ? 11 : 13, color: '#666'}
+                        font: {size: 13, color: '#666'}
                     },
                     {
                         text: 'DOS ∝ |E|/v²',
                         x: 0.75, y: 1.08,
                         xref: 'paper', yref: 'paper',
                         showarrow: false,
-                        font: {size: isMobile ? 11 : 13, color: '#666'}
+                        font: {size: 13, color: '#666'}
                     }
                 ],
                 margin: {
