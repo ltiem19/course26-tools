@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>tBLG Symmetry Breaking</title>
+<style>
+body { font-family: Arial; padding: 10px; background: #f5f5f5; margin: 0; }
+.container { max-width: 900px; margin: 0 auto; background: white; padding: 15px; border-radius: 8px; }
+h2 { margin: 0 0 10px 0; font-size: 1.3em; }
+.controls { margin: 15px 0; }
+button { padding: 12px 18px; margin: 4px; border: none; border-radius: 5px; cursor: pointer; font-size: 15px; touch-action: manipulation; }
+.nu-btn { background: #ddd; min-width: 50px; }
+.nu-btn.sel { background: #2563eb; color: white; }
+.break-btn { background: #16a34a; color: white; }
+#canvas-wrapper { width: 100%; overflow-x: auto; margin: 15px 0; }
+canvas { display: block; margin: 0 auto; border: 1px solid #ccc; max-width: 100%; height: auto; }
+.info { background: #e3f2fd; padding: 12px; border-radius: 5px; margin: 15px 0; font-size: 14px; }
+@media (max-width: 600px) {
+  body { padding: 5px; }
+  .container { padding: 10px; }
+  h2 { font-size: 1.1em; }
+  button { padding: 10px 14px; font-size: 14px; margin: 3px; }
+  .info { font-size: 13px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+<h2>Symmetry Breaking in Twisted Bilayer Graphene</h2>
+<p>4-fold degenerate flat band with exchange interactions</p>
+
+<div class="controls">
+<label>Filling factor ν:</label><br>
+<button class="nu-btn sel" onclick="setFilling(1)">1</button>
+<button class="nu-btn" onclick="setFilling(2)">2</button>
+<button class="nu-btn" onclick="setFilling(3)">3</button>
+<button class="nu-btn" onclick="setFilling(4)">4</button>
+<br><br>
+<button class="break-btn" onclick="toggle()">Break Symmetry</button>
+</div>
+
+<div id="canvas-wrapper">
+<canvas id="c" width="800" height="400"></canvas>
+</div>
+
+<div class="info" id="info"></div>
+</div>
+
+<script>
+var filling = 1;
+var broken = 0;
+var canvas = document.getElementById('c');
+var ctx = canvas.getContext('2d');
+
+var cols = ['#3b82f6', '#60a5fa', '#ef4444', '#f87171'];
+var labs = ['K↑', 'K↓', 'K\'↑', 'K\'↓'];
+
+function setFilling(n) {
+  filling = n;
+  var btns = document.querySelectorAll('.nu-btn');
+  for (var i = 0; i < 4; i++) {
+    btns[i].className = 'nu-btn';
+  }
+  btns[n-1].className = 'nu-btn sel';
+  redraw();
+}
+
+function toggle() {
+  broken = 1 - broken;
+  document.querySelector('.break-btn').textContent = broken ? 'Reset' : 'Break Symmetry';
+  redraw();
+}
+
+function box(x, y, w, h, col, fill) {
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 3;
+  ctx.fillStyle = 'white';
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeRect(x, y, w, h);
+  
+  if (fill > 0) {
+    ctx.fillStyle = col;
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(x+3, y+h-fill+3, w-6, fill-6);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function redraw() {
+  ctx.clearRect(0, 0, 800, 400);
+  ctx.fillStyle = '#333';
+  ctx.font = '16px Arial';
+  
+  var bw = 60;
+  var bh = 120;
+  var gap = 15;
+  var x0 = 50;
+  var y0 = 200;
+  
+  ctx.textAlign = 'center';
+  ctx.fillText('Degenerate', x0 + 130, 40);
+  
+  var fh = bh * filling / 4;
+  for (var i = 0; i < 4; i++) {
+    var x = x0 + i * (bw + gap);
+    box(x, y0 - bh/2, bw, bh, cols[i], fh);
+    ctx.fillStyle = '#333';
+    ctx.fillText(labs[i], x + bw/2, y0);
+  }
+  
+  ctx.strokeStyle = '#059669';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 3]);
+  ctx.beginPath();
+  ctx.moveTo(x0 - 10, y0 + bh/2 - fh);
+  ctx.lineTo(x0 + 4*bw + 3*gap + 10, y0 + bh/2 - fh);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  
+  var x1 = 450;
+  
+  if (broken) {
+    ctx.fillStyle = '#333';
+    ctx.fillText('Broken (ν=' + filling + ')', x1 + 130, 40);
+    
+    var gsz = 40;
+    for (var i = 0; i < filling; i++) {
+      var x = x1 + i * (bw + gap);
+      box(x, y0 + gsz/2, bw, bh, cols[i], bh);
+      ctx.fillStyle = '#333';
+      ctx.fillText(labs[i], x + bw/2, y0 + gsz/2 + bh/2);
+    }
+    
+    for (var i = filling; i < 4; i++) {
+      var x = x1 + i * (bw + gap);
+      box(x, y0 - gsz/2 - bh, bw, bh, cols[i], 0);
+      ctx.fillStyle = '#333';
+      ctx.fillText(labs[i], x + bw/2, y0 - gsz/2 - bh/2);
+    }
+    
+    if (filling < 4) {
+      ctx.strokeStyle = '#059669';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 3]);
+      ctx.beginPath();
+      ctx.moveTo(x1 - 10, y0);
+      ctx.lineTo(x1 + 4*bw + 3*gap + 10, y0);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      ctx.strokeStyle = '#dc2626';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x1 + 4*bw + 3*gap + 30, y0 - gsz/2);
+      ctx.lineTo(x1 + 4*bw + 3*gap + 30, y0 + gsz/2);
+      ctx.stroke();
+      
+      ctx.fillStyle = '#dc2626';
+      ctx.font = 'bold 18px Arial';
+      ctx.fillText('Δ', x1 + 4*bw + 3*gap + 50, y0);
+    }
+  } else {
+    ctx.fillStyle = '#333';
+    ctx.font = '16px Arial';
+    ctx.fillText('Degenerate', x1 + 130, 40);
+    
+    for (var i = 0; i < 4; i++) {
+      var x = x1 + i * (bw + gap);
+      box(x, y0 - bh/2, bw, bh, cols[i], fh);
+      ctx.fillStyle = '#333';
+      ctx.fillText(labs[i], x + bw/2, y0);
+    }
+    
+    ctx.strokeStyle = '#059669';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x1 - 10, y0 + bh/2 - fh);
+    ctx.lineTo(x1 + 4*bw + 3*gap + 10, y0 + bh/2 - fh);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  
+  var msgs = [
+    '',
+    'nu=1: One flavor occupied, exchange splits bands → insulator',
+    'nu=2: Two flavors filled, Hund-type coupling → gap opens',
+    'nu=3: Three flavors filled, particle-hole symmetric to nu=1',
+    'nu=4: All flavors filled → conventional band insulator'
+  ];
+  document.getElementById('info').textContent = msgs[filling];
+}
+
+redraw();
+</script>
+</body>
+</html>
