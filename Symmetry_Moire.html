@@ -15,13 +15,11 @@ button { padding: 12px 18px; margin: 4px; border: none; border-radius: 5px; curs
 .break-btn { background: #16a34a; color: white; }
 #canvas-wrapper { width: 100%; overflow-x: auto; margin: 15px 0; }
 canvas { display: block; margin: 0 auto; border: 1px solid #ccc; max-width: 100%; height: auto; }
-.info { background: #e3f2fd; padding: 12px; border-radius: 5px; margin: 15px 0; font-size: 14px; }
 @media (max-width: 600px) {
   body { padding: 5px; }
   .container { padding: 10px; }
   h2 { font-size: 1.1em; }
   button { padding: 10px 14px; font-size: 14px; margin: 3px; }
-  .info { font-size: 13px; }
 }
 </style>
 </head>
@@ -29,6 +27,7 @@ canvas { display: block; margin: 0 auto; border: 1px solid #ccc; max-width: 100%
 <div class="container">
 <h2>Symmetry Breaking in Twisted Bilayer Graphene</h2>
 <p>4-fold degenerate flat band with exchange interactions</p>
+<p style="color: #666; font-style: italic; margin: 5px 0;">Assuming valley polarization first</p>
 
 <div class="controls">
 <label>Filling factor ν:</label><br>
@@ -43,8 +42,6 @@ canvas { display: block; margin: 0 auto; border: 1px solid #ccc; max-width: 100%
 <div id="canvas-wrapper">
 <canvas id="c" width="800" height="400"></canvas>
 </div>
-
-<div class="info" id="info"></div>
 </div>
 
 <script>
@@ -181,15 +178,6 @@ function redraw() {
     ctx.stroke();
     ctx.setLineDash([]);
   }
-  
-  var msgs = [
-    '',
-    'nu=1: One flavor occupied, exchange splits bands → insulator',
-    'nu=2: Two flavors filled, Hund-type coupling → gap opens',
-    'nu=3: Three flavors filled, particle-hole symmetric to nu=1',
-    'nu=4: All flavors filled → conventional band insulator'
-  ];
-  document.getElementById('info').textContent = msgs[filling];
 }
 
 redraw();
