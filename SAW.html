@@ -56,6 +56,7 @@
             const canvasRef = useRef(null);
             const containerRef = useRef(null);
             const [amplitude, setAmplitude] = useState(0.5);
+            const [wavelengthMultiplier, setWavelengthMultiplier] = useState(1.0);
             const [showStrain, setShowStrain] = useState(false);
             const timeRef = useRef(0);
             const animationRef = useRef(null);
@@ -88,7 +89,7 @@
                     const spacingX = width / (nX + 2);
                     const spacingY = height / (nY + 5);
                     
-                    const wavelength = 8 * spacingX;
+                    const wavelength = 8 * spacingX * wavelengthMultiplier;
                     const k = (2 * Math.PI) / wavelength;
                     const omega = 0.06;
                     
@@ -195,7 +196,7 @@
                         cancelAnimationFrame(animationRef.current);
                     }
                 };
-            }, [amplitude, showStrain]);
+            }, [amplitude, wavelengthMultiplier, showStrain]);
 
             return (
                 <div className="w-full h-screen bg-gray-50 flex flex-col">
@@ -205,19 +206,43 @@
                         </h1>
                         
                         <div className="max-w-2xl mx-auto px-2 sm:px-4 space-y-4">
-                            <input
-                                type="range"
-                                min="0"
-                                max="1.5"
-                                step="0.01"
-                                value={amplitude}
-                                onChange={(e) => setAmplitude(parseFloat(e.target.value))}
-                                className="w-full h-3 sm:h-4 bg-gradient-to-r from-blue-200 to-blue-400 rounded-lg appearance-none cursor-pointer"
-                                style={{
-                                    WebkitAppearance: 'none',
-                                    appearance: 'none',
-                                }}
-                            />
+                            <div>
+                                <label className="text-gray-700 text-sm font-semibold mb-2 block">
+                                    Amplitude
+                                </label>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1.5"
+                                    step="0.01"
+                                    value={amplitude}
+                                    onChange={(e) => setAmplitude(parseFloat(e.target.value))}
+                                    className="w-full h-3 sm:h-4 bg-gradient-to-r from-blue-200 to-blue-400 rounded-lg appearance-none cursor-pointer"
+                                    style={{
+                                        WebkitAppearance: 'none',
+                                        appearance: 'none',
+                                    }}
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="text-gray-700 text-sm font-semibold mb-2 block">
+                                    Wavelength
+                                </label>
+                                <input
+                                    type="range"
+                                    min="0.5"
+                                    max="2.5"
+                                    step="0.1"
+                                    value={wavelengthMultiplier}
+                                    onChange={(e) => setWavelengthMultiplier(parseFloat(e.target.value))}
+                                    className="w-full h-3 sm:h-4 bg-gradient-to-r from-purple-200 to-purple-400 rounded-lg appearance-none cursor-pointer"
+                                    style={{
+                                        WebkitAppearance: 'none',
+                                        appearance: 'none',
+                                    }}
+                                />
+                            </div>
                             
                             <div className="flex justify-center">
                                 <button
