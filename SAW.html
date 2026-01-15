@@ -128,15 +128,19 @@
                             if (showStrain) {
                                 const strain = -amplitude * Math.sin(phase) * decayFactor;
                                 
-                                if (strain > 0) {
-                                    const intensity = Math.min(1, strain * 2);
+                                // Positive strain (hills/extension) = tension = RED
+                                // Negative strain (valleys/compression) = compression = BLUE
+                                if (strain < 0) {
+                                    // Tension - red
+                                    const intensity = Math.min(1, -strain * 2);
                                     baseColor = {
                                         r: 120 + Math.floor(135 * intensity),
                                         g: 120 - Math.floor(70 * intensity),
                                         b: 130 - Math.floor(80 * intensity)
                                     };
                                 } else {
-                                    const intensity = Math.min(1, -strain * 2);
+                                    // Compression - blue
+                                    const intensity = Math.min(1, strain * 2);
                                     baseColor = {
                                         r: 120 - Math.floor(70 * intensity),
                                         g: 120 - Math.floor(30 * intensity),
@@ -231,8 +235,8 @@
                                 </label>
                                 <input
                                     type="range"
-                                    min="1.2"
-                                    max="2.6"
+                                    min="0.5"
+                                    max="2.5"
                                     step="0.1"
                                     value={wavelengthMultiplier}
                                     onChange={(e) => setWavelengthMultiplier(parseFloat(e.target.value))}
@@ -285,5 +289,3 @@
     </script>
 </body>
 </html>
-
-
