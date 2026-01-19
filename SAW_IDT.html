@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAW Generation via IDT</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #111827;
+            color: white;
+            padding: 1rem;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        h1 {
+            font-size: clamp(1rem, 4vw, 1.5rem);
+        }
+        
+        .controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        button {
+            padding: 0.5rem;
+            background-color: #2563eb;
+            border: none;
+            border-radius: 0.375rem;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2.5rem;
+            min-height: 2.5rem;
+        }
+        
+        button:hover {
+            background-color: #1d4ed8;
+        }
+        
+        button.reset {
+            background-color: #4b5563;
+        }
+        
+        button.reset:hover {
+            background-color: #374151;
+        }
+        
+        .canvas-container {
+            width: 100%;
+            background-color: #1f2937;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        
+        svg {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        @media (max-width: 640px) {
+            body {
+                padding: 0.5rem;
+            }
+            
+            .header {
+                gap: 0.5rem;
+            }
+            
+            button {
+                min-width: 2rem;
+                min-height: 2rem;
+                padding: 0.375rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>SAW Generation via IDT</h1>
+            <div class="controls">
+                <button id="playBtn" aria-label="Play/Pause">
+                    <svg id="playIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    <svg id="pauseIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
+                        <rect x="6" y="4" width="4" height="16"></rect>
+                        <rect x="14" y="4" width="4" height="16"></rect>
+                    </svg>
+                </button>
+                <button id="resetBtn" class="reset" aria-label="Reset">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="1 4 1 10 7 10"></polyline>
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <svg id="mainSvg" viewBox="0 0 800 550" preserveAspectRatio="xMidYMid meet">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#888" />
+                    </marker>
+                    <marker id="field-arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+                        <polygon points="0 0, 10 5, 0 10" fill="#fbbf24" />
+                    </marker>
+                </defs>
+                
+                <!-- Interface line -->
+                <line x1="150" y1="200" x2="650" y2="200" stroke="#666" stroke-width="1" stroke-dasharray="5,5" />
+
+                <!-- Wavelength indicator -->
+                <line x1="200" y1="150" x2="340" y2="150" stroke="#ff69b4" stroke-width="2" />
+                <line x1="200" y1="145" x2="200" y2="155" stroke="#ff69b4" stroke-width="2" />
+                <line x1="340" y1="145" x2="340" y2="155" stroke="#ff69b4" stroke-width="2" />
+                <text x="258" y="140" fill="#ff69b4" font-size="20" font-style="italic" text-anchor="middle">λ</text>
+
+                <!-- Field lines group -->
+                <g id="fieldLines"></g>
+
+                <!-- Electrodes group -->
+                <g id="electrodes"></g>
+
+                <!-- Mesh group -->
+                <g id="mesh"></g>
+            </svg>
+        </div>
+    </div>
+
+    <script>
+        const lambda = 140;
+        const width = 800;
+        const height = 550;
+        const substrateTop = 200;
+        const idtY = substrateTop;
+        const substrateBottom = 450;
+        const vacuumTop = 50;
+        
+        let time = 0;
+        let isPlaying = false;
+        let waveStartTime = null;
+        let animationId = null;
+        
+        const fingers = [
+            { x: 200, basePolarity: 1 },
+            { x: 200 + lambda/2, basePolarity: -1 },
+            { x: 200 + lambda, basePolarity: 1 },
+            { x: 200 + 3*lambda/2, basePolarity: -1 }
+        ];
+        
+        function getLocalField(x) {
+            if (!isPlaying) return 0;
+            
+            const idtLeft = fingers[0].x - 40;
+            const idtRight = fingers[fingers.length - 1].x + 40;
+            const rfAmplitude = Math.cos(time);
+            
+            if (x >= idtLeft && x <= idtRight) {
+                let minDist = Infinity;
+                let nearestPolarity = 0;
+                
+                for (let finger of fingers) {
+                    const dist = Math.abs(x - finger.x);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearestPolarity = finger.basePolarity;
+                    }
+                }
+                
+                const fieldStrength = rfAmplitude * nearestPolarity;
+                const spatialEnvelope = Math.exp(-minDist / (lambda / 4));
+                
+                return fieldStrength * spatialEnvelope;
+            } else {
+                const elapsedTime = waveStartTime !== null ? (time - waveStartTime + 2 * Math.PI) % (2 * Math.PI) : 0;
+                const distFromIDT = x < idtLeft ? (idtLeft - x) : (x - idtRight);
+                
+                const waveSpeed = lambda / (2 * Math.PI);
+                const waveFront = elapsedTime * waveSpeed * 50;
+                
+                if (distFromIDT > waveFront) return 0;
+                
+                const phase = (2 * Math.PI * distFromIDT / lambda) - time;
+                const amplitude = Math.exp(-distFromIDT / (lambda * 4));
+                
+                return amplitude * Math.sin(phase);
+            }
+        }
+        
+        function drawMesh() {
+            const meshGroup = document.getElementById('mesh');
+            meshGroup.innerHTML = '';
+            
+            const numDepthLines = 12;
+            const numLateralPoints = 60;
+            
+            // Horizontal lines
+            for (let i = 0; i <= numDepthLines; i++) {
+                const z = substrateTop + (substrateBottom - substrateTop) * (i / numDepthLines);
+                const points = [];
+                for (let j = 0; j <= numLateralPoints; j++) {
+                    const x = 150 + (width - 300) * (j / numLateralPoints);
+                    const field = getLocalField(x);
+                    const amplitude = 15;
+                    const depthDecay = Math.exp(-(z - substrateTop) / (lambda * 0.4));
+                    const deform = amplitude * field * depthDecay;
+                    points.push(`${x},${z + deform}`);
+                }
+                
+                const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                polyline.setAttribute('points', points.join(' '));
+                polyline.setAttribute('fill', 'none');
+                polyline.setAttribute('stroke', '#4ade80');
+                polyline.setAttribute('stroke-width', '1.2');
+                polyline.setAttribute('opacity', '0.7');
+                meshGroup.appendChild(polyline);
+            }
+            
+            // Vertical lines
+            for (let j = 0; j <= 25; j++) {
+                const x = 150 + (width - 300) * (j / 25);
+                const points = [];
+                for (let i = 0; i <= 25; i++) {
+                    const z = substrateTop + (substrateBottom - substrateTop) * (i / 25);
+                    const field = getLocalField(x);
+                    const amplitude = 15;
+                    const depthDecay = Math.exp(-(z - substrateTop) / (lambda * 0.4));
+                    const deform = amplitude * field * depthDecay;
+                    points.push(`${x},${z + deform}`);
+                }
+                
+                const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                polyline.setAttribute('points', points.join(' '));
+                polyline.setAttribute('fill', 'none');
+                polyline.setAttribute('stroke', '#4ade80');
+                polyline.setAttribute('stroke-width', '1');
+                polyline.setAttribute('opacity', '0.5');
+                meshGroup.appendChild(polyline);
+            }
+        }
+        
+        function drawElectrodes() {
+            const electrodesGroup = document.getElementById('electrodes');
+            electrodesGroup.innerHTML = '';
+            
+            const rfAmplitude = isPlaying ? Math.cos(time) : 0;
+            
+            fingers.forEach((finger, idx) => {
+                const instantaneousPolarity = finger.basePolarity * rfAmplitude;
+                const isPositive = instantaneousPolarity > 0;
+                const intensity = Math.abs(rfAmplitude);
+                
+                const r = isPositive ? 59 : 239;
+                const g = isPositive ? 130 : 68;
+                const b = isPositive ? 246 : 68;
+                const alpha = 0.5 + 0.5 * intensity;
+                
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', finger.x - 20);
+                rect.setAttribute('y', idtY - 30);
+                rect.setAttribute('width', 40);
+                rect.setAttribute('height', 30);
+                rect.setAttribute('fill', `rgba(${r}, ${g}, ${b}, ${alpha})`);
+                electrodesGroup.appendChild(rect);
+                
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', finger.x);
+                text.setAttribute('y', idtY - 35);
+                text.setAttribute('fill', 'white');
+                text.setAttribute('font-size', '18');
+                text.setAttribute('font-weight', 'bold');
+                text.setAttribute('text-anchor', 'middle');
+                text.textContent = isPositive ? '+' : '−';
+                electrodesGroup.appendChild(text);
+            });
+        }
+        
+        function drawFieldLines() {
+            const fieldLinesGroup = document.getElementById('fieldLines');
+            fieldLinesGroup.innerHTML = '';
+            
+            const rfAmplitude = isPlaying ? Math.cos(time) : 0;
+            
+            for (let idx = 0; idx < fingers.length - 1; idx++) {
+                const finger = fingers[idx];
+                const nextFinger = fingers[idx + 1];
+                
+                const currentPolarity1 = finger.basePolarity * rfAmplitude;
+                const currentPolarity2 = nextFinger.basePolarity * rfAmplitude;
+                
+                if (currentPolarity1 * currentPolarity2 >= 0) continue;
+                
+                // Determine which electrode is positive NOW
+                let xPositive, xNegative;
+                if (currentPolarity1 > 0) {
+                    xPositive = finger.x;
+                    xNegative = nextFinger.x;
+                } else {
+                    xPositive = nextFinger.x;
+                    xNegative = finger.x;
+                }
+                
+                const xMid = (xPositive + xNegative) / 2;
+                const fieldStrength = Math.abs(rfAmplitude);
+                
+                // Arrow: FROM positive TO negative
+                if (fieldStrength > 0.01) {
+                    const arrowY = idtY - 15;
+                    const arrowLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    
+                    // Arrow from edge of positive electrode to edge of negative electrode
+                    const startX = xPositive < xNegative ? xPositive + 20 : xPositive - 20;
+                    const endX = xNegative < xPositive ? xNegative + 20 : xNegative - 20;
+                    
+                    arrowLine.setAttribute('x1', startX);
+                    arrowLine.setAttribute('y1', arrowY);
+                    arrowLine.setAttribute('x2', endX);
+                    arrowLine.setAttribute('y2', arrowY);
+                    arrowLine.setAttribute('stroke', '#fbbf24');
+                    arrowLine.setAttribute('stroke-width', '2');
+                    arrowLine.setAttribute('opacity', 0.9);
+                    arrowLine.setAttribute('marker-end', 'url(#field-arrow)');
+                    fieldLinesGroup.appendChild(arrowLine);
+                }
+                
+                const x1 = xPositive;
+                const x2 = xNegative;
+                
+                const penetrationDepth = lambda * 0.8; // Same geometric penetration in both directions
+                
+                // Above electrodes (vacuum) - fewer lines due to lower ε_r
+                [0.2, 0.4, 0.6, 0.8].forEach(frac => {
+                    const yStart = idtY - 5;
+                    const yEnd = idtY - 5;
+                    const depth = penetrationDepth * frac;
+                    const yControl = yStart - depth;
+                    
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', `M ${x1} ${yStart} Q ${xMid} ${yControl} ${x2} ${yEnd}`);
+                    path.setAttribute('stroke', '#60a5fa');
+                    path.setAttribute('stroke-width', '1.2');
+                    path.setAttribute('fill', 'none');
+                    path.setAttribute('opacity', 0.3 * fieldStrength);
+                    fieldLinesGroup.appendChild(path);
+                });
+                
+                // In substrate - more lines due to higher ε_r, same penetration depth
+                [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].forEach(frac => {
+                    const yStart = idtY + 10;
+                    const yEnd = idtY + 10;
+                    const depth = penetrationDepth * frac;
+                    const yControl = yStart + depth;
+                    
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', `M ${x1} ${yStart} Q ${xMid} ${yControl} ${x2} ${yEnd}`);
+                    path.setAttribute('stroke', '#60a5fa');
+                    path.setAttribute('stroke-width', '1.5');
+                    path.setAttribute('fill', 'none');
+                    path.setAttribute('opacity', 0.6 * fieldStrength);
+                    fieldLinesGroup.appendChild(path);
+                });
+            }
+        }
+        
+        function animate() {
+            if (!isPlaying) return;
+            
+            if (waveStartTime === null) {
+                waveStartTime = time;
+            }
+            
+            time = (time + 0.02) % (2 * Math.PI);
+            
+            drawFieldLines();
+            drawElectrodes();
+            drawMesh();
+            
+            animationId = requestAnimationFrame(animate);
+        }
+        
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            
+            const playIcon = document.getElementById('playIcon');
+            const pauseIcon = document.getElementById('pauseIcon');
+            
+            if (isPlaying) {
+                playIcon.style.display = 'none';
+                pauseIcon.style.display = 'block';
+                if (waveStartTime === null) {
+                    waveStartTime = null;
+                }
+                animate();
+            } else {
+                playIcon.style.display = 'block';
+                pauseIcon.style.display = 'none';
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                }
+            }
+        }
+        
+        function reset() {
+            time = 0;
+            isPlaying = false;
+            waveStartTime = null;
+            
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            
+            const playIcon = document.getElementById('playIcon');
+            const pauseIcon = document.getElementById('pauseIcon');
+            playIcon.style.display = 'block';
+            pauseIcon.style.display = 'none';
+            
+            drawFieldLines();
+            drawElectrodes();
+            drawMesh();
+        }
+        
+        document.getElementById('playBtn').addEventListener('click', togglePlay);
+        document.getElementById('resetBtn').addEventListener('click', reset);
+        
+        // Initial draw
+        drawFieldLines();
+        drawElectrodes();
+        drawMesh();
+    </script>
+</body>
+</html>
