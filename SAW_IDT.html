@@ -372,8 +372,8 @@
                 
                 // In substrate - more lines due to higher ε_r, same penetration depth
                 [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].forEach(frac => {
-                    const yStart = idtY + 10;
-                    const yEnd = idtY + 10;
+                    const yStart = idtY;
+                    const yEnd = idtY;
                     const depth = penetrationDepth * frac;
                     const yControl = yStart + depth;
                     
