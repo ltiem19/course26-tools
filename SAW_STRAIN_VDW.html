@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rayleigh Surface Acoustic Wave Visualization</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+
+        const SAWVisualization = () => {
+            const canvasRef = useRef(null);
+            const containerRef = useRef(null);
+            const [showStrain, setShowStrain] = useState(false);
+            const [showField, setShowField] = useState(false);
+            const [showVdWLayer, setShowVdWLayer] = useState(false);
+            const [sawActive, setSawActive] = useState(false);
+            const timeRef = useRef(0);
+            const animationRef = useRef(null);
+
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                const container = containerRef.current;
+                if (!canvas || !container) return;
+                
+                const amplitude = 1.5;
+                const wavelengthMultiplier = 2.6;
+                
+                const updateCanvasSize = () => {
+                    const rect = container.getBoundingClientRect();
+                    canvas.width = rect.width;
+                    canvas.height = rect.height;
+                };
+                
+                updateCanvasSize();
+                window.addEventListener('resize', updateCanvasSize);
+                
+                const ctx = canvas.getContext('2d');
+                
+                const animate = () => {
+                    if (sawActive) {
+                        timeRef.current += 1;
+                    }
+                    
+                    const width = canvas.width;
+                    const height = canvas.height;
+                    
+                    const baseSpacing = Math.min(width, height) / 35;
+                    const nX = Math.floor(width / baseSpacing) - 2;
+                    const nY = Math.floor(height / baseSpacing * 0.6);
+                    const spacingX = width / (nX + 2);
+                    const spacingY = height / (nY + 5);
+                    
+                    const wavelength = 8 * spacingX * wavelengthMultiplier;
+                    const k = (2 * Math.PI) / wavelength;
+                    const omega = 0.06;
+                    
+                    const t = timeRef.current;
+                    
+                    const gradient = ctx.createLinearGradient(0, 0, 0, height);
+                    gradient.addColorStop(0, '#f8f9fa');
+                    gradient.addColorStop(1, '#e9ecef');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, width, height);
+                    
+                    const surfaceY = height * 0.4;
+                    
+                    // Draw electric field if enabled
+                    if (showField) {
+                        const fieldSamples = Math.floor(width / (spacingX * 0.5));
+                        const vacuumPenetration = wavelength / (2 * Math.PI) * 0.4;
+                        
+                        for (let sample = 0; sample < fieldSamples; sample++) {
+                            const x = (sample / fieldSamples) * width;
+                            const phase = k * x - omega * t;
+                            const strain = sawActive ? -amplitude * Math.sin(phase) : 0;
+                            
+                            const intensity = Math.abs(strain) * 0.7;
+                            
+                            const fieldGradient = ctx.createLinearGradient(
+                                x, surfaceY - vacuumPenetration,
+                                x, surfaceY + spacingY * 4
+                            );
+                            
+                            if (strain < 0) {
+                                fieldGradient.addColorStop(0, `rgba(255, 220, 100, 0)`);
+                                fieldGradient.addColorStop(0.25, `rgba(255, 200, 80, ${intensity * 0.5})`);
+                                fieldGradient.addColorStop(0.5, `rgba(255, 200, 80, ${intensity * 0.8})`);
+                                fieldGradient.addColorStop(0.7, `rgba(255, 220, 100, ${intensity * 0.4})`);
+                                fieldGradient.addColorStop(1, `rgba(255, 220, 100, 0)`);
+                            } else {
+                                fieldGradient.addColorStop(0, `rgba(100, 220, 255, 0)`);
+                                fieldGradient.addColorStop(0.25, `rgba(80, 200, 255, ${intensity * 0.5})`);
+                                fieldGradient.addColorStop(0.5, `rgba(80, 200, 255, ${intensity * 0.8})`);
+                                fieldGradient.addColorStop(0.7, `rgba(100, 220, 255, ${intensity * 0.4})`);
+                                fieldGradient.addColorStop(1, `rgba(100, 220, 255, 0)`);
+                            }
+                            
+                            ctx.fillStyle = fieldGradient;
+                            const barWidth = width / fieldSamples + 1;
+                            ctx.fillRect(x, surfaceY - vacuumPenetration, barWidth, vacuumPenetration + spacingY * 4);
+                        }
+                    }
+                    
+                    // Draw vdW layer if enabled
+                    if (showVdWLayer) {
+                        const layerWidth = width * 0.6; // 60% of window width
+                        const layerStartX = width * 0.2; // Start at 20% from left
+                        const layerSamples = Math.floor(nX * 2.4);
+                        const layerThickness = spacingY * 0.15;
+                        const vdWGap = spacingY * 0.3;
+                        
+                        // Draw layer in segments if strain is shown, otherwise draw as one piece
+                        if (showStrain && sawActive) {
+                            const segments = 100;
+                            for (let seg = 0; seg < segments; seg++) {
+                                const segStartRatio = seg / segments;
+                                const segEndRatio = (seg + 1) / segments;
+                                
+                                const xCenter = layerStartX + (segStartRatio + segEndRatio) / 2 * layerWidth;
+                                const phase = k * xCenter - omega * t;
+                                const strain = -amplitude * Math.sin(phase);
+                                
+                                ctx.beginPath();
+                                
+                                // Top edge
+                                for (let i = 0; i <= 2; i++) {
+                                    const ratio = segStartRatio + i * (segEndRatio - segStartRatio) / 2;
+                                    const x = layerStartX + ratio * layerWidth;
+                                    const localPhase = k * x - omega * t;
+                                    const surfaceDisplacement = -amplitude * spacingY * 0.8 * Math.sin(localPhase);
+                                    const y = surfaceY + surfaceDisplacement - vdWGap;
+                                    
+                                    if (i === 0) {
+                                        ctx.moveTo(x, y);
+                                    } else {
+                                        ctx.lineTo(x, y);
+                                    }
+                                }
+                                
+                                // Bottom edge
+                                for (let i = 2; i >= 0; i--) {
+                                    const ratio = segStartRatio + i * (segEndRatio - segStartRatio) / 2;
+                                    const x = layerStartX + ratio * layerWidth;
+                                    const localPhase = k * x - omega * t;
+                                    const surfaceDisplacement = -amplitude * spacingY * 0.8 * Math.sin(localPhase);
+                                    const y = surfaceY + surfaceDisplacement - vdWGap - layerThickness;
+                                    ctx.lineTo(x, y);
+                                }
+                                
+                                ctx.closePath();
+                                
+                                // Color based on strain
+                                let baseColor;
+                                if (strain < 0) {
+                                    // Tension - slight red tint
+                                    const intensity = Math.min(0.4, -strain * 0.8);
+                                    baseColor = {
+                                        r: 160 + Math.floor(95 * intensity),
+                                        g: 160 - Math.floor(50 * intensity),
+                                        b: 165 - Math.floor(60 * intensity)
+                                    };
+                                } else {
+                                    // Compression - slight blue tint
+                                    const intensity = Math.min(0.4, strain * 0.8);
+                                    baseColor = {
+                                        r: 160 - Math.floor(50 * intensity),
+                                        g: 160 - Math.floor(20 * intensity),
+                                        b: 165 + Math.floor(90 * intensity)
+                                    };
+                                }
+                                
+                                ctx.fillStyle = `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, 0.75)`;
+                                ctx.fill();
+                            }
+                            
+                            // Draw outline
+                            ctx.strokeStyle = 'rgba(80, 80, 90, 0.9)';
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            for (let i = 0; i <= layerSamples; i++) {
+                                const x = layerStartX + (i / layerSamples) * layerWidth;
+                                const phase = k * x - omega * t;
+                                const surfaceDisplacement = sawActive ? -amplitude * spacingY * 0.8 * Math.sin(phase) : 0;
+                                const y = surfaceY + surfaceDisplacement - vdWGap;
+                                
+                                if (i === 0) {
+                                    ctx.moveTo(x, y);
+                                } else {
+                                    ctx.lineTo(x, y);
+                                }
+                            }
+                            ctx.stroke();
+                        } else {
+                            // Draw as uniform gray layer when strain not shown
+                            ctx.beginPath();
+                            
+                            for (let i = 0; i <= layerSamples; i++) {
+                                const x = layerStartX + (i / layerSamples) * layerWidth;
+                                const phase = k * x - omega * t;
+                                const surfaceDisplacement = sawActive ? -amplitude * spacingY * 0.8 * Math.sin(phase) : 0;
+                                const y = surfaceY + surfaceDisplacement - vdWGap;
+                                
+                                if (i === 0) {
+                                    ctx.moveTo(x, y);
+                                } else {
+                                    ctx.lineTo(x, y);
+                                }
+                            }
+                            
+                            for (let i = layerSamples; i >= 0; i--) {
+                                const x = layerStartX + (i / layerSamples) * layerWidth;
+                                const phase = k * x - omega * t;
+                                const surfaceDisplacement = sawActive ? -amplitude * spacingY * 0.8 * Math.sin(phase) : 0;
+                                const y = surfaceY + surfaceDisplacement - vdWGap - layerThickness;
+                                ctx.lineTo(x, y);
+                            }
+                            
+                            ctx.closePath();
+                            
+                            const layerGradient = ctx.createLinearGradient(0, surfaceY - vdWGap - layerThickness, 0, surfaceY - vdWGap);
+                            layerGradient.addColorStop(0, 'rgba(140, 140, 145, 0.7)');
+                            layerGradient.addColorStop(0.5, 'rgba(160, 160, 165, 0.8)');
+                            layerGradient.addColorStop(1, 'rgba(120, 120, 130, 0.75)');
+                            ctx.fillStyle = layerGradient;
+                            ctx.fill();
+                            
+                            ctx.strokeStyle = 'rgba(80, 80, 90, 0.9)';
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            for (let i = 0; i <= layerSamples; i++) {
+                                const x = layerStartX + (i / layerSamples) * layerWidth;
+                                const phase = k * x - omega * t;
+                                const surfaceDisplacement = sawActive ? -amplitude * spacingY * 0.8 * Math.sin(phase) : 0;
+                                const y = surfaceY + surfaceDisplacement - vdWGap;
+                                
+                                if (i === 0) {
+                                    ctx.moveTo(x, y);
+                                } else {
+                                    ctx.lineTo(x, y);
+                                }
+                            }
+                            ctx.stroke();
+                        }
+                    }
+                    
+                    // Draw atoms
+                    for (let iy = 0; iy < nY; iy++) {
+                        for (let ix = 0; ix < nX; ix++) {
+                            const x0 = spacingX * (ix + 1);
+                            const y0 = surfaceY + spacingY * (iy + 1);
+                            
+                            const depth = iy * spacingY;
+                            
+                            const penetrationScale = 0.3 + (1.5 - amplitude) * 0.5;
+                            const decayFactor = Math.exp(-k * depth * penetrationScale);
+                            
+                            const phase = k * x0 - omega * t;
+                            
+                            const ux = sawActive ? amplitude * spacingX * 0.15 * decayFactor * Math.cos(phase) : 0;
+                            const uy = sawActive ? -amplitude * spacingY * 0.8 * decayFactor * Math.sin(phase) : 0;
+                            
+                            const x = x0 + ux;
+                            const y = y0 + uy;
+                            
+                            const atomRadius = Math.max(3, baseSpacing * 0.2);
+                            
+                            let baseColor = { r: 120, g: 120, b: 130 };
+                            
+                            if (showStrain) {
+                                const strain = sawActive ? -amplitude * Math.sin(phase) * decayFactor : 0;
+                                
+                                if (strain < 0) {
+                                    const intensity = Math.min(1, -strain * 2);
+                                    baseColor = {
+                                        r: 120 + Math.floor(135 * intensity),
+                                        g: 120 - Math.floor(70 * intensity),
+                                        b: 130 - Math.floor(80 * intensity)
+                                    };
+                                } else {
+                                    const intensity = Math.min(1, strain * 2);
+                                    baseColor = {
+                                        r: 120 - Math.floor(70 * intensity),
+                                        g: 120 - Math.floor(30 * intensity),
+                                        b: 130 + Math.floor(125 * intensity)
+                                    };
+                                }
+                            }
+                            
+                            const atomGradient = ctx.createRadialGradient(
+                                x - atomRadius * 0.3, 
+                                y - atomRadius * 0.3, 
+                                0, 
+                                x, 
+                                y, 
+                                atomRadius
+                            );
+                            
+                            atomGradient.addColorStop(0, `rgb(${baseColor.r + 40}, ${baseColor.g + 40}, ${baseColor.b + 40})`);
+                            atomGradient.addColorStop(0.7, `rgb(${baseColor.r}, ${baseColor.g}, ${baseColor.b})`);
+                            atomGradient.addColorStop(1, `rgb(${baseColor.r - 30}, ${baseColor.g - 30}, ${baseColor.b - 30})`);
+                            
+                            ctx.fillStyle = atomGradient;
+                            ctx.beginPath();
+                            ctx.arc(x, y, atomRadius, 0, 2 * Math.PI);
+                            ctx.fill();
+                            
+                            ctx.fillStyle = `rgba(255, 255, 255, ${0.4 * decayFactor})`;
+                            ctx.beginPath();
+                            ctx.arc(x - atomRadius * 0.35, y - atomRadius * 0.35, atomRadius * 0.3, 0, 2 * Math.PI);
+                            ctx.fill();
+                            
+                            if (showStrain) {
+                                const strain = sawActive ? -amplitude * Math.sin(phase) * decayFactor : 0;
+                                if (strain < 0) {
+                                    ctx.strokeStyle = `rgba(255, 100, 100, ${0.3 * Math.abs(strain)})`;
+                                } else {
+                                    ctx.strokeStyle = `rgba(100, 150, 255, ${0.3 * Math.abs(strain)})`;
+                                }
+                                ctx.lineWidth = 1.5;
+                                ctx.beginPath();
+                                ctx.arc(x, y, atomRadius + 1, 0, 2 * Math.PI);
+                                ctx.stroke();
+                            }
+                        }
+                    }
+                    
+                    animationRef.current = requestAnimationFrame(animate);
+                };
+                
+                animate();
+                
+                return () => {
+                    window.removeEventListener('resize', updateCanvasSize);
+                    if (animationRef.current) {
+                        cancelAnimationFrame(animationRef.current);
+                    }
+                };
+            }, [showStrain, showField, showVdWLayer, sawActive]);
+
+            return (
+                <div className="w-full h-screen bg-gray-50 flex flex-col">
+                    <div className="bg-white border-b border-gray-200 p-4 sm:p-6 shadow-sm">
+                        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-1 text-center">
+                            Rayleigh Surface Acoustic Wave
+                        </h1>
+                        <p className="text-xs sm:text-sm text-gray-500 text-center mb-4 italic">
+                            Considerably more complex in reality than in this artistic representation
+                        </p>
+                        
+                        <div className="max-w-3xl mx-auto flex flex-wrap justify-center gap-2">
+                            <button
+                                onClick={() => setSawActive(!sawActive)}
+                                className={`px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all ${
+                                    sawActive 
+                                        ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg' 
+                                        : 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg'
+                                }`}
+                            >
+                                SAW {sawActive ? 'ON' : 'OFF'}
+                            </button>
+                            
+                            <button
+                                onClick={() => setShowStrain(!showStrain)}
+                                className={`px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all ${
+                                    showStrain 
+                                        ? 'bg-gradient-to-r from-blue-500 to-red-500 text-white shadow-lg' 
+                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                            >
+                                {showStrain ? 'Hide' : 'Show'} Strain
+                            </button>
+                            
+                            <button
+                                onClick={() => setShowField(!showField)}
+                                className={`px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all ${
+                                    showField 
+                                        ? 'bg-gradient-to-r from-cyan-500 to-yellow-500 text-white shadow-lg' 
+                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                            >
+                                {showField ? 'Hide' : 'Show'} Piezo Field
+                            </button>
+                            
+                            <button
+                                onClick={() => setShowVdWLayer(!showVdWLayer)}
+                                className={`px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all ${
+                                    showVdWLayer 
+                                        ? 'bg-gradient-to-r from-blue-400 to-blue-600 text-white shadow-lg' 
+                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                            >
+                                {showVdWLayer ? 'Hide' : 'Show'} vdW Layer
+                            </button>
+                        </div>
+                        
+                        <div className="mt-3 h-6 flex flex-wrap justify-center gap-4 text-xs sm:text-sm text-gray-600">
+                            {showStrain && (
+                                <>
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                                        Compression
+                                    </span>
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-3 h-3 rounded-full bg-red-500"></span>
+                                        Tension
+                                    </span>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    <div ref={containerRef} className="flex-1 overflow-hidden">
+                        <canvas 
+                            ref={canvasRef}
+                            className="w-full h-full"
+                        />
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<SAWVisualization />, document.getElementById('root'));
+    </script>
+</body>
+</html>
