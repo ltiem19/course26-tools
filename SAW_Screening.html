@@ -55,7 +55,7 @@
                 if (!canvas || !container) return;
                 
                 const amplitude = 1.8; // Strong but not artifactual
-                const wavelengthMultiplier = 2.6;
+                const wavelengthMultiplier = 2.0; // Shorter wavelength
                 
                 const updateCanvasSize = () => {
                     const rect = container.getBoundingClientRect();
@@ -98,26 +98,25 @@
                     const screeningFactor = conductivity;
                     
                     // vdW layer position
-                    const layerWidth = width * 0.6;
-                    const layerStartX = width * 0.2;
+                    const layerWidth = width * 0.5; // Slightly narrower
+                    const layerStartX = width * 0.35; // Shifted right
                     const layerEndX = layerStartX + layerWidth;
                     
-                    // Function to get attenuation at position x (with energy loss)
+                    // Function to get cumulative amplitude reduction due to propagation through lossy region
+                    // This accounts for the wave having traveled through the dissipative region
                     const getAttenuation = (x) => {
-                        const transitionWidth = wavelength * 0.8; // Wider smooth transition
-                        
-                        if (x < layerStartX - transitionWidth) {
-                            return 1.0; // Full amplitude before layer
-                        } else if (x < layerStartX) {
-                            // Smooth transition entering layer
-                            const ratio = (x - (layerStartX - transitionWidth)) / transitionWidth;
-                            const smoothRatio = 0.5 * (1 - Math.cos(Math.PI * ratio)); // Cosine smoothing
-                            return 1.0 - smoothRatio * screeningFactor * 0.6;
+                        // Calculate how much lossy distance the wave has traveled through
+                        if (x < layerStartX) {
+                            return 1.0; // No loss before layer
                         } else if (x <= layerEndX) {
-                            return 1 - screeningFactor * 0.6; // Attenuation under vdW layer
+                            // Inside layer: exponential decay based on distance traveled inside
+                            const distanceInLayer = x - layerStartX;
+                            const dampingLength = layerWidth / (screeningFactor * 2 + 0.1); // Characteristic damping length
+                            return Math.exp(-distanceInLayer / dampingLength);
                         } else {
-                            // After layer: stays attenuated (energy dissipated)
-                            return 1 - screeningFactor * 0.6;
+                            // After layer: wave has traveled through entire layer
+                            const dampingLength = layerWidth / (screeningFactor * 2 + 0.1);
+                            return Math.exp(-layerWidth / dampingLength);
                         }
                     };
                     
