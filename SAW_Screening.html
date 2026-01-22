@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAW Piezoelectric Screening</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+            border: 3px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+            border: 3px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+
+        const SAWScreening = () => {
+            const canvasRef = useRef(null);
+            const containerRef = useRef(null);
+            const [conductivity, setConductivity] = useState(0);
+            const timeRef = useRef(0);
+            const animationRef = useRef(null);
+
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                const container = containerRef.current;
+                if (!canvas || !container) return;
+                
+                const amplitude = 1.8; // Strong but not artifactual
+                const wavelengthMultiplier = 2.6;
+                
+                const updateCanvasSize = () => {
+                    const rect = container.getBoundingClientRect();
+                    canvas.width = rect.width;
+                    canvas.height = rect.height;
+                };
+                
+                updateCanvasSize();
+                window.addEventListener('resize', updateCanvasSize);
+                
+                const ctx = canvas.getContext('2d');
+                
+                const animate = () => {
+                    timeRef.current += 1;
+                    
+                    const width = canvas.width;
+                    const height = canvas.height;
+                    
+                    const baseSpacing = Math.min(width, height) / 35;
+                    const nX = Math.floor(width / baseSpacing) - 2;
+                    const nY = Math.floor(height / baseSpacing * 0.6);
+                    const spacingX = width / (nX + 2);
+                    const spacingY = height / (nY + 5);
+                    
+                    const wavelength = 8 * spacingX * wavelengthMultiplier;
+                    const k = (2 * Math.PI) / wavelength;
+                    const omega = 0.06;
+                    
+                    const t = timeRef.current;
+                    
+                    const gradient = ctx.createLinearGradient(0, 0, 0, height);
+                    gradient.addColorStop(0, '#f8f9fa');
+                    gradient.addColorStop(1, '#e9ecef');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, width, height);
+                    
+                    const surfaceY = height * 0.4;
+                    
+                    // Screening factor: 0 = no screening, 1 = full screening
+                    const screeningFactor = conductivity;
+                    
+                    // vdW layer position
+                    const layerWidth = width * 0.6;
+                    const layerStartX = width * 0.2;
+                    const layerEndX = layerStartX + layerWidth;
+                    
+                    // Function to get attenuation at position x (with energy loss)
+                    const getAttenuation = (x) => {
+                        const transitionWidth = wavelength * 0.8; // Wider smooth transition
+                        
+                        if (x < layerStartX - transitionWidth) {
+                            return 1.0; // Full amplitude before layer
+                        } else if (x < layerStartX) {
+                            // Smooth transition entering layer
+                            const ratio = (x - (layerStartX - transitionWidth)) / transitionWidth;
+                            const smoothRatio = 0.5 * (1 - Math.cos(Math.PI * ratio)); // Cosine smoothing
+                            return 1.0 - smoothRatio * screeningFactor * 0.6;
+                        } else if (x <= layerEndX) {
+                            return 1 - screeningFactor * 0.6; // Attenuation under vdW layer
+                        } else {
+                            // After layer: stays attenuated (energy dissipated)
+                            return 1 - screeningFactor * 0.6;
+                        }
+                    };
+                    
+                    // Draw electric field with screening
+                    const fieldSamples = Math.floor(width / (spacingX * 0.5));
+                    const vacuumPenetration = wavelength / (2 * Math.PI) * 0.4;
+                    
+                    for (let sample = 0; sample < fieldSamples; sample++) {
+                        const x = (sample / fieldSamples) * width;
+                        const localAttenuation = getAttenuation(x);
+                        const phase = k * x - omega * t;
+                        const strain = -amplitude * localAttenuation * Math.sin(phase);
+                        
+                        const intensity = Math.abs(strain) * 0.7 * (1 - screeningFactor * 0.8 * (localAttenuation < 1 ? 1 : 0));
+                        
+                        const fieldGradient = ctx.createLinearGradient(
+                            x, surfaceY - vacuumPenetration,
+                            x, surfaceY + spacingY * 4
+                        );
+                        
+                        if (strain < 0) {
+                            fieldGradient.addColorStop(0, `rgba(255, 220, 100, 0)`);
+                            fieldGradient.addColorStop(0.25, `rgba(255, 200, 80, ${intensity * 0.5})`);
+                            fieldGradient.addColorStop(0.5, `rgba(255, 200, 80, ${intensity * 0.8})`);
+                            fieldGradient.addColorStop(0.7, `rgba(255, 220, 100, ${intensity * 0.4})`);
+                            fieldGradient.addColorStop(1, `rgba(255, 220, 100, 0)`);
+                        } else {
+                            fieldGradient.addColorStop(0, `rgba(100, 220, 255, 0)`);
+                            fieldGradient.addColorStop(0.25, `rgba(80, 200, 255, ${intensity * 0.5})`);
+                            fieldGradient.addColorStop(0.5, `rgba(80, 200, 255, ${intensity * 0.8})`);
+                            fieldGradient.addColorStop(0.7, `rgba(100, 220, 255, ${intensity * 0.4})`);
+                            fieldGradient.addColorStop(1, `rgba(100, 220, 255, 0)`);
+                        }
+                        
+                        ctx.fillStyle = fieldGradient;
+                        const barWidth = width / fieldSamples + 1;
+                        ctx.fillRect(x, surfaceY - vacuumPenetration, barWidth, vacuumPenetration + spacingY * 4);
+                    }
+                    
+                    // Draw vdW layer (always visible)
+                    const layerSamples = Math.floor(nX * 2.4);
+                    const layerThickness = spacingY * 0.15;
+                    const vdWGap = spacingY * 0.3;
+                    
+                    ctx.beginPath();
+                    
+                    for (let i = 0; i <= layerSamples; i++) {
+                        const x = layerStartX + (i / layerSamples) * layerWidth;
+                        const localAttenuation = getAttenuation(x);
+                        const phase = k * x - omega * t;
+                        const surfaceDisplacement = -amplitude * localAttenuation * spacingY * 0.8 * Math.sin(phase);
+                        const y = surfaceY + surfaceDisplacement - vdWGap;
+                        
+                        if (i === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    
+                    for (let i = layerSamples; i >= 0; i--) {
+                        const x = layerStartX + (i / layerSamples) * layerWidth;
+                        const localAttenuation = getAttenuation(x);
+                        const phase = k * x - omega * t;
+                        const surfaceDisplacement = -amplitude * localAttenuation * spacingY * 0.8 * Math.sin(phase);
+                        const y = surfaceY + surfaceDisplacement - vdWGap - layerThickness;
+                        ctx.lineTo(x, y);
+                    }
+                    
+                    ctx.closePath();
+                    
+                    // Layer color changes with conductivity (gray -> blue for electrons)
+                    const baseGray = 160;
+                    const blueShift = conductivity * 100;
+                    const layerGradient = ctx.createLinearGradient(0, surfaceY - vdWGap - layerThickness, 0, surfaceY - vdWGap);
+                    layerGradient.addColorStop(0, `rgba(${baseGray - 20 - blueShift * 0.3}, ${baseGray - 20 - blueShift * 0.2}, ${baseGray - 15 + blueShift * 0.8}, 0.7)`);
+                    layerGradient.addColorStop(0.5, `rgba(${baseGray - blueShift * 0.3}, ${baseGray - blueShift * 0.2}, ${baseGray + 5 + blueShift * 0.8}, 0.8)`);
+                    layerGradient.addColorStop(1, `rgba(${baseGray - 40 - blueShift * 0.3}, ${baseGray - 40 - blueShift * 0.2}, ${baseGray - 30 + blueShift * 0.8}, 0.75)`);
+                    ctx.fillStyle = layerGradient;
+                    ctx.fill();
+                    
+                    ctx.strokeStyle = `rgba(${baseGray - 60 - blueShift * 0.4}, ${baseGray - 60 - blueShift * 0.3}, ${baseGray - 50 + blueShift}, 0.9)`;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    for (let i = 0; i <= layerSamples; i++) {
+                        const x = layerStartX + (i / layerSamples) * layerWidth;
+                        const localAttenuation = getAttenuation(x);
+                        const phase = k * x - omega * t;
+                        const surfaceDisplacement = -amplitude * localAttenuation * spacingY * 0.8 * Math.sin(phase);
+                        const y = surfaceY + surfaceDisplacement - vdWGap;
+                        
+                        if (i === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    ctx.stroke();
+                    
+                    // Draw atoms
+                    for (let iy = 0; iy < nY; iy++) {
+                        for (let ix = 0; ix < nX; ix++) {
+                            const x0 = spacingX * (ix + 1);
+                            const y0 = surfaceY + spacingY * (iy + 1);
+                            
+                            const depth = iy * spacingY;
+                            
+                            const penetrationScale = 0.3 + (1.5 - amplitude) * 0.5;
+                            const decayFactor = Math.exp(-k * depth * penetrationScale);
+                            
+                            const phase = k * x0 - omega * t;
+                            
+                            const localAttenuation = getAttenuation(x0);
+                            const ux = amplitude * localAttenuation * spacingX * 0.15 * decayFactor * Math.cos(phase);
+                            const uy = -amplitude * localAttenuation * spacingY * 0.8 * decayFactor * Math.sin(phase);
+                            
+                            const x = x0 + ux;
+                            const y = y0 + uy;
+                            
+                            const atomRadius = Math.max(3, baseSpacing * 0.2);
+                            
+                            const baseColor = { r: 120, g: 120, b: 130 };
+                            
+                            const atomGradient = ctx.createRadialGradient(
+                                x - atomRadius * 0.3, 
+                                y - atomRadius * 0.3, 
+                                0, 
+                                x, 
+                                y, 
+                                atomRadius
+                            );
+                            
+                            atomGradient.addColorStop(0, `rgb(${baseColor.r + 40}, ${baseColor.g + 40}, ${baseColor.b + 40})`);
+                            atomGradient.addColorStop(0.7, `rgb(${baseColor.r}, ${baseColor.g}, ${baseColor.b})`);
+                            atomGradient.addColorStop(1, `rgb(${baseColor.r - 30}, ${baseColor.g - 30}, ${baseColor.b - 30})`);
+                            
+                            ctx.fillStyle = atomGradient;
+                            ctx.beginPath();
+                            ctx.arc(x, y, atomRadius, 0, 2 * Math.PI);
+                            ctx.fill();
+                            
+                            ctx.fillStyle = `rgba(255, 255, 255, ${0.4 * decayFactor})`;
+                            ctx.beginPath();
+                            ctx.arc(x - atomRadius * 0.35, y - atomRadius * 0.35, atomRadius * 0.3, 0, 2 * Math.PI);
+                            ctx.fill();
+                        }
+                    }
+                    
+                    animationRef.current = requestAnimationFrame(animate);
+                };
+                
+                animate();
+                
+                return () => {
+                    window.removeEventListener('resize', updateCanvasSize);
+                    if (animationRef.current) {
+                        cancelAnimationFrame(animationRef.current);
+                    }
+                };
+            }, [conductivity]);
+
+            return (
+                <div className="w-full h-screen bg-gray-50 flex flex-col">
+                    <div className="bg-white border-b border-gray-200 p-4 sm:p-6 shadow-sm">
+                        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-1 text-center">
+                            Piezoelectric Field Screening by Conductive vdW Layer
+                        </h1>
+                        <p className="text-xs sm:text-sm text-gray-500 text-center mb-4 italic">
+                            Considerably more complex in reality than in this artistic representation
+                        </p>
+                        
+                        <div className="max-w-2xl mx-auto px-2 sm:px-4">
+                            <label className="text-gray-700 text-sm font-semibold mb-2 block text-center">
+                                vdW Layer Conductivity: {conductivity === 0 ? 'Insulating' : conductivity < 0.5 ? 'Low' : conductivity < 0.8 ? 'Medium' : 'High'}
+                            </label>
+                            <input
+                                type="range"
+                                min="0"
+                                max="1"
+                                step="0.01"
+                                value={conductivity}
+                                onChange={(e) => setConductivity(parseFloat(e.target.value))}
+                                className="w-full h-3 sm:h-4 bg-gradient-to-r from-gray-300 to-gray-800 rounded-lg appearance-none cursor-pointer"
+                                style={{
+                                    WebkitAppearance: 'none',
+                                    appearance: 'none',
+                                }}
+                            />
+                            <div className="mt-2 text-xs sm:text-sm text-gray-600 text-center">
+                                Higher conductivity → Stronger screening → Reduced piezoelectric field & wave attenuation
+                            </div>
+                        </div>
+                    </div>
+                    <div ref={containerRef} className="flex-1 overflow-hidden">
+                        <canvas 
+                            ref={canvasRef}
+                            className="w-full h-full"
+                        />
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<SAWScreening />, document.getElementById('root'));
+    </script>
+</body>
+</html>
