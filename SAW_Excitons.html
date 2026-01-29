@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAW for Optoelectronics</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+
+        const SAWOptoelectronics = () => {
+            const canvasRef = useRef(null);
+            const [sawActive, setSawActive] = useState(false);
+            const [voltageActive, setVoltageActive] = useState(false);
+            const [wavelengthMultiplier, setWavelengthMultiplier] = useState(0.08);
+            const prevWavelengthRef = useRef(0.08);
+            const sawActiveRef = useRef(false);
+            const voltageActiveRef = useRef(false);
+            const wavelengthMultiplierRef = useRef(0.08);
+            const [carriers, setCarriers] = useState([]);
+            const animationRef = useRef(null);
+            const carrierIdRef = useRef(0);
+            
+            // Keep refs in sync with state
+            useEffect(() => {
+                sawActiveRef.current = sawActive;
+            }, [sawActive]);
+            
+            useEffect(() => {
+                voltageActiveRef.current = voltageActive;
+            }, [voltageActive]);
+            
+            useEffect(() => {
+                // If wavelength changed while SAW active, clear markers and snap carriers to exact equilibrium
+                if (wavelengthMultiplier !== prevWavelengthRef.current && sawActiveRef.current && canvasRef.current) {
+                    const width = canvasRef.current.width;
+                    const newWavelength = width * wavelengthMultiplier;
+                    const newK = (2 * Math.PI) / newWavelength;
+                    
+                    setCarriers(prev => prev.map(carrier => {
+                        const isElectron = carrier.type === 'electron';
+                        const currentPhase = newK * carrier.x;
+                        
+                        // Find nearest extremum
+                        // Electron: sin(kx) = -1 → kx = 3π/2 + 2πn
+                        // Hole: sin(kx) = +1 → kx = π/2 + 2πn
+                        
+                        const targetPhase = isElectron ? Math.PI / 2 : 3 * Math.PI / 2;
+                        
+                        // Find nearest instance of target phase
+                        const n = Math.round((currentPhase - targetPhase) / (2 * Math.PI));
+                        const nearestPhase = targetPhase + 2 * Math.PI * n;
+                        const newX = nearestPhase / newK;
+                        
+                        return {
+                            ...carrier,
+                            x: newX,
+                            showMarker: false
+                        };
+                    }));
+                }
+                prevWavelengthRef.current = wavelengthMultiplier;
+                wavelengthMultiplierRef.current = wavelengthMultiplier;
+            }, [wavelengthMultiplier]);
+
+            const createCarrierPair = () => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                
+                const width = canvas.width;
+                const wavelength = width * wavelengthMultiplierRef.current;
+                const k = (2 * Math.PI) / wavelength;
+                
+                // Create carriers on the rising slope of the CB
+                const phaseOffset = Math.PI / 6;
+                const waveNumber = Math.floor(Math.random() * 3) + 1;
+                const centerX = (phaseOffset / k) + waveNumber * wavelength;
+                
+                const clampedX = Math.max(width * 0.15, Math.min(width * 0.85, centerX));
+                
+                const newCarriers = [
+                    {
+                        id: carrierIdRef.current++,
+                        type: 'electron',
+                        x: clampedX,
+                        initialX: clampedX,
+                        showMarker: true,
+                        lifetime: 0,
+                        maxLifetime: sawActiveRef.current ? Infinity : (voltageActiveRef.current ? Infinity : 120)
+                    },
+                    {
+                        id: carrierIdRef.current++,
+                        type: 'hole',
+                        x: clampedX,
+                        initialX: clampedX,
+                        showMarker: true,
+                        lifetime: 0,
+                        maxLifetime: sawActiveRef.current ? Infinity : (voltageActiveRef.current ? Infinity : 120)
+                    }
+                ];
+                
+                setCarriers(prev => [...prev, ...newCarriers]);
+            };
+
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                
+                const updateCanvasSize = () => {
+                    const parent = canvas.parentElement;
+                    canvas.width = parent.clientWidth;
+                    canvas.height = parent.clientHeight;
+                };
+                
+                updateCanvasSize();
+                window.addEventListener('resize', updateCanvasSize);
+                
+                const ctx = canvas.getContext('2d');
+                
+                const animate = () => {
+                    const width = canvas.width;
+                    const height = canvas.height;
+                    
+                    const sawActive = sawActiveRef.current;
+                    const voltageActive = voltageActiveRef.current;
+                    
+                    // Clear canvas
+                    ctx.fillStyle = '#f8f9fa';
+                    ctx.fillRect(0, 0, width, height);
+                    
+                    const bandGap = height * 0.3;
+                    const cbY = height * 0.25;
+                    const vbY = cbY + bandGap;
+                    
+                    // SAW parameters (static)
+                    const wavelength = width * wavelengthMultiplierRef.current;
+                    const k = (2 * Math.PI) / wavelength;
+                    const sawAmplitude = height * 0.08;
+                    
+                    // Draw band structure
+                    if (sawActive) {
+                        // Draw CB modulation (static)
+                        ctx.beginPath();
+                        ctx.strokeStyle = '#ef4444';
+                        ctx.lineWidth = 3;
+                        for (let x = 0; x <= width; x += 2) {
+                            const phase = k * x;
+                            const y = cbY + sawAmplitude * Math.sin(phase);
+                            if (x === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        ctx.stroke();
+                        
+                        // Draw VB modulation (static, in phase)
+                        ctx.beginPath();
+                        ctx.strokeStyle = '#3b82f6';
+                        ctx.lineWidth = 3;
+                        for (let x = 0; x <= width; x += 2) {
+                            const phase = k * x;
+                            const y = vbY + sawAmplitude * Math.sin(phase);
+                            if (x === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        ctx.stroke();
+                    } else {
+                        // Flat bands
+                        ctx.strokeStyle = '#ef4444';
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.moveTo(0, cbY);
+                        ctx.lineTo(width, cbY);
+                        ctx.stroke();
+                        
+                        ctx.strokeStyle = '#3b82f6';
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.moveTo(0, vbY);
+                        ctx.lineTo(width, vbY);
+                        ctx.stroke();
+                        
+                        // Add tilt if voltage active
+                        if (voltageActive) {
+                            const tilt = height * 0.12;
+                            
+                            // CB with tilt (dashed)
+                            ctx.strokeStyle = '#ef4444';
+                            ctx.lineWidth = 3;
+                            ctx.setLineDash([8, 8]);
+                            ctx.beginPath();
+                            ctx.moveTo(0, cbY - tilt);
+                            ctx.lineTo(width, cbY + tilt);
+                            ctx.stroke();
+                            
+                            // VB with tilt (dashed)
+                            ctx.strokeStyle = '#3b82f6';
+                            ctx.beginPath();
+                            ctx.moveTo(0, vbY - tilt);
+                            ctx.lineTo(width, vbY + tilt);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                        }
+                    }
+                    
+                    // Labels
+                    ctx.fillStyle = '#374151';
+                    ctx.font = 'bold 18px sans-serif';
+                    ctx.fillText('E_CB', 10, cbY - 10);
+                    ctx.fillText('E_VB', 10, vbY + 25);
+                    
+                    // Update and draw carriers
+                    setCarriers(prevCarriers => {
+                        const updated = prevCarriers.map(carrier => {
+                            let newX = carrier.x;
+                            let newLifetime = carrier.lifetime + 1;
+                            const isElectron = carrier.type === 'electron';
+                            
+                            if (sawActive) {
+                                const phase = k * carrier.x;
+                                const cosPhase = Math.cos(phase);
+                                
+                                if (isElectron) {
+                                    // Flip sign: was -cos, now +cos
+                                    newX += (+cosPhase) * 1.5;
+                                } else {
+                                    // Flip sign: was +cos, now -cos
+                                    newX += (-cosPhase) * 1.5;
+                                }
+                                
+                            } else if (voltageActive) {
+                                if (isElectron) {
+                                    newX -= 1.2;
+                                } else {
+                                    newX += 1.2;
+                                }
+                            }
+                            
+                            return {
+                                ...carrier,
+                                x: newX,
+                                initialX: carrier.initialX,
+                                showMarker: carrier.showMarker,
+                                lifetime: newLifetime
+                            };
+                        }).filter(carrier => {
+                            // Remove if out of bounds or lifetime exceeded
+                            if (carrier.x < -20 || carrier.x > width + 20) return false;
+                            if (carrier.lifetime > carrier.maxLifetime) return false;
+                            return true;
+                        });
+                        
+                        // Draw initial excitation markers (for all modes)
+                        const processedPairs = new Set();
+                        
+                        updated.forEach(carrier => {
+                            if (!carrier.showMarker) return;
+                            
+                            const pairId = Math.floor(carrier.id / 2) * 2;
+                            
+                            if (!processedPairs.has(pairId)) {
+                                processedPairs.add(pairId);
+                                
+                                const initialX = carrier.initialX;
+                                const effectiveRadius = Math.max(10, Math.min(width, height) * 0.012);
+                                
+                                let initialCBY, initialVBY;
+                                
+                                if (sawActive) {
+                                    // SAW: positions follow band modulation
+                                    const initialPhase = k * initialX;
+                                    const initialModulation = sawAmplitude * Math.sin(initialPhase);
+                                    initialCBY = cbY + initialModulation;
+                                    initialVBY = vbY + initialModulation;
+                                } else if (voltageActive) {
+                                    // Voltage: positions follow tilted bands
+                                    const tilt = height * 0.12;
+                                    const tiltAmount = (initialX / width - 0.5) * 2 * tilt;
+                                    initialCBY = cbY + tiltAmount;
+                                    initialVBY = vbY + tiltAmount;
+                                } else {
+                                    // No field: flat bands
+                                    initialCBY = cbY;
+                                    initialVBY = vbY;
+                                }
+                                
+                                // Draw dashed circle in CB (electron initial position)
+                                ctx.setLineDash([5, 5]);
+                                ctx.strokeStyle = 'rgba(30, 64, 175, 0.6)';
+                                ctx.lineWidth = 2.5;
+                                ctx.beginPath();
+                                ctx.arc(initialX, initialCBY, effectiveRadius * 1.1, 0, 2 * Math.PI);
+                                ctx.stroke();
+                                
+                                // Draw dashed circle in VB (hole initial position)
+                                ctx.strokeStyle = 'rgba(220, 38, 38, 0.6)';
+                                ctx.beginPath();
+                                ctx.arc(initialX, initialVBY, effectiveRadius * 1.1, 0, 2 * Math.PI);
+                                ctx.stroke();
+                                ctx.setLineDash([]);
+                                
+                                // Draw arrow between them (if still recent)
+                                if (carrier.lifetime < 100) {
+                                    const arrowPadding = effectiveRadius * 1.3;
+                                    const arrowStartY = initialVBY - arrowPadding;
+                                    const arrowEndY = initialCBY + arrowPadding;
+                                    const arrowSize = effectiveRadius * 0.8;
+                                    
+                                    ctx.strokeStyle = 'rgba(255, 140, 0, 0.8)';
+                                    ctx.fillStyle = 'rgba(255, 140, 0, 0.8)';
+                                    ctx.lineWidth = 3;
+                                    
+                                    // Arrow shaft
+                                    ctx.beginPath();
+                                    ctx.moveTo(initialX, arrowStartY);
+                                    ctx.lineTo(initialX, arrowEndY);
+                                    ctx.stroke();
+                                    
+                                    // Arrow head pointing up (VB → CB)
+                                    ctx.beginPath();
+                                    ctx.moveTo(initialX, arrowEndY);
+                                    ctx.lineTo(initialX - arrowSize, arrowEndY + arrowSize * 1.2);
+                                    ctx.lineTo(initialX + arrowSize, arrowEndY + arrowSize * 1.2);
+                                    ctx.closePath();
+                                    ctx.fill();
+                                }
+                            }
+                        });
+                        
+                        // Draw carriers
+                        updated.forEach(carrier => {
+                            const isElectron = carrier.type === 'electron';
+                            let yPos;
+                            
+                            if (sawActive) {
+                                const phase = k * carrier.x;
+                                const modulation = sawAmplitude * Math.sin(phase);
+                                yPos = (isElectron ? cbY : vbY) + modulation;
+                            } else if (voltageActive) {
+                                const tilt = height * 0.12;
+                                const tiltAmount = (carrier.x / width - 0.5) * 2 * tilt;
+                                yPos = (isElectron ? cbY : vbY) + tiltAmount;
+                            } else {
+                                yPos = isElectron ? cbY : vbY;
+                            }
+                            
+                            // Draw carrier
+                            const radius = 10;
+                            
+                            // Maintain circular shape by using max dimension
+                            const effectiveRadius = Math.max(10, Math.min(width, height) * 0.012);
+                            
+                            ctx.beginPath();
+                            ctx.arc(carrier.x, yPos, effectiveRadius, 0, 2 * Math.PI);
+                            
+                            if (isElectron) {
+                                ctx.fillStyle = '#1e40af';
+                                ctx.fill();
+                                ctx.strokeStyle = '#1e3a8a';
+                                ctx.lineWidth = 2;
+                                ctx.stroke();
+                                
+                                // Minus sign
+                                ctx.fillStyle = 'white';
+                                ctx.fillRect(carrier.x - effectiveRadius * 0.5, yPos - effectiveRadius * 0.15, effectiveRadius, effectiveRadius * 0.3);
+                            } else {
+                                ctx.fillStyle = '#dc2626';
+                                ctx.fill();
+                                ctx.strokeStyle = '#991b1b';
+                                ctx.lineWidth = 2;
+                                ctx.stroke();
+                                
+                                // Plus sign
+                                ctx.fillStyle = 'white';
+                                ctx.fillRect(carrier.x - effectiveRadius * 0.5, yPos - effectiveRadius * 0.15, effectiveRadius, effectiveRadius * 0.3);
+                                ctx.fillRect(carrier.x - effectiveRadius * 0.15, yPos - effectiveRadius * 0.5, effectiveRadius * 0.3, effectiveRadius);
+                            }
+                        });
+                        
+                        return updated;
+                    });
+                    
+                    animationRef.current = requestAnimationFrame(animate);
+                };
+                
+                animate();
+                
+                return () => {
+                    window.removeEventListener('resize', updateCanvasSize);
+                    if (animationRef.current) {
+                        cancelAnimationFrame(animationRef.current);
+                    }
+                };
+            }, []);
+
+            const handleSawToggle = (checked) => {
+                setSawActive(checked);
+                if (checked) {
+                    setVoltageActive(false);
+                }
+                setCarriers([]);
+            };
+            
+            const handleVoltageToggle = () => {
+                setVoltageActive(prev => !prev);
+            };
+
+            return (
+                <div className="w-full h-screen bg-gray-50 flex flex-col">
+                    <div className="bg-white border-b border-gray-200 p-4 sm:p-6 shadow-sm">
+                        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-1 text-center">
+                            SAW for Optoelectronics: Carrier Separation
+                        </h1>
+                        <p className="text-xs text-gray-500 text-center mb-4 italic">
+                            SAW velocity ≪ carrier relaxation timescales (static approximation)
+                        </p>
+                        
+                        <div className="max-w-3xl mx-auto flex flex-wrap justify-center items-center gap-3">
+                            <button
+                                onClick={createCarrierPair}
+                                className="px-5 py-3 rounded-lg font-semibold text-sm sm:text-base bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-lg hover:shadow-xl transition-all"
+                            >
+                                ⚡ Optical Excitation
+                            </button>
+                            
+                            {!sawActive && (
+                                <button
+                                    onClick={handleVoltageToggle}
+                                    className={`px-5 py-3 rounded-lg font-semibold text-sm sm:text-base transition-all ${
+                                        voltageActive 
+                                            ? 'bg-gradient-to-r from-purple-500 to-purple-700 text-white shadow-lg' 
+                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                                >
+                                    {voltageActive ? 'Voltage ON' : 'Apply Voltage'}
+                                </button>
+                            )}
+                            
+                            <label className="flex items-center cursor-pointer px-5 py-3 bg-gray-100 rounded-lg">
+                                <input
+                                    type="checkbox"
+                                    checked={sawActive}
+                                    onChange={(e) => handleSawToggle(e.target.checked)}
+                                    className="w-6 h-6 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                                />
+                                <span className="ml-3 text-gray-700 font-semibold text-sm sm:text-base">SAW Active</span>
+                            </label>
+                            
+                            <button
+                                onClick={() => setCarriers([])}
+                                className="px-5 py-3 rounded-lg font-semibold text-sm sm:text-base bg-gray-300 text-gray-700 hover:bg-gray-400 transition-all"
+                            >
+                                Clear All
+                            </button>
+                        </div>
+                        
+                        {sawActive && (
+                            <div className="max-w-2xl mx-auto px-2 sm:px-4 mt-4">
+                                <input
+                                    type="range"
+                                    min="0.08"
+                                    max="0.25"
+                                    step="0.01"
+                                    value={wavelengthMultiplier}
+                                    onChange={(e) => setWavelengthMultiplier(parseFloat(e.target.value))}
+                                    className="w-full h-4 sm:h-5 bg-gradient-to-r from-blue-300 to-blue-600 rounded-lg appearance-none cursor-pointer"
+                                />
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                        <canvas 
+                            ref={canvasRef}
+                            className="w-full h-full"
+                        />
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<SAWOptoelectronics />, document.getElementById('root'));
+    </script>
+</body>
+</html>
