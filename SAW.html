@@ -55,9 +55,8 @@
         const SAWVisualization = () => {
             const canvasRef = useRef(null);
             const containerRef = useRef(null);
-            const [amplitude, setAmplitude] = useState(1.5);
-            const [wavelengthMultiplier, setWavelengthMultiplier] = useState(2.6);
-            const [showStrain, setShowStrain] = useState(false);
+            const [amplitude, setAmplitude] = useState(1.2);
+            const [wavelengthMultiplier, setWavelengthMultiplier] = useState(2.2);
             const timeRef = useRef(0);
             const animationRef = useRef(null);
 
@@ -91,7 +90,7 @@
                     
                     const wavelength = 8 * spacingX * wavelengthMultiplier;
                     const k = (2 * Math.PI) / wavelength;
-                    const omega = 0.06;
+                    const omega = 0.05;
                     
                     const t = timeRef.current;
                     
@@ -103,58 +102,78 @@
                     
                     const surfaceY = spacingY * 2;
                     
+                    // Calculate all atom positions first
+                    const atoms = [];
                     for (let iy = 0; iy < nY; iy++) {
+                        atoms[iy] = [];
                         for (let ix = 0; ix < nX; ix++) {
                             const x0 = spacingX * (ix + 1);
                             const y0 = surfaceY + spacingY * (iy + 1);
                             
                             const depth = iy * spacingY;
-                            
-                            const penetrationScale = 0.3 + (1.5 - amplitude) * 0.5;
-                            const decayFactor = Math.exp(-k * depth * penetrationScale);
+                            const penetrationDepth = wavelength;
+                            const decayFactor = Math.exp(-depth / penetrationDepth);
                             
                             const phase = k * x0 - omega * t;
                             
-                            const ux = amplitude * spacingX * 0.15 * decayFactor * Math.cos(phase);
-                            const uy = -amplitude * spacingY * 0.8 * decayFactor * Math.sin(phase);
+                            // Rayleigh wave: retrograde elliptical motion
+                            // Longitudinal (horizontal) component
+                            const ux = amplitude * spacingX * 0.25 * decayFactor * Math.sin(phase);
+                            // Transverse (vertical) component - larger amplitude, phase shifted
+                            const uy = -amplitude * spacingY * 0.35 * decayFactor * Math.cos(phase);
                             
                             const x = x0 + ux;
                             const y = y0 + uy;
                             
+                            atoms[iy][ix] = { x, y, x0, y0, phase, decayFactor };
+                        }
+                    }
+                    
+                    // Draw connections between atoms to show lattice deformation
+                    ctx.lineWidth = 1;
+                    
+                    // Horizontal connections
+                    for (let iy = 0; iy < nY; iy++) {
+                        for (let ix = 0; ix < nX - 1; ix++) {
+                            const atom1 = atoms[iy][ix];
+                            const atom2 = atoms[iy][ix + 1];
+                            
+                            ctx.strokeStyle = 'rgba(150, 150, 160, 0.3)';
+                            ctx.beginPath();
+                            ctx.moveTo(atom1.x, atom1.y);
+                            ctx.lineTo(atom2.x, atom2.y);
+                            ctx.stroke();
+                        }
+                    }
+                    
+                    // Vertical connections
+                    for (let iy = 0; iy < nY - 1; iy++) {
+                        for (let ix = 0; ix < nX; ix++) {
+                            const atom1 = atoms[iy][ix];
+                            const atom2 = atoms[iy + 1][ix];
+                            
+                            ctx.strokeStyle = 'rgba(150, 150, 160, 0.2)';
+                            ctx.beginPath();
+                            ctx.moveTo(atom1.x, atom1.y);
+                            ctx.lineTo(atom2.x, atom2.y);
+                            ctx.stroke();
+                        }
+                    }
+                    
+                    // Draw atoms
+                    for (let iy = 0; iy < nY; iy++) {
+                        for (let ix = 0; ix < nX; ix++) {
+                            const atom = atoms[iy][ix];
                             const atomRadius = Math.max(3, baseSpacing * 0.2);
                             
-                            let baseColor = { r: 120, g: 120, b: 130 };
-                            
-                            if (showStrain) {
-                                const strain = -amplitude * Math.sin(phase) * decayFactor;
-                                
-                                // Positive strain (hills/extension) = tension = RED
-                                // Negative strain (valleys/compression) = compression = BLUE
-                                if (strain < 0) {
-                                    // Tension - red
-                                    const intensity = Math.min(1, -strain * 2);
-                                    baseColor = {
-                                        r: 120 + Math.floor(135 * intensity),
-                                        g: 120 - Math.floor(70 * intensity),
-                                        b: 130 - Math.floor(80 * intensity)
-                                    };
-                                } else {
-                                    // Compression - blue
-                                    const intensity = Math.min(1, strain * 2);
-                                    baseColor = {
-                                        r: 120 - Math.floor(70 * intensity),
-                                        g: 120 - Math.floor(30 * intensity),
-                                        b: 130 + Math.floor(125 * intensity)
-                                    };
-                                }
-                            }
+                            const baseColor = { r: 120, g: 120, b: 130 };
                             
                             const atomGradient = ctx.createRadialGradient(
-                                x - atomRadius * 0.3, 
-                                y - atomRadius * 0.3, 
+                                atom.x - atomRadius * 0.3, 
+                                atom.y - atomRadius * 0.3, 
                                 0, 
-                                x, 
-                                y, 
+                                atom.x, 
+                                atom.y, 
                                 atomRadius
                             );
                             
@@ -164,27 +183,18 @@
                             
                             ctx.fillStyle = atomGradient;
                             ctx.beginPath();
-                            ctx.arc(x, y, atomRadius, 0, 2 * Math.PI);
+                            ctx.arc(atom.x, atom.y, atomRadius, 0, 2 * Math.PI);
                             ctx.fill();
                             
-                            ctx.fillStyle = `rgba(255, 255, 255, ${0.4 * decayFactor})`;
+                            ctx.fillStyle = `rgba(255, 255, 255, ${0.4 * atom.decayFactor})`;
                             ctx.beginPath();
-                            ctx.arc(x - atomRadius * 0.35, y - atomRadius * 0.35, atomRadius * 0.3, 0, 2 * Math.PI);
+                            ctx.arc(atom.x - atomRadius * 0.35, atom.y - atomRadius * 0.35, atomRadius * 0.3, 0, 2 * Math.PI);
                             ctx.fill();
                             
-                            if (showStrain) {
-                                const strain = -amplitude * Math.sin(phase) * decayFactor;
-                                if (strain > 0) {
-                                    ctx.strokeStyle = `rgba(255, 100, 100, ${0.3 * Math.abs(strain)})`;
-                                } else {
-                                    ctx.strokeStyle = `rgba(100, 150, 255, ${0.3 * Math.abs(strain)})`;
-                                }
-                            } else {
-                                ctx.strokeStyle = `rgba(150, 150, 160, 0.2)`;
-                            }
-                            ctx.lineWidth = 1.5;
+                            ctx.strokeStyle = 'rgba(80, 80, 90, 0.3)';
+                            ctx.lineWidth = 1;
                             ctx.beginPath();
-                            ctx.arc(x, y, atomRadius + 1, 0, 2 * Math.PI);
+                            ctx.arc(atom.x, atom.y, atomRadius, 0, 2 * Math.PI);
                             ctx.stroke();
                         }
                     }
@@ -200,7 +210,7 @@
                         cancelAnimationFrame(animationRef.current);
                     }
                 };
-            }, [amplitude, wavelengthMultiplier, showStrain]);
+            }, [amplitude, wavelengthMultiplier]);
 
             return (
                 <div className="w-full h-screen bg-gray-50 flex flex-col">
@@ -209,7 +219,7 @@
                             Rayleigh Surface Acoustic Wave
                         </h1>
                         <p className="text-sm sm:text-base text-gray-600 text-center mt-2">
-                            Qualitative visualization of Rayleigh mode SAW only!
+                            Rayleigh mode: elliptical motion
                         </p>
                         <div className="max-w-2xl mx-auto px-2 sm:px-4 space-y-4">
                             <div>
@@ -238,7 +248,7 @@
                                 <input
                                     type="range"
                                     min="1.6"
-                                    max="2.5"
+                                    max="3.0"
                                     step="0.1"
                                     value={wavelengthMultiplier}
                                     onChange={(e) => setWavelengthMultiplier(parseFloat(e.target.value))}
@@ -249,9 +259,6 @@
                                     }}
                                 />
                             </div>
-                            
-                                                   
-                          
                         </div>
                     </div>
                     <div ref={containerRef} className="flex-1 overflow-hidden">
@@ -268,4 +275,3 @@
     </script>
 </body>
 </html>
-
