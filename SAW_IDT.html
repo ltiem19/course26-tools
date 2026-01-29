@@ -146,11 +146,13 @@
                 <!-- Interface line -->
                 <line x1="150" y1="200" x2="650" y2="200" stroke="#666" stroke-width="1" stroke-dasharray="5,5" />
 
-                <!-- Wavelength indicator -->
-                <line x1="200" y1="150" x2="340" y2="150" stroke="#ff69b4" stroke-width="2" />
-                <line x1="200" y1="145" x2="200" y2="155" stroke="#ff69b4" stroke-width="2" />
-                <line x1="340" y1="145" x2="340" y2="155" stroke="#ff69b4" stroke-width="2" />
-                <text x="258" y="140" fill="#ff69b4" font-size="20" font-style="italic" text-anchor="middle">λ</text>
+                <!-- Wavelength indicator (only shown during animation) -->
+                <g id="wavelengthIndicator" style="display: none;">
+                    <line x1="200" y1="150" x2="340" y2="150" stroke="#ff69b4" stroke-width="2" />
+                    <line x1="200" y1="145" x2="200" y2="155" stroke="#ff69b4" stroke-width="2" />
+                    <line x1="340" y1="145" x2="340" y2="155" stroke="#ff69b4" stroke-width="2" />
+                    <text x="258" y="140" fill="#ff69b4" font-size="20" font-style="italic" text-anchor="middle">λ</text>
+                </g>
 
                 <!-- Field lines group -->
                 <g id="fieldLines"></g>
@@ -159,7 +161,7 @@
                 <g id="electrodes"></g>
 
                 <!-- Mesh group -->
-                <g id="mesh">                </g>
+                <g id="mesh"></g>
             </svg>
         </div>
         
@@ -296,10 +298,22 @@
                 const amplitude = 15;
                 const deform = amplitude * field;
                 
-                const r = isPositive ? 59 : 239;
-                const g = isPositive ? 130 : 68;
-                const b = isPositive ? 246 : 68;
-                const alpha = 0.5 + 0.5 * intensity;
+                let r, g, b, alpha;
+                if (!isPlaying) {
+                    // Initial state: neutral orange tones
+                    if (idx % 2 === 0) {
+                        r = 255; g = 190; b = 0; // Orange
+                    } else {
+                        r = 130; g = 65; b = 0; // Darker orange
+                    }
+                    alpha = 0.7;
+                } else {
+                    // Animated state: blue/red based on polarity
+                    r = isPositive ? 59 : 239;
+                    g = isPositive ? 130 : 68;
+                    b = isPositive ? 246 : 68;
+                    alpha = 0.5 + 0.5 * intensity;
+                }
                 
                 const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
                 rect.setAttribute('x', finger.x - 20);
@@ -309,15 +323,18 @@
                 rect.setAttribute('fill', `rgba(${r}, ${g}, ${b}, ${alpha})`);
                 electrodesGroup.appendChild(rect);
                 
-                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                text.setAttribute('x', finger.x);
-                text.setAttribute('y', idtY - 35 + deform);
-                text.setAttribute('fill', 'white');
-                text.setAttribute('font-size', '18');
-                text.setAttribute('font-weight', 'bold');
-                text.setAttribute('text-anchor', 'middle');
-                text.textContent = isPositive ? '+' : '−';
-                electrodesGroup.appendChild(text);
+                // Only show polarity signs during animation
+                if (isPlaying) {
+                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    text.setAttribute('x', finger.x);
+                    text.setAttribute('y', idtY - 35 + deform);
+                    text.setAttribute('fill', 'white');
+                    text.setAttribute('font-size', '18');
+                    text.setAttribute('font-weight', 'bold');
+                    text.setAttribute('text-anchor', 'middle');
+                    text.textContent = isPositive ? '+' : '−';
+                    electrodesGroup.appendChild(text);
+                }
             });
         }
         
@@ -434,10 +451,12 @@
             
             const playIcon = document.getElementById('playIcon');
             const pauseIcon = document.getElementById('pauseIcon');
+            const wavelengthIndicator = document.getElementById('wavelengthIndicator');
             
             if (isPlaying) {
                 playIcon.style.display = 'none';
                 pauseIcon.style.display = 'block';
+                wavelengthIndicator.style.display = 'block';
                 if (waveStartTime === null) {
                     waveStartTime = null;
                 }
@@ -445,6 +464,7 @@
             } else {
                 playIcon.style.display = 'block';
                 pauseIcon.style.display = 'none';
+                wavelengthIndicator.style.display = 'none';
                 if (animationId) {
                     cancelAnimationFrame(animationId);
                 }
@@ -462,8 +482,10 @@
             
             const playIcon = document.getElementById('playIcon');
             const pauseIcon = document.getElementById('pauseIcon');
+            const wavelengthIndicator = document.getElementById('wavelengthIndicator');
             playIcon.style.display = 'block';
             pauseIcon.style.display = 'none';
+            wavelengthIndicator.style.display = 'none';
             
             drawFieldLines();
             drawElectrodes();
