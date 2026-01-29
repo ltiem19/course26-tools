@@ -37,8 +37,8 @@
                 const container = containerRef.current;
                 if (!canvas || !container) return;
                 
-                const amplitude = 1.5;
-                const wavelengthMultiplier = 2.6;
+                const amplitude = 1.8;
+                const wavelengthMultiplier = 2.2;
                 
                 const updateCanvasSize = () => {
                     const rect = container.getBoundingClientRect();
@@ -67,7 +67,7 @@
                     
                     const wavelength = 8 * spacingX * wavelengthMultiplier;
                     const k = (2 * Math.PI) / wavelength;
-                    const omega = 0.06;
+                    const omega = 0.05;
                     
                     const t = timeRef.current;
                     
@@ -87,7 +87,8 @@
                         for (let sample = 0; sample < fieldSamples; sample++) {
                             const x = (sample / fieldSamples) * width;
                             const phase = k * x - omega * t;
-                            const strain = sawActive ? -amplitude * Math.sin(phase) : 0;
+                            // Piezo field follows horizontal strain: ε_xx ∝ cos(phase)
+                            const strain = sawActive ? amplitude * Math.cos(phase) : 0;
                             
                             const intensity = Math.abs(strain) * 0.7;
                             
@@ -96,7 +97,7 @@
                                 x, surfaceY + spacingY * 4
                             );
                             
-                            if (strain < 0) {
+                            if (strain > 0) {
                                 fieldGradient.addColorStop(0, `rgba(255, 220, 100, 0)`);
                                 fieldGradient.addColorStop(0.25, `rgba(255, 200, 80, ${intensity * 0.5})`);
                                 fieldGradient.addColorStop(0.5, `rgba(255, 200, 80, ${intensity * 0.8})`);
@@ -116,15 +117,84 @@
                         }
                     }
                     
+                    // Calculate all atom positions first
+                    const atoms = [];
+                    for (let iy = 0; iy < nY; iy++) {
+                        atoms[iy] = [];
+                        for (let ix = 0; ix < nX; ix++) {
+                            const x0 = spacingX * (ix + 1);
+                            const y0 = surfaceY + spacingY * (iy + 1);
+                            
+                            const depth = iy * spacingY;
+                            const penetrationDepth = wavelength;
+                            const decayFactor = Math.exp(-depth / penetrationDepth);
+                            
+                            const phase = k * x0 - omega * t;
+                            
+                            // Rayleigh wave: retrograde elliptical motion
+                            const ux = sawActive ? amplitude * spacingX * 0.25 * decayFactor * Math.sin(phase) : 0;
+                            const uy = sawActive ? -amplitude * spacingY * 0.35 * decayFactor * Math.cos(phase) : 0;
+                            
+                            const x = x0 + ux;
+                            const y = y0 + uy;
+                            
+                            atoms[iy][ix] = { x, y, x0, y0, phase, decayFactor };
+                        }
+                    }
+                    
+                    // Draw lattice connections
+                    ctx.lineWidth = 1;
+                    
+                    // Horizontal connections
+                    for (let iy = 0; iy < nY; iy++) {
+                        for (let ix = 0; ix < nX - 1; ix++) {
+                            const atom1 = atoms[iy][ix];
+                            const atom2 = atoms[iy][ix + 1];
+                            
+                            if (showStrain && sawActive) {
+                                const dx = atom2.x - atom1.x;
+                                const restDx = spacingX;
+                                const strain = (dx - restDx) / restDx;
+                                
+                                const strainIntensity = Math.min(Math.abs(strain) * 3, 1);
+                                if (strain > 0) {
+                                    ctx.strokeStyle = `rgba(255, 80, 80, ${0.3 + 0.4 * strainIntensity})`;
+                                } else {
+                                    ctx.strokeStyle = `rgba(80, 120, 255, ${0.3 + 0.4 * strainIntensity})`;
+                                }
+                            } else {
+                                ctx.strokeStyle = 'rgba(150, 150, 160, 0.3)';
+                            }
+                            
+                            ctx.beginPath();
+                            ctx.moveTo(atom1.x, atom1.y);
+                            ctx.lineTo(atom2.x, atom2.y);
+                            ctx.stroke();
+                        }
+                    }
+                    
+                    // Vertical connections
+                    for (let iy = 0; iy < nY - 1; iy++) {
+                        for (let ix = 0; ix < nX; ix++) {
+                            const atom1 = atoms[iy][ix];
+                            const atom2 = atoms[iy + 1][ix];
+                            
+                            ctx.strokeStyle = 'rgba(150, 150, 160, 0.2)';
+                            ctx.beginPath();
+                            ctx.moveTo(atom1.x, atom1.y);
+                            ctx.lineTo(atom2.x, atom2.y);
+                            ctx.stroke();
+                        }
+                    }
+                    
                     // Draw vdW layer if enabled
                     if (showVdWLayer) {
-                        const layerWidth = width * 0.6; // 60% of window width
-                        const layerStartX = width * 0.2; // Start at 20% from left
+                        const layerWidth = width * 0.6;
+                        const layerStartX = width * 0.2;
                         const layerSamples = Math.floor(nX * 2.4);
                         const layerThickness = spacingY * 0.15;
                         const vdWGap = spacingY * 0.3;
                         
-                        // Draw layer in segments if strain is shown, otherwise draw as one piece
                         if (showStrain && sawActive) {
                             const segments = 100;
                             for (let seg = 0; seg < segments; seg++) {
@@ -133,16 +203,16 @@
                                 
                                 const xCenter = layerStartX + (segStartRatio + segEndRatio) / 2 * layerWidth;
                                 const phase = k * xCenter - omega * t;
-                                const strain = -amplitude * Math.sin(phase);
+                                // Horizontal strain for vdW layer
+                                const strain = amplitude * Math.cos(phase);
                                 
                                 ctx.beginPath();
                                 
-                                // Top edge
                                 for (let i = 0; i <= 2; i++) {
                                     const ratio = segStartRatio + i * (segEndRatio - segStartRatio) / 2;
                                     const x = layerStartX + ratio * layerWidth;
                                     const localPhase = k * x - omega * t;
-                                    const surfaceDisplacement = -amplitude * spacingY * 0.8 * Math.sin(localPhase);
+                                    const surfaceDisplacement = sawActive ? -amplitude * spacingY * 0.35 * Math.cos(localPhase) : 0;
                                     const y = surfaceY + surfaceDisplacement - vdWGap;
                                     
                                     if (i === 0) {
@@ -152,31 +222,27 @@
                                     }
                                 }
                                 
-                                // Bottom edge
                                 for (let i = 2; i >= 0; i--) {
                                     const ratio = segStartRatio + i * (segEndRatio - segStartRatio) / 2;
                                     const x = layerStartX + ratio * layerWidth;
                                     const localPhase = k * x - omega * t;
-                                    const surfaceDisplacement = -amplitude * spacingY * 0.8 * Math.sin(localPhase);
+                                    const surfaceDisplacement = sawActive ? -amplitude * spacingY * 0.35 * Math.cos(localPhase) : 0;
                                     const y = surfaceY + surfaceDisplacement - vdWGap - layerThickness;
                                     ctx.lineTo(x, y);
                                 }
                                 
                                 ctx.closePath();
                                 
-                                // Color based on strain
                                 let baseColor;
-                                if (strain < 0) {
-                                    // Tension - slight red tint
-                                    const intensity = Math.min(0.4, -strain * 0.8);
+                                if (strain > 0) {
+                                    const intensity = Math.min(0.4, strain * 0.8);
                                     baseColor = {
                                         r: 160 + Math.floor(95 * intensity),
                                         g: 160 - Math.floor(50 * intensity),
                                         b: 165 - Math.floor(60 * intensity)
                                     };
                                 } else {
-                                    // Compression - slight blue tint
-                                    const intensity = Math.min(0.4, strain * 0.8);
+                                    const intensity = Math.min(0.4, -strain * 0.8);
                                     baseColor = {
                                         r: 160 - Math.floor(50 * intensity),
                                         g: 160 - Math.floor(20 * intensity),
@@ -188,14 +254,13 @@
                                 ctx.fill();
                             }
                             
-                            // Draw outline
                             ctx.strokeStyle = 'rgba(80, 80, 90, 0.9)';
                             ctx.lineWidth = 2;
                             ctx.beginPath();
                             for (let i = 0; i <= layerSamples; i++) {
                                 const x = layerStartX + (i / layerSamples) * layerWidth;
                                 const phase = k * x - omega * t;
-                                const surfaceDisplacement = sawActive ? -amplitude * spacingY * 0.8 * Math.sin(phase) : 0;
+                                const surfaceDisplacement = sawActive ? -amplitude * spacingY * 0.35 * Math.cos(phase) : 0;
                                 const y = surfaceY + surfaceDisplacement - vdWGap;
                                 
                                 if (i === 0) {
@@ -206,13 +271,12 @@
                             }
                             ctx.stroke();
                         } else {
-                            // Draw as uniform gray layer when strain not shown
                             ctx.beginPath();
                             
                             for (let i = 0; i <= layerSamples; i++) {
                                 const x = layerStartX + (i / layerSamples) * layerWidth;
                                 const phase = k * x - omega * t;
-                                const surfaceDisplacement = sawActive ? -amplitude * spacingY * 0.8 * Math.sin(phase) : 0;
+                                const surfaceDisplacement = sawActive ? -amplitude * spacingY * 0.35 * Math.cos(phase) : 0;
                                 const y = surfaceY + surfaceDisplacement - vdWGap;
                                 
                                 if (i === 0) {
@@ -225,7 +289,7 @@
                             for (let i = layerSamples; i >= 0; i--) {
                                 const x = layerStartX + (i / layerSamples) * layerWidth;
                                 const phase = k * x - omega * t;
-                                const surfaceDisplacement = sawActive ? -amplitude * spacingY * 0.8 * Math.sin(phase) : 0;
+                                const surfaceDisplacement = sawActive ? -amplitude * spacingY * 0.35 * Math.cos(phase) : 0;
                                 const y = surfaceY + surfaceDisplacement - vdWGap - layerThickness;
                                 ctx.lineTo(x, y);
                             }
@@ -245,7 +309,7 @@
                             for (let i = 0; i <= layerSamples; i++) {
                                 const x = layerStartX + (i / layerSamples) * layerWidth;
                                 const phase = k * x - omega * t;
-                                const surfaceDisplacement = sawActive ? -amplitude * spacingY * 0.8 * Math.sin(phase) : 0;
+                                const surfaceDisplacement = sawActive ? -amplitude * spacingY * 0.35 * Math.cos(phase) : 0;
                                 const y = surfaceY + surfaceDisplacement - vdWGap;
                                 
                                 if (i === 0) {
@@ -261,38 +325,26 @@
                     // Draw atoms
                     for (let iy = 0; iy < nY; iy++) {
                         for (let ix = 0; ix < nX; ix++) {
-                            const x0 = spacingX * (ix + 1);
-                            const y0 = surfaceY + spacingY * (iy + 1);
-                            
-                            const depth = iy * spacingY;
-                            
-                            const penetrationScale = 0.3 + (1.5 - amplitude) * 0.5;
-                            const decayFactor = Math.exp(-k * depth * penetrationScale);
-                            
-                            const phase = k * x0 - omega * t;
-                            
-                            const ux = sawActive ? amplitude * spacingX * 0.15 * decayFactor * Math.cos(phase) : 0;
-                            const uy = sawActive ? -amplitude * spacingY * 0.8 * decayFactor * Math.sin(phase) : 0;
-                            
-                            const x = x0 + ux;
-                            const y = y0 + uy;
-                            
+                            const atom = atoms[iy][ix];
                             const atomRadius = Math.max(3, baseSpacing * 0.2);
                             
                             let baseColor = { r: 120, g: 120, b: 130 };
                             
-                            if (showStrain) {
-                                const strain = sawActive ? -amplitude * Math.sin(phase) * decayFactor : 0;
+                            if (showStrain && sawActive) {
+                                // Horizontal strain: ε_xx ∝ ∂u_x/∂x ∝ cos(phase)
+                                const strain = amplitude * Math.cos(atom.phase) * atom.decayFactor;
                                 
-                                if (strain < 0) {
-                                    const intensity = Math.min(1, -strain * 2);
+                                if (strain > 0) {
+                                    // Tension - red
+                                    const intensity = Math.min(1, strain * 2);
                                     baseColor = {
                                         r: 120 + Math.floor(135 * intensity),
                                         g: 120 - Math.floor(70 * intensity),
                                         b: 130 - Math.floor(80 * intensity)
                                     };
                                 } else {
-                                    const intensity = Math.min(1, strain * 2);
+                                    // Compression - blue
+                                    const intensity = Math.min(1, -strain * 2);
                                     baseColor = {
                                         r: 120 - Math.floor(70 * intensity),
                                         g: 120 - Math.floor(30 * intensity),
@@ -302,11 +354,11 @@
                             }
                             
                             const atomGradient = ctx.createRadialGradient(
-                                x - atomRadius * 0.3, 
-                                y - atomRadius * 0.3, 
+                                atom.x - atomRadius * 0.3, 
+                                atom.y - atomRadius * 0.3, 
                                 0, 
-                                x, 
-                                y, 
+                                atom.x, 
+                                atom.y, 
                                 atomRadius
                             );
                             
@@ -316,26 +368,19 @@
                             
                             ctx.fillStyle = atomGradient;
                             ctx.beginPath();
-                            ctx.arc(x, y, atomRadius, 0, 2 * Math.PI);
+                            ctx.arc(atom.x, atom.y, atomRadius, 0, 2 * Math.PI);
                             ctx.fill();
                             
-                            ctx.fillStyle = `rgba(255, 255, 255, ${0.4 * decayFactor})`;
+                            ctx.fillStyle = `rgba(255, 255, 255, ${0.4 * atom.decayFactor})`;
                             ctx.beginPath();
-                            ctx.arc(x - atomRadius * 0.35, y - atomRadius * 0.35, atomRadius * 0.3, 0, 2 * Math.PI);
+                            ctx.arc(atom.x - atomRadius * 0.35, atom.y - atomRadius * 0.35, atomRadius * 0.3, 0, 2 * Math.PI);
                             ctx.fill();
                             
-                            if (showStrain) {
-                                const strain = sawActive ? -amplitude * Math.sin(phase) * decayFactor : 0;
-                                if (strain < 0) {
-                                    ctx.strokeStyle = `rgba(255, 100, 100, ${0.3 * Math.abs(strain)})`;
-                                } else {
-                                    ctx.strokeStyle = `rgba(100, 150, 255, ${0.3 * Math.abs(strain)})`;
-                                }
-                                ctx.lineWidth = 1.5;
-                                ctx.beginPath();
-                                ctx.arc(x, y, atomRadius + 1, 0, 2 * Math.PI);
-                                ctx.stroke();
-                            }
+                            ctx.strokeStyle = 'rgba(80, 80, 90, 0.3)';
+                            ctx.lineWidth = 1;
+                            ctx.beginPath();
+                            ctx.arc(atom.x, atom.y, atomRadius, 0, 2 * Math.PI);
+                            ctx.stroke();
                         }
                     }
                     
