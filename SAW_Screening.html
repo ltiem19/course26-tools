@@ -54,8 +54,8 @@
                 const container = containerRef.current;
                 if (!canvas || !container) return;
                 
-                const amplitude = 1.5;
-                const wavelengthMultiplier = 2.6;
+                const amplitude = 1.8;
+                const wavelengthMultiplier = 2.2;
                 
                 const updateCanvasSize = () => {
                     const rect = container.getBoundingClientRect();
@@ -82,7 +82,7 @@
                     
                     const wavelength = 8 * spacingX * wavelengthMultiplier;
                     const k = (2 * Math.PI) / wavelength;
-                    const omega = 0.06;
+                    const omega = 0.05;
                     
                     const t = timeRef.current;
                     
@@ -98,23 +98,19 @@
                     const screeningFactor = conductivity;
                     
                     // vdW layer position
-                    const layerWidth = width * 0.5; // Slightly narrower
-                    const layerStartX = width * 0.35; // Shifted right
+                    const layerWidth = width * 0.5;
+                    const layerStartX = width * 0.35;
                     const layerEndX = layerStartX + layerWidth;
                     
-                    // Function to get cumulative amplitude reduction due to propagation through lossy region
-                    // This accounts for the wave having traveled through the dissipative region
+                    // Attenuation function
                     const getAttenuation = (x) => {
-                        // Calculate how much lossy distance the wave has traveled through
                         if (x < layerStartX) {
-                            return 1.0; // No loss before layer
+                            return 1.0;
                         } else if (x <= layerEndX) {
-                            // Inside layer: exponential decay based on distance traveled inside
                             const distanceInLayer = x - layerStartX;
-                            const dampingLength = layerWidth / (screeningFactor * 2 + 0.1); // Characteristic damping length
+                            const dampingLength = layerWidth / (screeningFactor * 2 + 0.1);
                             return Math.exp(-distanceInLayer / dampingLength);
                         } else {
-                            // After layer: wave has traveled through entire layer
                             const dampingLength = layerWidth / (screeningFactor * 2 + 0.1);
                             return Math.exp(-layerWidth / dampingLength);
                         }
@@ -128,7 +124,7 @@
                         const x = (sample / fieldSamples) * width;
                         const localAttenuation = getAttenuation(x);
                         const phase = k * x - omega * t;
-                        const strain = -amplitude * localAttenuation * Math.sin(phase);
+                        const strain = amplitude * localAttenuation * Math.cos(phase);
                         
                         const intensity = Math.abs(strain) * 0.7 * (1 - screeningFactor * 0.8 * (localAttenuation < 1 ? 1 : 0));
                         
@@ -137,7 +133,7 @@
                             x, surfaceY + spacingY * 4
                         );
                         
-                        if (strain < 0) {
+                        if (strain > 0) {
                             fieldGradient.addColorStop(0, `rgba(255, 220, 100, 0)`);
                             fieldGradient.addColorStop(0.25, `rgba(255, 200, 80, ${intensity * 0.5})`);
                             fieldGradient.addColorStop(0.5, `rgba(255, 200, 80, ${intensity * 0.8})`);
@@ -156,7 +152,64 @@
                         ctx.fillRect(x, surfaceY - vacuumPenetration, barWidth, vacuumPenetration + spacingY * 4);
                     }
                     
-                    // Draw vdW layer (always visible)
+                    // Calculate all atom positions
+                    const atoms = [];
+                    for (let iy = 0; iy < nY; iy++) {
+                        atoms[iy] = [];
+                        for (let ix = 0; ix < nX; ix++) {
+                            const x0 = spacingX * (ix + 1);
+                            const y0 = surfaceY + spacingY * (iy + 1);
+                            
+                            const depth = iy * spacingY;
+                            const penetrationDepth = wavelength;
+                            const decayFactor = Math.exp(-depth / penetrationDepth);
+                            
+                            const phase = k * x0 - omega * t;
+                            const localAttenuation = getAttenuation(x0);
+                            
+                            // Rayleigh wave: retrograde elliptical motion
+                            const ux = amplitude * localAttenuation * spacingX * 0.25 * decayFactor * Math.sin(phase);
+                            const uy = -amplitude * localAttenuation * spacingY * 0.35 * decayFactor * Math.cos(phase);
+                            
+                            const x = x0 + ux;
+                            const y = y0 + uy;
+                            
+                            atoms[iy][ix] = { x, y, x0, y0, phase, decayFactor, localAttenuation };
+                        }
+                    }
+                    
+                    // Draw lattice connections
+                    ctx.lineWidth = 1;
+                    
+                    // Horizontal connections
+                    for (let iy = 0; iy < nY; iy++) {
+                        for (let ix = 0; ix < nX - 1; ix++) {
+                            const atom1 = atoms[iy][ix];
+                            const atom2 = atoms[iy][ix + 1];
+                            
+                            ctx.strokeStyle = 'rgba(150, 150, 160, 0.3)';
+                            ctx.beginPath();
+                            ctx.moveTo(atom1.x, atom1.y);
+                            ctx.lineTo(atom2.x, atom2.y);
+                            ctx.stroke();
+                        }
+                    }
+                    
+                    // Vertical connections
+                    for (let iy = 0; iy < nY - 1; iy++) {
+                        for (let ix = 0; ix < nX; ix++) {
+                            const atom1 = atoms[iy][ix];
+                            const atom2 = atoms[iy + 1][ix];
+                            
+                            ctx.strokeStyle = 'rgba(150, 150, 160, 0.2)';
+                            ctx.beginPath();
+                            ctx.moveTo(atom1.x, atom1.y);
+                            ctx.lineTo(atom2.x, atom2.y);
+                            ctx.stroke();
+                        }
+                    }
+                    
+                    // Draw vdW layer
                     const layerSamples = Math.floor(nX * 2.4);
                     const layerThickness = spacingY * 0.15;
                     const vdWGap = spacingY * 0.3;
@@ -167,7 +220,7 @@
                         const x = layerStartX + (i / layerSamples) * layerWidth;
                         const localAttenuation = getAttenuation(x);
                         const phase = k * x - omega * t;
-                        const surfaceDisplacement = -amplitude * localAttenuation * spacingY * 0.8 * Math.sin(phase);
+                        const surfaceDisplacement = -amplitude * localAttenuation * spacingY * 0.35 * Math.cos(phase);
                         const y = surfaceY + surfaceDisplacement - vdWGap;
                         
                         if (i === 0) {
@@ -181,14 +234,14 @@
                         const x = layerStartX + (i / layerSamples) * layerWidth;
                         const localAttenuation = getAttenuation(x);
                         const phase = k * x - omega * t;
-                        const surfaceDisplacement = -amplitude * localAttenuation * spacingY * 0.8 * Math.sin(phase);
+                        const surfaceDisplacement = -amplitude * localAttenuation * spacingY * 0.35 * Math.cos(phase);
                         const y = surfaceY + surfaceDisplacement - vdWGap - layerThickness;
                         ctx.lineTo(x, y);
                     }
                     
                     ctx.closePath();
                     
-                    // Layer color changes with conductivity (gray -> blue for electrons)
+                    // Layer color changes with conductivity
                     const baseGray = 160;
                     const blueShift = conductivity * 100;
                     const layerGradient = ctx.createLinearGradient(0, surfaceY - vdWGap - layerThickness, 0, surfaceY - vdWGap);
@@ -205,7 +258,7 @@
                         const x = layerStartX + (i / layerSamples) * layerWidth;
                         const localAttenuation = getAttenuation(x);
                         const phase = k * x - omega * t;
-                        const surfaceDisplacement = -amplitude * localAttenuation * spacingY * 0.8 * Math.sin(phase);
+                        const surfaceDisplacement = -amplitude * localAttenuation * spacingY * 0.35 * Math.cos(phase);
                         const y = surfaceY + surfaceDisplacement - vdWGap;
                         
                         if (i === 0) {
@@ -219,33 +272,17 @@
                     // Draw atoms
                     for (let iy = 0; iy < nY; iy++) {
                         for (let ix = 0; ix < nX; ix++) {
-                            const x0 = spacingX * (ix + 1);
-                            const y0 = surfaceY + spacingY * (iy + 1);
-                            
-                            const depth = iy * spacingY;
-                            
-                            const penetrationScale = 0.3 + (1.5 - amplitude) * 0.5;
-                            const decayFactor = Math.exp(-k * depth * penetrationScale);
-                            
-                            const phase = k * x0 - omega * t;
-                            
-                            const localAttenuation = getAttenuation(x0);
-                            const ux = amplitude * localAttenuation * spacingX * 0.15 * decayFactor * Math.cos(phase);
-                            const uy = -amplitude * localAttenuation * spacingY * 0.8 * decayFactor * Math.sin(phase);
-                            
-                            const x = x0 + ux;
-                            const y = y0 + uy;
-                            
+                            const atom = atoms[iy][ix];
                             const atomRadius = Math.max(3, baseSpacing * 0.2);
                             
                             const baseColor = { r: 120, g: 120, b: 130 };
                             
                             const atomGradient = ctx.createRadialGradient(
-                                x - atomRadius * 0.3, 
-                                y - atomRadius * 0.3, 
+                                atom.x - atomRadius * 0.3, 
+                                atom.y - atomRadius * 0.3, 
                                 0, 
-                                x, 
-                                y, 
+                                atom.x, 
+                                atom.y, 
                                 atomRadius
                             );
                             
@@ -255,13 +292,19 @@
                             
                             ctx.fillStyle = atomGradient;
                             ctx.beginPath();
-                            ctx.arc(x, y, atomRadius, 0, 2 * Math.PI);
+                            ctx.arc(atom.x, atom.y, atomRadius, 0, 2 * Math.PI);
                             ctx.fill();
                             
-                            ctx.fillStyle = `rgba(255, 255, 255, ${0.4 * decayFactor})`;
+                            ctx.fillStyle = `rgba(255, 255, 255, ${0.4 * atom.decayFactor})`;
                             ctx.beginPath();
-                            ctx.arc(x - atomRadius * 0.35, y - atomRadius * 0.35, atomRadius * 0.3, 0, 2 * Math.PI);
+                            ctx.arc(atom.x - atomRadius * 0.35, atom.y - atomRadius * 0.35, atomRadius * 0.3, 0, 2 * Math.PI);
                             ctx.fill();
+                            
+                            ctx.strokeStyle = 'rgba(80, 80, 90, 0.3)';
+                            ctx.lineWidth = 1;
+                            ctx.beginPath();
+                            ctx.arc(atom.x, atom.y, atomRadius, 0, 2 * Math.PI);
+                            ctx.stroke();
                         }
                     }
                     
