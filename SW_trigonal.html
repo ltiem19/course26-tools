@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3-Beam Trigonal SAW Lattice</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0a;
+            color: #fff;
+            font-family: monospace;
+            padding: 10px;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        h2 {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        
+        .subtitle {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 10px;
+        }
+        
+        canvas {
+            width: 100%;
+            height: auto;
+            border: 1px solid #444;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            display: block;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .control {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        label {
+            font-size: 11px;
+            margin-bottom: 5px;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: #333;
+            outline: none;
+            border-radius: 3px;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #2563eb;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #2563eb;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            font-family: monospace;
+        }
+        
+        button:active {
+            background: #1d4ed8;
+        }
+        
+        @media (max-width: 500px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+            
+            h2 {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>3-Beam Trigonal SAW Lattice</h2>
+        <p class="subtitle">Red = compression, Blue = rarefaction | 6-fold symmetry</p>
+        
+        <canvas id="canvas" width="600" height="600"></canvas>
+        
+        <div class="controls">
+            <div class="control">
+                <label>Amp 1 (0°): <span id="amp1">1.00</span></label>
+                <input type="range" id="sliderAmp1" min="0" max="2" step="0.1" value="1.0">
+            </div>
+            
+            <div class="control">
+                <label>Amp 2 (120°): <span id="amp2">1.00</span></label>
+                <input type="range" id="sliderAmp2" min="0" max="2" step="0.1" value="1.0">
+            </div>
+            
+            <div class="control">
+                <label>Amp 3 (240°): <span id="amp3">1.00</span></label>
+                <input type="range" id="sliderAmp3" min="0" max="2" step="0.1" value="1.0">
+            </div>
+            
+            <div class="control">
+                <label>Frequency: <span id="freq">1.00</span></label>
+                <input type="range" id="sliderFreq" min="0.5" max="3" step="0.1" value="1.0">
+            </div>
+        </div>
+        
+        <button id="playPause">Pause</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let amp1 = 1.0, amp2 = 1.0, amp3 = 1.0;
+        let freq = 1.0;
+        let time = 0;
+        let isPlaying = true;
+        let animationId;
+        
+        // Sliders
+        const sliders = {
+            amp1: document.getElementById('sliderAmp1'),
+            amp2: document.getElementById('sliderAmp2'),
+            amp3: document.getElementById('sliderAmp3'),
+            freq: document.getElementById('sliderFreq')
+        };
+        
+        // Labels
+        const labels = {
+            amp1: document.getElementById('amp1'),
+            amp2: document.getElementById('amp2'),
+            amp3: document.getElementById('amp3'),
+            freq: document.getElementById('freq')
+        };
+        
+        // Update functions
+        sliders.amp1.oninput = (e) => {
+            amp1 = parseFloat(e.target.value);
+            labels.amp1.textContent = amp1.toFixed(2);
+        };
+        
+        sliders.amp2.oninput = (e) => {
+            amp2 = parseFloat(e.target.value);
+            labels.amp2.textContent = amp2.toFixed(2);
+        };
+        
+        sliders.amp3.oninput = (e) => {
+            amp3 = parseFloat(e.target.value);
+            labels.amp3.textContent = amp3.toFixed(2);
+        };
+        
+        sliders.freq.oninput = (e) => {
+            freq = parseFloat(e.target.value);
+            labels.freq.textContent = freq.toFixed(2);
+        };
+        
+        // Play/Pause
+        document.getElementById('playPause').onclick = () => {
+            isPlaying = !isPlaying;
+            document.getElementById('playPause').textContent = isPlaying ? 'Pause' : 'Play';
+            if (isPlaying) animate();
+        };
+        
+        function draw() {
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            const imageData = ctx.createImageData(width, height);
+            const data = imageData.data;
+            
+            const k = 2 * Math.PI * freq / 50;
+            const omega = 2 * Math.PI * freq * 0.5;
+            
+            // k-vectors at 0°, 120°, 240°
+            const k1x = k;
+            const k1y = 0;
+            
+            const k2x = k * Math.cos(2 * Math.PI / 3);
+            const k2y = k * Math.sin(2 * Math.PI / 3);
+            
+            const k3x = k * Math.cos(4 * Math.PI / 3);
+            const k3y = k * Math.sin(4 * Math.PI / 3);
+            
+            const centerX = width / 2;
+            const centerY = height / 2;
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const dx = x - centerX;
+                    const dy = y - centerY;
+                    
+                    const wave1 = amp1 * Math.sin(k1x * dx + k1y * dy - omega * time);
+                    const wave2 = amp2 * Math.sin(k2x * dx + k2y * dy - omega * time);
+                    const wave3 = amp3 * Math.sin(k3x * dx + k3y * dy - omega * time);
+                    
+                    const amplitude = wave1 + wave2 + wave3;
+                    const maxAmp = amp1 + amp2 + amp3 + 0.01;
+                    const normalized = (amplitude / maxAmp) * 0.5 + 0.5;
+                    
+                    const idx = (y * width + x) * 4;
+                    
+                    if (normalized > 0.5) {
+                        const intensity = (normalized - 0.5) * 2;
+                        data[idx] = Math.floor(255 * intensity);
+                        data[idx + 1] = 0;
+                        data[idx + 2] = 0;
+                    } else {
+                        const intensity = (0.5 - normalized) * 2;
+                        data[idx] = 0;
+                        data[idx + 1] = 0;
+                        data[idx + 2] = Math.floor(255 * intensity);
+                    }
+                    data[idx + 3] = 255;
+                }
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+            
+            // Draw direction arrows
+            ctx.strokeStyle = '#ffffff';
+            ctx.fillStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.font = '10px monospace';
+            
+            const arrowLen = 40;
+            
+            // Wave 1: 0° (right)
+            const x1 = centerX + arrowLen;
+            const y1 = centerY;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(x1, y1);
+            ctx.stroke();
+            ctx.fillText('k₁', x1 + 5, y1);
+            
+            // Wave 2: 120°
+            const x2 = centerX + arrowLen * Math.cos(2 * Math.PI / 3);
+            const y2 = centerY + arrowLen * Math.sin(2 * Math.PI / 3);
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            ctx.fillText('k₂', x2 - 15, y2 - 5);
+            
+            // Wave 3: 240°
+            const x3 = centerX + arrowLen * Math.cos(4 * Math.PI / 3);
+            const y3 = centerY + arrowLen * Math.sin(4 * Math.PI / 3);
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(x3, y3);
+            ctx.stroke();
+            ctx.fillText('k₃', x3 - 15, y3 + 10);
+        }
+        
+        function animate() {
+            if (!isPlaying) return;
+            
+            time += 0.05;
+            draw();
+            animationId = requestAnimationFrame(animate);
+        }
+        
+        // Initial draw
+        draw();
+        animate();
+    </script>
+</body>
+</html>
