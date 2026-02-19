@@ -1,16 +1,43 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>EBL: Ultimate Proximity Tool</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EBL Proximity Tool - Mobile</title>
     <style>
-        body { font-family: 'Courier New', monospace; background: #050505; color: #00ff41; display: flex; flex-direction: column; align-items: center; padding: 10px; }
-        .wrapper { background: #111; padding: 20px; border-radius: 12px; border: 1px solid #333; box-shadow: 0 0 40px rgba(0,255,0,0.05); }
-        canvas { background: #000; border: 1px solid #444; border-radius: 4px; }
-        .controls { width: 600px; margin-top: 15px; display: flex; justify-content: center; }
-        .panel { background: #1a1a1a; padding: 20px; border: 1px solid #333; width: 100%; border-radius: 10px; }
-        label { font-size: 1em; color: #fff; display: block; margin-bottom: 10px; font-weight: bold; letter-spacing: 1px; }
-        input { width: 100%; accent-color: #ffff00; cursor: crosshair; height: 25px; }
-        .legend { font-size: 0.8em; color: #888; margin-top: 20px; text-align: center; }
+        /* Mobile-first styling */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background: #050505; color: #00ff41; 
+            margin: 0; padding: 10px;
+            display: flex; flex-direction: column; align-items: center;
+            overflow-x: hidden;
+        }
+        .wrapper { 
+            width: 100%; max-width: 600px; 
+            background: #111; padding: 15px; 
+            border-radius: 12px; border: 1px solid #333;
+            box-sizing: border-box;
+        }
+        canvas { 
+            background: #000; border: 1px solid #444; border-radius: 4px; 
+            width: 100%; height: auto; /* Responsive scaling */
+            touch-action: none; /* Prevents scrolling while interacting */
+        }
+        .controls { width: 100%; margin-top: 15px; }
+        .panel { 
+            background: #1a1a1a; padding: 15px; 
+            border: 1px solid #333; border-radius: 10px; 
+        }
+        label { 
+            font-size: 1.1em; color: #fff; display: block; 
+            margin-bottom: 12px; font-weight: bold; 
+        }
+        /* Fat-finger friendly slider */
+        input[type=range] { 
+            width: 100%; height: 35px; 
+            accent-color: #ffff00; cursor: pointer;
+        }
+        .legend { font-size: 0.75em; color: #888; margin-top: 15px; text-align: center; line-height: 1.5; }
         .highlight { color: #ffff00; font-weight: bold; }
     </style>
 </head>
@@ -21,13 +48,13 @@
             <div class="panel">
                 <label id="eLab">Beam Energy: 25 keV</label>
                 <input type="range" id="energy" min="5" max="50" value="25">
-                <div style="font-size: 0.75em; color: #666; margin-top: 8px;">Resist: 1000 nm (Fixed)</div>
+                <div style="font-size: 0.8em; color: #666; margin-top: 5px;">Resist: 1000 nm (Fixed)</div>
             </div>
         </div>
         <div class="legend">
-            <span style="color:#ff3232">Red: Forward Scat.</span> | 
-            <span style="color:#5096ff">Blue: Backscatter</span> | 
-            <span class="highlight">Yellow: Proximity Exposure (Resist Damage)</span>
+            <span style="color:#ff3232">Red: Forward</span> | 
+            <span style="color:#5096ff">Blue: Backscatter</span><br>
+            <span class="highlight">Yellow: Proximity Exposure Area</span>
         </div>
     </div>
 
@@ -48,12 +75,10 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 1. DYNAMIC YELLOW ZONE (The "Proximity Effect" Halo)
-            // Scaling logic: exponential growth to make the slider feel "heavy" at high keV
             const spreadFactor = 10 + (Math.pow(E0, 1.55) * 0.8);
             
             ctx.save();
-            ctx.globalCompositeOperation = 'lighter'; // Makes overlapping colors glow
+            ctx.globalCompositeOperation = 'lighter';
             let exposureGrad = ctx.createRadialGradient(beamX, resTop, 2, beamX, resTop, spreadFactor);
             exposureGrad.addColorStop(0, 'rgba(255, 255, 0, 0.8)'); 
             exposureGrad.addColorStop(0.4, 'rgba(255, 255, 0, 0.3)');
@@ -62,14 +87,12 @@
             ctx.fillRect(0, resTop, canvas.width, resHeight);
             ctx.restore();
 
-            // 2. LAYERS
             ctx.fillStyle = 'rgba(50, 50, 50, 0.7)'; 
-            ctx.fillRect(0, resTop, canvas.width, resHeight); // Resist
+            ctx.fillRect(0, resTop, canvas.width, resHeight); 
             ctx.fillStyle = '#050505'; 
-            ctx.fillRect(0, subTop, canvas.width, canvas.height); // Substrate
+            ctx.fillRect(0, subTop, canvas.width, canvas.height);
 
-            // 3. TRAJECTORIES
-            const numElectrons = 120;
+            const numElectrons = 100; // Slightly fewer for mobile CPU performance
             for (let i = 0; i < numElectrons; i++) {
                 let x = beamX;
                 let y = 10;
@@ -82,12 +105,11 @@
                 while (E > 0.8 && y < canvas.height && y >= 0 && x > 0 && x < canvas.width) {
                     const inResist = y < subTop;
                     ctx.strokeStyle = inResist ? 'rgba(255, 50, 50, 0.5)' : 'rgba(80, 150, 255, 0.3)';
-                    ctx.lineWidth = inResist ? 1.2 : 0.8;
+                    ctx.lineWidth = inResist ? 1.5 : 1.0;
                     
                     let step = 1 + (E * E) / 4000; 
                     if (!inResist) step *= 0.6;
 
-                    // Reduced BS for lower energy per request
                     let bsReduction = E < 30 ? 0.65 : 1.0;
                     let scatter = (inResist ? 0.03 : (0.45 * bsReduction)) / (E/10 + 1);
                     
@@ -102,7 +124,8 @@
             }
         }
 
-        eS.oninput = simulate;
+        eS.addEventListener('input', simulate);
+        // Initial draw
         simulate();
     </script>
 </body>
