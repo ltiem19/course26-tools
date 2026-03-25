@@ -77,10 +77,10 @@ let gyroAvail=false,gyroCalibrated=false;
 let gyroBeta0=0,gyroGamma0=0; // calibration offsets
 let gyroBeta=0,gyroGamma=0;   // current smoothed values
 let gyroRawBeta=0,gyroRawGamma=0;
-const GYRO_SMOOTH=0.12; // lower = smoother (exponential filter)
-const GYRO_TURN_SENS=0.06;  // degrees tilt → turn rate multiplier
-const GYRO_PITCH_SENS=0.04; // degrees tilt → pitch rate multiplier
-const GYRO_DEAD=3; // degrees dead zone
+const GYRO_SMOOTH=0.08; // lower = smoother
+const GYRO_TURN_SENS=0.035;  // was 0.06
+const GYRO_PITCH_SENS=0.025; // was 0.04
+const GYRO_DEAD=5; // degrees dead zone (was 3)
 
 let audioCtx,audioStarted=false,scrapeGain,scraping=false;
 
