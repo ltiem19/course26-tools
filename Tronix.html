@@ -198,10 +198,18 @@ class Cycle{
     this.mesh.position.copy(this.pos);this.mesh.rotation.y=-Math.atan2(this.dir.x,this.dir.z);
     this._last(this.pos.x,this.pos.z);
     if(Math.abs(this.pos.x)>=HALF-.1||Math.abs(this.pos.z)>=HALF-.1){this.die();return;}
-    if(this.age<=GRACE)return;
     const cells=sweepCells(x0,z0,this.pos.x,this.pos.z);
-    for(let i=0;i<cells.length-1;i++)if(!occ.has(cells[i]))occ.set(cells[i],this.id);
-    for(let i=1;i<cells.length;i++)  if(occ.has(cells[i])){this.die();return;}
+    // Always mark departed cells — trail is hot from frame 1 for enemies
+    for(let i=0;i<cells.length-1;i++)
+      if(!occ.has(cells[i]))occ.set(cells[i],this.id);
+    // Check entered cells — grace only exempts own trail, never enemy trail
+    for(let i=1;i<cells.length;i++){
+      const owner=occ.get(cells[i]);
+      if(owner!==undefined){
+        if(owner===this.id&&this.age<=GRACE)continue; // own trail during grace: skip
+        this.die();return;
+      }
+    }
   }
   die(){
     if(!this.alive)return;this.alive=false;
@@ -222,36 +230,35 @@ class Cycle{
 // ─── AI ────────────────────────────────────────────────────────────────────────
 const lD=d=>new THREE.Vector3(-d.z,0,d.x),rD=d=>new THREE.Vector3(d.z,0,-d.x);
 
-function clearance(pos,d,n){
-  for(let i=1;i<=n;i++){
-    const x=pos.x+d.x*i,z=pos.z+d.z*i;
-    if(Math.abs(x)>=HALF-1||Math.abs(z)>=HALF-1)return i-1;
-    if(occ.has(x+','+z)||occ.has(Math.floor(x/CELL)+','+Math.floor(z/CELL)))return i-1;
-  }return n;
-}
-
-function rateDir(pos,d,horizon){
-  const fwd=clearance(pos,d,horizon);
-  if(fwd<2)return fwd;
-  const tip={x:pos.x+d.x*fwd,z:pos.z+d.z*fwd};
-  return fwd+(clearance(tip,lD(d),horizon*.5)+clearance(tip,rD(d),horizon*.5))*0.35;
+// Ray-cast forward in steps of CELL — returns clear distance in world units
+function clearance(pos,d,maxD){
+  for(let dist=CELL;dist<=maxD;dist+=CELL){
+    const x=pos.x+d.x*dist, z=pos.z+d.z*dist;
+    if(Math.abs(x)>=HALF-0.5||Math.abs(z)>=HALF-0.5) return dist-CELL;
+    if(occ.has(Math.floor(x/CELL)+','+Math.floor(z/CELL))) return dist-CELL;
+  }
+  return maxD;
 }
 
 function aiStep(c){
-  if(!c.alive||c.cd>0)return;
-  const H=28,EARLY=14;
-  const fwd=clearance(c.pos,c.dir,H);
-  if(fwd<EARLY){
-    const sL=rateDir(c.pos,lD(c.dir),H),sR=rateDir(c.pos,rD(c.dir),H);
-    const best=Math.max(fwd,sL,sR);
-    if(best<=2){if(sL>sR)c.turn(true);else if(sR>sL)c.turn(false);else c.turn(Math.random()<.5);}
-    else if(sL>=best&&sL>fwd+2)c.turn(true);
-    else if(sR>=best&&sR>fwd+2)c.turn(false);
-  }else if(Math.random()<0.008){
-    const sL=rateDir(c.pos,lD(c.dir),H),sR=rateDir(c.pos,rD(c.dir),H);
-    if(sL>fwd+8&&sL>=sR)c.turn(true);
-    else if(sR>fwd+8&&sR>sL)c.turn(false);
-  }
+  if(!c.alive||c.cd>0) return;
+
+  const MAXLOOK=60; // cast all the way to the wall if needed
+  const REACT=14;   // start caring when fewer than this many units ahead are clear
+
+  const fwd=clearance(c.pos,c.dir,MAXLOOK);
+  if(fwd>=REACT) return; // plenty of room — go straight, no re-evaluation
+
+  // Forced to turn — compare left vs right clearance, pick better
+  const cL=clearance(c.pos,lD(c.dir),MAXLOOK);
+  const cR=clearance(c.pos,rD(c.dir),MAXLOOK);
+
+  if(cL>cR)      c.turn(true);
+  else if(cR>cL) c.turn(false);
+  else           c.turn(Math.random()<0.5); // equal — random
+
+  // Commit: cd long enough to travel past REACT distance so we don't immediately re-trigger
+  c.cd=0.55; // ~9 units at spd17 — well past the REACT threshold
 }
 
 // ─── AUDIO ─────────────────────────────────────────────────────────────────────
