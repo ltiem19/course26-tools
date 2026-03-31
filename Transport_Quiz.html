@@ -117,6 +117,7 @@
             box-shadow: none;
         }
         
+        /* Base results style (Green) */
         .results {
             margin-top: 30px;
             padding: 25px;
@@ -126,19 +127,30 @@
             display: none;
         }
         
-        .results.wrong {
-            background: #ffebee;
-            border-left-color: #f44336;
-        }
-        
         .results h3 {
             color: #2e7d32;
             margin-bottom: 15px;
             font-size: 1.2rem;
         }
+
+        /* Wrong answer style (Red) */
+        .results.wrong {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
         
         .results.wrong h3 {
             color: #c62828;
+        }
+
+        /* Complicated/Relationship style (Orange) */
+        .results.complicated {
+            background: #fff3e0;
+            border-left-color: #ff9800;
+        }
+
+        .results.complicated h3 {
+            color: #e65100;
         }
         
         .results p {
@@ -183,12 +195,12 @@
                 
                 <div class="option" onclick="selectOption(4)">
                     <input type="radio" id="option4" name="answer" value="4">
-                    <label for="option4">Ugh! I should have studied philosophy instead!</label>
+                    <label for="option4">It's complicated...just like my last relationship</label>
                 </div>
                 
                 <div class="option" onclick="selectOption(5)">
                     <input type="radio" id="option5" name="answer" value="5">
-                    <label for="option5">Ugh! I should have been studying sociology instead!</label>
+                    <label for="option5">Ugh! I should have studied philosophy instead!</label>
                 </div>
             </div>
             
@@ -221,7 +233,7 @@
             switch(selectedAnswer) {
                 case 1:
                     content = `<h3>Not quite right!</h3>
-                    <p>While band gap size matters for semiconductors vs insulators, it doesn't explain why metals conduct. Metals often have overlapping bands or partially filled bands, not necessarily small gaps.</p>`;
+                    <p>While band gap size matters for semiconductors vs insulators, it doesn't explain why metals conduct. Metals often have overlapping bands or partially filled bands, but not necessarily small band gaps.</p>`;
                     break;
                 case 2:
                     content = `<h3>Temperature is important, but not everything!</h3>
@@ -229,22 +241,30 @@
                     break;
                 case 3:
                     isCorrect = true;
-                    content = `<h3>Correct! Well done.</h3>
-                    <p>In a metal, the Fermi level intersects a band, meaning there are empty states within the energy window kB*T. In insulators, the valence band is full; since all states are occupied, the net velocity remains zero regardless of the applied force.</p>`;
+                    content = `<h3>Correct!</h3>
+                    <p>In a metal, the Fermi level intersects a band, meaning there are abundant empty states within the energy window kB*T. In insulators or undoped semiconductors, the valence band is full. All states are occupied and a very large energy difference to the next band prevents electrons from being accelerated. So, it is not the band gap itself but the postion of the Fermi level.</p>`;
                     break;
                 case 4:
-                    content = `<h3>Physics Avoidance detected!</h3>
-                    <p>New career path at Starbucks initiated, uploading your CV to LinkedIn now.</p>`;
+                    isCorrect = true; 
+                    content = `<h3>Almost correct...</h3>
+                    <p>...but it is indeed complicated. Real conductivity is affected by many-body electron-electron interactions, electron-phonon scattering and disorder-driven electron localization. But the origin for conductivity lies somewhere else.</p>`;
                     break;
                 case 5:
                     content = `<h3>Physics avoidance detected!</h3>
-                    <p>Sociology won't explain why your phone works. Electrons follow quantum mechanics regardless of career regrets!</p>`;
+                    <p>New career path at Starbucks initiated. Uploading your CV to LinkedIn now.</p>`;
                     break;
             }
             
             resultsDiv.innerHTML = content;
             resultsDiv.style.display = 'block';
-            resultsDiv.className = isCorrect ? 'results' : 'results wrong';
+            
+            // Set the class based on correctness and specific orange requirement for Option 4
+            if (selectedAnswer === 4) {
+                resultsDiv.className = 'results complicated';
+            } else {
+                resultsDiv.className = isCorrect ? 'results' : 'results wrong';
+            }
+            
             resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     </script>
