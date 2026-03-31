@@ -9,26 +9,16 @@
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Courier New',monospace;touch-action:none}
 canvas{display:block;position:fixed;inset:0}
-
-/* Tap zones — full screen, split 50/50, always behind game screens */
 #tapL,#tapR{position:fixed;top:0;bottom:0;width:50%;z-index:1;cursor:pointer}
-#tapL{left:0} #tapR{right:0}
-
-/* Brief flash feedback on tap */
+#tapL{left:0}#tapR{right:0}
 #flashL,#flashR{position:fixed;top:0;bottom:0;width:50%;opacity:0;pointer-events:none;z-index:2;transition:opacity .07s}
-#flashL{left:0; background:linear-gradient(to right,rgba(0,255,255,.10),transparent)}
-#flashR{right:0;background:linear-gradient(to left, rgba(0,255,255,.10),transparent)}
-
-/* HUD */
+#flashL{left:0;background:linear-gradient(to right,rgba(0,255,255,.10),transparent)}
+#flashR{right:0;background:linear-gradient(to left,rgba(0,255,255,.10),transparent)}
 #ui{position:fixed;inset:0;pointer-events:none;z-index:3}
 #hud{position:absolute;top:max(12px,env(safe-area-inset-top));left:16px;color:#ff0;font-size:12px;letter-spacing:2px;text-shadow:0 0 10px #ff0}
 #rhud{position:absolute;top:max(12px,env(safe-area-inset-top));right:16px;color:#ff0;font-size:12px;letter-spacing:2px;text-shadow:0 0 10px #ff0}
-
-/* Tap hint arrows — permanent, subtle */
-#hintL,#hintR{position:fixed;bottom:max(28px,env(safe-area-inset-bottom));font-size:28px;color:rgba(255,220,0,.18);z-index:2;pointer-events:none;letter-spacing:0}
-#hintL{left:18px} #hintR{right:18px}
-
-/* Game screens */
+#hintL,#hintR{position:fixed;bottom:max(28px,env(safe-area-inset-bottom));font-size:28px;color:rgba(255,220,0,.18);z-index:2;pointer-events:none}
+#hintL{left:18px}#hintR{right:18px}
 .screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:all;z-index:10}
 .hidden{display:none!important}
 #menuScreen h1{font-size:clamp(40px,14vw,72px);color:#ffdd00;text-shadow:0 0 24px #ffdd00;letter-spacing:.25em;margin-bottom:8px}
@@ -37,24 +27,17 @@ canvas{display:block;position:fixed;inset:0}
 .abtn{border:1px solid #ffdd00;background:transparent;color:#ffdd00;font-family:'Courier New',monospace;font-size:13px;padding:13px 36px;cursor:pointer;letter-spacing:.3em;text-shadow:0 0 8px #ffdd00;touch-action:manipulation}
 .abtn:active{background:rgba(255,220,0,.14)}
 #endTitle{font-size:clamp(28px,8vw,44px);letter-spacing:.18em;margin-bottom:8px;text-shadow:0 0 20px currentColor}
-#endScore{color:#776600;font-size:12px;letter-spacing:.25em;margin-bottom:26px}
+#endMsg{color:#776600;font-size:12px;letter-spacing:.25em;margin-bottom:26px}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-
-<!-- Tap zones behind everything -->
-<div id="tapL"></div>
-<div id="tapR"></div>
-<div id="flashL"></div>
-<div id="flashR"></div>
-<div id="hintL">&#9668;</div>
-<div id="hintR">&#9658;</div>
-
+<div id="tapL"></div><div id="tapR"></div>
+<div id="flashL"></div><div id="flashR"></div>
+<div id="hintL">&#9668;</div><div id="hintR">&#9658;</div>
 <div id="ui">
   <div id="hud">SCORE: <span id="scoreEl">0</span></div>
   <div id="rhud">RND <span id="roundEl">1</span></div>
-
   <div id="menuScreen" class="screen">
     <h1>TRON</h1>
     <div class="sub">LIGHT CYCLE COMBAT</div>
@@ -63,11 +46,10 @@ canvas{display:block;position:fixed;inset:0}
   </div>
   <div id="endScreen" class="screen hidden">
     <div id="endTitle" style="color:#ff4400">DEREZZED</div>
-    <div id="endScore">SCORE: 0</div>
+    <div id="endMsg">SCORE: 0</div>
     <button class="abtn" id="restartBtn">RECONNECT</button>
   </div>
 </div>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 'use strict';
@@ -87,9 +69,8 @@ scene.fog=new THREE.FogExp2(C.BG,0.0045);
 const ISO_SIZE=30,ISO_H=72;
 const camera=new THREE.OrthographicCamera(-1,1,1,-1,0.1,600);
 function resize(){
-  const w=window.innerWidth,h=window.innerHeight;
+  const w=window.innerWidth,h=window.innerHeight,a=w/h;
   renderer.setSize(w,h);
-  const a=w/h;
   camera.left=-ISO_SIZE*a;camera.right=ISO_SIZE*a;
   camera.top=ISO_SIZE;camera.bottom=-ISO_SIZE;
   camera.updateProjectionMatrix();
@@ -121,9 +102,28 @@ camera.lookAt(0,0,0);
   });
 }
 
-// ─── COLLISION ─────────────────────────────────────────────────────────────────
+// ─── COLLISION MAP + DDA ───────────────────────────────────────────────────────
 const occ=new Map();
-const ck=(x,z)=>`${Math.floor(x/CELL)},${Math.floor(z/CELL)}`;
+
+function sweepCells(x0,z0,x1,z1){
+  const cells=[];
+  let cx=Math.floor(x0/CELL),cz=Math.floor(z0/CELL);
+  const ex=Math.floor(x1/CELL),ez=Math.floor(z1/CELL);
+  cells.push(cx+','+cz);
+  if(cx===ex&&cz===ez)return cells;
+  const dx=x1-x0,dz=z1-z0;
+  const stepX=dx>0?1:-1,stepZ=dz>0?1:-1;
+  const tDX=Math.abs(CELL/dx),tDZ=Math.abs(CELL/dz);
+  let tX=dx!==0?Math.abs(((dx>0?(cx+1)*CELL:cx*CELL)-x0)/dx):Infinity;
+  let tZ=dz!==0?Math.abs(((dz>0?(cz+1)*CELL:cz*CELL)-z0)/dz):Infinity;
+  const maxSteps=Math.abs(ex-cx)+Math.abs(ez-cz)+2;
+  for(let i=0;i<maxSteps;i++){
+    if(tX<tZ){tX+=tDX;cx+=stepX;}else{tZ+=tDZ;cz+=stepZ;}
+    cells.push(cx+','+cz);
+    if(cx===ex&&cz===ez)break;
+  }
+  return cells;
+}
 
 // ─── MOTORCYCLE ────────────────────────────────────────────────────────────────
 function buildMoto(color){
@@ -170,14 +170,13 @@ class Cycle{
     this.id=uid++;this.pos=new THREE.Vector3(x,.65,z);
     this.dir=new THREE.Vector3(dx,0,dz);this.color=color;
     this.isPlayer=isPlayer;this.alive=true;this.dead=false;
-    this.age=0;this.cd=0;this.lastCell=null;
+    this.age=0;this.cd=0;
     this.mesh=buildMoto(color);this.mesh.position.copy(this.pos);scene.add(this.mesh);
     this.walls=WALLY.map(y=>{
       const buf=new Float32Array(MAXPTS*3),attr=new THREE.BufferAttribute(buf,3);
       const geo=new THREE.BufferGeometry();geo.setAttribute('position',attr);geo.setDrawRange(0,0);
       const line=new THREE.Line(geo,new THREE.LineBasicMaterial({color}));
-      line.frustumCulled=false;
-      scene.add(line);
+      line.frustumCulled=false;scene.add(line);
       return{buf,attr,geo,line,n:0};
     });
     this._push(x,z);this._push(x,z);
@@ -187,21 +186,22 @@ class Cycle{
   turn(left){
     if(this.cd>0)return;
     this._push(this.pos.x,this.pos.z);
-    if(left){const nx= this.dir.z,nz=-this.dir.x;this.dir.x=nx;this.dir.z=nz;}
-    else    {const nx=-this.dir.z,nz= this.dir.x;this.dir.x=nx;this.dir.z=nz;}
+    if(left){const nx=this.dir.z,nz=-this.dir.x;this.dir.x=nx;this.dir.z=nz;}
+    else    {const nx=-this.dir.z,nz=this.dir.x;this.dir.x=nx;this.dir.z=nz;}
     this.cd=0.11;
   }
   update(dt,spd){
     if(!this.alive)return;
     this.age+=dt;this.cd=Math.max(0,this.cd-dt);
+    const x0=this.pos.x,z0=this.pos.z;
     this.pos.x+=this.dir.x*spd*dt;this.pos.z+=this.dir.z*spd*dt;
     this.mesh.position.copy(this.pos);this.mesh.rotation.y=-Math.atan2(this.dir.x,this.dir.z);
     this._last(this.pos.x,this.pos.z);
     if(Math.abs(this.pos.x)>=HALF-.1||Math.abs(this.pos.z)>=HALF-.1){this.die();return;}
-    const k=ck(this.pos.x,this.pos.z);
-    if(this.age>GRACE&&this.lastCell!==null&&this.lastCell!==k)occ.set(this.lastCell,this.id);
-    this.lastCell=k;
-    if(occ.has(k)){this.die();return;}
+    if(this.age<=GRACE)return;
+    const cells=sweepCells(x0,z0,this.pos.x,this.pos.z);
+    for(let i=0;i<cells.length-1;i++)if(!occ.has(cells[i]))occ.set(cells[i],this.id);
+    for(let i=1;i<cells.length;i++)  if(occ.has(cells[i])){this.die();return;}
   }
   die(){
     if(!this.alive)return;this.alive=false;
@@ -222,53 +222,35 @@ class Cycle{
 // ─── AI ────────────────────────────────────────────────────────────────────────
 const lD=d=>new THREE.Vector3(-d.z,0,d.x),rD=d=>new THREE.Vector3(d.z,0,-d.x);
 
-// Count free cells in direction d up to max n — returns how far before hitting something
 function clearance(pos,d,n){
   for(let i=1;i<=n;i++){
     const x=pos.x+d.x*i,z=pos.z+d.z*i;
     if(Math.abs(x)>=HALF-1||Math.abs(z)>=HALF-1)return i-1;
-    if(occ.has(ck(x,z)))return i-1;
+    if(occ.has(x+','+z)||occ.has(Math.floor(x/CELL)+','+Math.floor(z/CELL)))return i-1;
   }return n;
 }
 
-// Score a direction: look ahead, then also peek left+right from end to reward open space
-function score(pos,d,horizon){
+function rateDir(pos,d,horizon){
   const fwd=clearance(pos,d,horizon);
-  if(fwd<2)return fwd; // nearly blocked — don't bother with side bonus
-  // bonus: open space perpendicular at the furthest reachable point
-  const tip={x:pos.x+d.x*fwd, y:0, z:pos.z+d.z*fwd};
-  const side=clearance(tip,lD(d),horizon*.5)+clearance(tip,rD(d),horizon*.5);
-  return fwd+side*0.35;
+  if(fwd<2)return fwd;
+  const tip={x:pos.x+d.x*fwd,z:pos.z+d.z*fwd};
+  return fwd+(clearance(tip,lD(d),horizon*.5)+clearance(tip,rD(d),horizon*.5))*0.35;
 }
 
 function aiStep(c){
   if(!c.alive||c.cd>0)return;
-  const HORIZON=28; // look this many units ahead
-  const EARLY=14;   // start worrying when fewer than this many clear units ahead
-
-  const fwd=clearance(c.pos,c.dir,HORIZON);
-
+  const H=28,EARLY=14;
+  const fwd=clearance(c.pos,c.dir,H);
   if(fwd<EARLY){
-    // Need to consider turning — score all three options
-    const sF=fwd; // already computed
-    const sL=score(c.pos,lD(c.dir),HORIZON);
-    const sR=score(c.pos,rD(c.dir),HORIZON);
-    const best=Math.max(sF,sL,sR);
-    if(best<=2){
-      // Desperate — just pick any open direction
-      if(sL>sR)c.turn(true); else if(sR>sL)c.turn(false); else c.turn(Math.random()<.5);
-    } else if(sL>=best&&sL>sF+2) c.turn(true);
-    else if(sR>=best&&sR>sF+2)   c.turn(false);
-    // else stay straight if forward is still best
-  } else {
-    // Path clear — small random wander to avoid predictable spirals
-    if(Math.random()<0.008){
-      const sL=score(c.pos,lD(c.dir),HORIZON);
-      const sR=score(c.pos,rD(c.dir),HORIZON);
-      // Only wander if the side option is meaningfully better
-      if(sL>fwd+8&&sL>=sR)     c.turn(true);
-      else if(sR>fwd+8&&sR>sL) c.turn(false);
-    }
+    const sL=rateDir(c.pos,lD(c.dir),H),sR=rateDir(c.pos,rD(c.dir),H);
+    const best=Math.max(fwd,sL,sR);
+    if(best<=2){if(sL>sR)c.turn(true);else if(sR>sL)c.turn(false);else c.turn(Math.random()<.5);}
+    else if(sL>=best&&sL>fwd+2)c.turn(true);
+    else if(sR>=best&&sR>fwd+2)c.turn(false);
+  }else if(Math.random()<0.008){
+    const sL=rateDir(c.pos,lD(c.dir),H),sR=rateDir(c.pos,rD(c.dir),H);
+    if(sL>fwd+8&&sL>=sR)c.turn(true);
+    else if(sR>fwd+8&&sR>sL)c.turn(false);
   }
 }
 
@@ -307,12 +289,13 @@ function playDeath(){if(!actx)return;const o=actx.createOscillator(),g=actx.crea
 // ─── GAME STATE ────────────────────────────────────────────────────────────────
 const scoreEl=document.getElementById('scoreEl'),roundEl=document.getElementById('roundEl');
 const menuScr=document.getElementById('menuScreen'),endScr=document.getElementById('endScreen');
-const endTitle=document.getElementById('endTitle'),endScore=document.getElementById('endScore');
-let cycles=[],player=null,state='menu',score=0,round=1,rTimer=0,endPending=false;
+const endTitle=document.getElementById('endTitle'),endMsg=document.getElementById('endMsg');
+let cycles=[],player=null,state='menu';
+let pts=0,round=1,rTimer=0,endPending=false;
 
 function newGame(){
   cycles.forEach(c=>{if(!c.dead)c._rm();});cycles=[];occ.clear();uid=0;rTimer=0;endPending=false;
-  scoreEl.textContent=score;roundEl.textContent=round;
+  scoreEl.textContent=pts;roundEl.textContent=round;
   const numAI=Math.min(round,3);
   [[0,HALF-8,0,-1,C.P,true],[-16,-HALF+8,0,1,C.A[0],false],[16,-HALF+8,0,1,C.A[1],false],[0,-HALF+5,1,0,C.A[2],false]]
     .slice(0,1+numAI).forEach(s=>{const c=new Cycle(...s);if(c.isPlayer)player=c;cycles.push(c);});
@@ -323,30 +306,23 @@ function triggerEnd(win){
   if(endPending)return;endPending=true;if(!win)playDeath();
   setTimeout(()=>{
     state='end';audioEngine(false);
-    if(win){score+=Math.floor(rTimer*10);endTitle.style.color='#ffdd00';endTitle.textContent='GRID CLEARED';round++;}
-    else{endTitle.style.color='#ff4400';endTitle.textContent='DEREZZED';score=0;round=1;}
-    scoreEl.textContent=score;roundEl.textContent=round;endScore.textContent='SCORE: '+score;
+    if(win){pts+=Math.floor(rTimer*10);endTitle.style.color='#ffdd00';endTitle.textContent='GRID CLEARED';round++;}
+    else{endTitle.style.color='#ff4400';endTitle.textContent='DEREZZED';pts=0;round=1;}
+    scoreEl.textContent=pts;roundEl.textContent=round;endMsg.textContent='SCORE: '+pts;
     endScr.classList.remove('hidden');
   },700);
 }
-document.getElementById('startBtn').addEventListener('click',()=>{score=0;round=1;initAudio();newGame();});
+document.getElementById('startBtn').addEventListener('click',()=>{pts=0;round=1;initAudio();newGame();});
 document.getElementById('restartBtn').addEventListener('click',()=>{initAudio();newGame();});
 
-// ─── INPUT — the only two things that matter ───────────────────────────────────
-function doTurn(left){
-  if(state!=='playing'||!player?.alive)return;
-  player.turn(left);playChirp();
-}
-
-// Tap zones
+// ─── INPUT ─────────────────────────────────────────────────────────────────────
+function doTurn(left){if(state!=='playing'||!player?.alive)return;player.turn(left);playChirp();}
 const flashL=document.getElementById('flashL'),flashR=document.getElementById('flashR');
 function flash(el){el.style.opacity='.5';setTimeout(()=>el.style.opacity='0',70);}
 document.getElementById('tapL').addEventListener('touchstart',e=>{e.preventDefault();doTurn(true); flash(flashL);},{passive:false});
 document.getElementById('tapR').addEventListener('touchstart',e=>{e.preventDefault();doTurn(false);flash(flashR);},{passive:false});
 document.getElementById('tapL').addEventListener('mousedown',()=>{doTurn(true); flash(flashL);});
 document.getElementById('tapR').addEventListener('mousedown',()=>{doTurn(false);flash(flashR);});
-
-// Keyboard (desktop)
 document.addEventListener('keydown',e=>{
   if(e.key==='ArrowLeft' ||e.key==='a'||e.key==='A'){e.preventDefault();doTurn(true);}
   if(e.key==='ArrowRight'||e.key==='d'||e.key==='D'){e.preventDefault();doTurn(false);}
@@ -367,7 +343,7 @@ function loop(t){
   const dt=Math.min((t-lastT)/1000,.05);lastT=t;
   if(state==='playing'){
     rTimer+=dt;const spd=SPD0*(1+(round-1)*SPDINC);
-    scoreEl.textContent=score+Math.floor(rTimer*5);
+    scoreEl.textContent=pts+Math.floor(rTimer*5);
     audioSpeed(spd);
     cycles.forEach(c=>{if(!c.isPlayer)aiStep(c);c.update(dt,spd);});
     updateCam(dt);
