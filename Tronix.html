@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>TRON GRID</title>
+<title>TRON GRID - PRO AI</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Courier New',monospace;touch-action:none}
@@ -53,21 +53,20 @@ canvas{display:block;position:fixed;inset:0}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 'use strict';
-// ─── CONFIG ────────────────────────────────────────────────────────────────────
 const ARENA=80,HALF=40,CELL=0.5;
-const SPD0=17,SPDINC=0.13,GRACE=2.0;
+const SPD0=17,SPDINC=0.15,GRACE=1.5;
 const WALLY=[0.1,0.7,1.3],MAXPTS=9000;
 const C={P:0x00ffff,A:[0xff2266,0x44ffaa,0xaa44ff],W:0xffffff,BG:0x080500,GR:0x3a2800,BD:0xffcc00};
 
-// ─── RENDERER ──────────────────────────────────────────────────────────────────
 const canvas=document.getElementById('c');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
 renderer.setClearColor(C.BG);
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 const scene=new THREE.Scene();
 scene.fog=new THREE.FogExp2(C.BG,0.0045);
-const ISO_SIZE=30,ISO_H=72;
+const ISO_SIZE=30, ISO_H=72;
 const camera=new THREE.OrthographicCamera(-1,1,1,-1,0.1,600);
+
 function resize(){
   const w=window.innerWidth,h=window.innerHeight,a=w/h;
   renderer.setSize(w,h);
@@ -80,7 +79,7 @@ const camTarget=new THREE.Vector3();
 camera.position.set(ISO_H,ISO_H,ISO_H);
 camera.lookAt(0,0,0);
 
-// ─── ARENA ─────────────────────────────────────────────────────────────────────
+// --- ARENA SETUP ---
 {
   scene.add(new THREE.GridHelper(ARENA,ARENA*2,C.GR,C.GR));
   [0.05,0.9,1.8,2.7].forEach((y,i)=>{
@@ -90,20 +89,14 @@ camera.lookAt(0,0,0);
     g.setAttribute('position',new THREE.BufferAttribute(pts,3));
     scene.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:C.BD,transparent:true,opacity:op})));
   });
-  const verts=[];
-  for(let i=0;i<=4;i++){const x=-HALF+i*(ARENA/4);verts.push(x,0,-HALF,x,3,-HALF,x,0,HALF,x,3,HALF);}
-  for(let i=0;i<=4;i++){const z=-HALF+i*(ARENA/4);verts.push(-HALF,0,z,-HALF,3,z,HALF,0,z,HALF,3,z);}
-  const vg=new THREE.BufferGeometry();
-  vg.setAttribute('position',new THREE.BufferAttribute(new Float32Array(verts),3));
-  scene.add(new THREE.LineSegments(vg,new THREE.LineBasicMaterial({color:0x443300,transparent:true,opacity:.4})));
-  const pm=new THREE.MeshBasicMaterial({color:0x996600,wireframe:true});
-  [[-HALF,-HALF],[HALF,-HALF],[HALF,HALF],[-HALF,HALF]].forEach(([x,z])=>{
-    const m=new THREE.Mesh(new THREE.BoxGeometry(1.5,8,1.5),pm);m.position.set(x,4,z);scene.add(m);
-  });
 }
 
-// ─── COLLISION MAP + DDA ───────────────────────────────────────────────────────
 const occ=new Map();
+
+function isBlocked(x, z) {
+  if (Math.abs(x) >= HALF - 0.5 || Math.abs(z) >= HALF - 0.5) return true;
+  return occ.has(Math.floor(x/CELL) + ',' + Math.floor(z/CELL));
+}
 
 function sweepCells(x0,z0,x1,z1){
   const cells=[];
@@ -116,8 +109,7 @@ function sweepCells(x0,z0,x1,z1){
   const tDX=Math.abs(CELL/dx),tDZ=Math.abs(CELL/dz);
   let tX=dx!==0?Math.abs(((dx>0?(cx+1)*CELL:cx*CELL)-x0)/dx):Infinity;
   let tZ=dz!==0?Math.abs(((dz>0?(cz+1)*CELL:cz*CELL)-z0)/dz):Infinity;
-  const maxSteps=Math.abs(ex-cx)+Math.abs(ez-cz)+2;
-  for(let i=0;i<maxSteps;i++){
+  for(let i=0;i<10;i++){
     if(tX<tZ){tX+=tDX;cx+=stepX;}else{tZ+=tDZ;cz+=stepZ;}
     cells.push(cx+','+cz);
     if(cx===ex&&cz===ez)break;
@@ -125,45 +117,18 @@ function sweepCells(x0,z0,x1,z1){
   return cells;
 }
 
-// ─── MOTORCYCLE ────────────────────────────────────────────────────────────────
 function buildMoto(color){
   const g=new THREE.Group(),mat=new THREE.MeshBasicMaterial({color,wireframe:true}),lm=new THREE.LineBasicMaterial({color});
   const tg=new THREE.TorusGeometry(0.62,0.07,7,18);
   [-0.88,0.88].forEach(z=>{
     const w=new THREE.Mesh(tg,mat);w.rotation.x=Math.PI/2;w.position.z=z;g.add(w);
-    const sp=[];for(let i=0;i<8;i++){const a=i*Math.PI/4;sp.push(0,0,z,Math.cos(a)*.56,Math.sin(a)*.56,z);}
-    const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.BufferAttribute(new Float32Array(sp),3));
-    g.add(new THREE.LineSegments(sg,lm));
-    const ax=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,.3,6),mat);ax.rotation.z=Math.PI/2;ax.position.z=z;g.add(ax);
   });
-  [[.22,.18,-.38],[-.22,.18,-.38]].forEach(([x,y,z])=>{const sa=new THREE.Mesh(new THREE.BoxGeometry(.12,.1,1),mat);sa.position.set(x,y,z);g.add(sa);});
-  const spine=new THREE.Mesh(new THREE.BoxGeometry(.15,.12,1.2),mat);spine.position.set(0,.5,-.05);g.add(spine);
-  const bp=new Float32Array([0,.3,-.7,0,.95,.35]);const bg=new THREE.BufferGeometry();bg.setAttribute('position',new THREE.BufferAttribute(bp,3));g.add(new THREE.Line(bg,lm));
   const eng=new THREE.Mesh(new THREE.BoxGeometry(.52,.42,.58),mat);eng.position.set(0,.45,-.05);g.add(eng);
-  const ex=new THREE.Mesh(new THREE.CylinderGeometry(.045,.06,.7,6),mat);ex.rotation.z=Math.PI/2;ex.position.set(.34,.22,-.25);g.add(ex);
-  const ext=new THREE.Mesh(new THREE.CylinderGeometry(.06,.08,.15,6),mat);ext.rotation.z=Math.PI/2;ext.position.set(.72,.22,-.25);g.add(ext);
-  const tank=new THREE.Mesh(new THREE.BoxGeometry(.48,.3,.62),mat);tank.position.set(0,.84,-.05);g.add(tank);
-  const fair=new THREE.Mesh(new THREE.BoxGeometry(.58,.72,.5),mat);fair.position.set(0,.72,.6);g.add(fair);
-  const hl=new THREE.Mesh(new THREE.BoxGeometry(.32,.18,.08),mat);hl.position.set(0,.62,.86);g.add(hl);
-  const ws=new THREE.Mesh(new THREE.BoxGeometry(.28,.22,.06),mat);ws.position.set(0,1.1,.72);ws.rotation.x=-.35;g.add(ws);
-  [[.22,.35,.72],[-.22,.35,.72]].forEach(([x,y,z])=>{const ff=new THREE.Mesh(new THREE.BoxGeometry(.1,.55,.1),mat);ff.rotation.x=.18;ff.position.set(x,y,z);g.add(ff);});
-  const hb=new THREE.Mesh(new THREE.BoxGeometry(.9,.055,.16),mat);hb.position.set(0,1.02,.42);g.add(hb);
-  [-1,1].forEach(s=>{
-    const gr=new THREE.Mesh(new THREE.BoxGeometry(.055,.14,.14),mat);gr.position.set(s*.45,1.09,.42);g.add(gr);
-    const arm=new THREE.Mesh(new THREE.BoxGeometry(.08,.09,.5),mat);arm.rotation.x=-.4;arm.position.set(s*.3,1.18,.38);g.add(arm);
-    const fore=new THREE.Mesh(new THREE.BoxGeometry(.07,.07,.38),mat);fore.rotation.x=.3;fore.position.set(s*.35,1.05,.52);g.add(fore);
-    const thigh=new THREE.Mesh(new THREE.BoxGeometry(.11,.38,.12),mat);thigh.rotation.x=.5;thigh.position.set(s*.18,.72,-.12);g.add(thigh);
-    const shin=new THREE.Mesh(new THREE.BoxGeometry(.1,.35,.1),mat);shin.rotation.x=-.3;shin.position.set(s*.2,.38,-.45);g.add(shin);
-  });
-  const seat=new THREE.Mesh(new THREE.BoxGeometry(.42,.1,.4),mat);seat.position.set(0,.98,-.15);g.add(seat);
   const torso=new THREE.Mesh(new THREE.BoxGeometry(.34,.52,.28),mat);torso.rotation.x=-.32;torso.position.set(0,1.35,.12);g.add(torso);
   const head=new THREE.Mesh(new THREE.BoxGeometry(.3,.3,.3),mat);head.position.set(0,1.75,.25);g.add(head);
-  const vis=new THREE.Mesh(new THREE.BoxGeometry(.22,.1,.04),new THREE.MeshBasicMaterial({color:C.W,wireframe:true}));vis.position.set(0,1.75,.44);g.add(vis);
-  const tail=new THREE.Mesh(new THREE.BoxGeometry(.38,.2,.4),mat);tail.position.set(0,.78,-.58);g.add(tail);
   return g;
 }
 
-// ─── CYCLE ─────────────────────────────────────────────────────────────────────
 let uid=0;
 class Cycle{
   constructor(x,z,dx,dz,color,isPlayer){
@@ -173,195 +138,112 @@ class Cycle{
     this.age=0;this.cd=0;
     this.mesh=buildMoto(color);this.mesh.position.copy(this.pos);scene.add(this.mesh);
     this.walls=WALLY.map(y=>{
-      const buf=new Float32Array(MAXPTS*3),attr=new THREE.BufferAttribute(buf,3);
-      const geo=new THREE.BufferGeometry();geo.setAttribute('position',attr);geo.setDrawRange(0,0);
+      const geo=new THREE.BufferGeometry();
+      geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(MAXPTS*3),3));
+      geo.setDrawRange(0,0);
       const line=new THREE.Line(geo,new THREE.LineBasicMaterial({color}));
       line.frustumCulled=false;scene.add(line);
-      return{buf,attr,geo,line,n:0};
+      return{buf:geo.attributes.position.array,attr:geo.attributes.position,geo,line,n:0};
     });
     this._push(x,z);this._push(x,z);
   }
-  _push(x,z){this.walls.forEach((w,i)=>{if(w.n>=MAXPTS)return;const b=w.n*3;w.buf[b]=x;w.buf[b+1]=WALLY[i];w.buf[b+2]=z;w.n++;w.geo.setDrawRange(0,w.n);w.attr.needsUpdate=true;});}
-  _last(x,z){this.walls.forEach((w,i)=>{if(!w.n)return;const b=(w.n-1)*3;w.buf[b]=x;w.buf[b+1]=WALLY[i];w.buf[b+2]=z;w.attr.needsUpdate=true;});}
+  _push(x,z){this.walls.forEach(w=>{if(w.n>=MAXPTS)return;const b=w.n*3;w.buf[b]=x;w.buf[b+1]=WALLY[this.walls.indexOf(w)];w.buf[b+2]=z;w.n++;w.geo.setDrawRange(0,w.n);w.attr.needsUpdate=true;});}
+  _last(x,z){this.walls.forEach(w=>{if(!w.n)return;const b=(w.n-1)*3;w.buf[b]=x;w.buf[b+2]=z;w.attr.needsUpdate=true;});}
   turn(left){
     if(this.cd>0)return;
     this._push(this.pos.x,this.pos.z);
-    if(left){const nx=this.dir.z,nz=-this.dir.x;this.dir.x=nx;this.dir.z=nz;}
-    else    {const nx=-this.dir.z,nz=this.dir.x;this.dir.x=nx;this.dir.z=nz;}
-    this.cd=0.11;
+    const nx=left?this.dir.z:-this.dir.z,nz=left?-this.dir.x:this.dir.x;
+    this.dir.set(nx,0,nz);this.cd=0.12;
   }
   update(dt,spd){
     if(!this.alive)return;
     this.age+=dt;this.cd=Math.max(0,this.cd-dt);
     const x0=this.pos.x,z0=this.pos.z;
-    this.pos.x+=this.dir.x*spd*dt;this.pos.z+=this.dir.z*spd*dt;
+    this.pos.addScaledVector(this.dir,spd*dt);
     this.mesh.position.copy(this.pos);this.mesh.rotation.y=-Math.atan2(this.dir.x,this.dir.z);
     this._last(this.pos.x,this.pos.z);
-    if(Math.abs(this.pos.x)>=HALF-.1||Math.abs(this.pos.z)>=HALF-.1){this.die();return;}
+    if(isBlocked(this.pos.x,this.pos.z)){this.die();return;}
     const cells=sweepCells(x0,z0,this.pos.x,this.pos.z);
-    // Always mark departed cells — trail is hot from frame 1 for enemies
-    for(let i=0;i<cells.length-1;i++)
-      if(!occ.has(cells[i]))occ.set(cells[i],this.id);
-    // Check entered cells — grace only exempts own trail, never enemy trail
+    for(let i=0;i<cells.length-1;i++)if(!occ.has(cells[i]))occ.set(cells[i],this.id);
     for(let i=1;i<cells.length;i++){
       const owner=occ.get(cells[i]);
-      if(owner!==undefined){
-        if(owner===this.id&&this.age<=GRACE)continue; // own trail during grace: skip
-        this.die();return;
-      }
+      if(owner!==undefined&&(owner!==this.id||this.age>GRACE)){this.die();return;}
     }
   }
   die(){
     if(!this.alive)return;this.alive=false;
-    this.mesh.traverse(c=>{if(c.material)c.material.color.set(C.W);});
-    this.walls.forEach(w=>w.line.material.color.set(C.W));
-    for(let i=0;i<10;i++){
-      const a=Math.random()*Math.PI*2,r=Math.random()*4+1;
-      const pp=new Float32Array([this.pos.x,this.pos.y,this.pos.z,this.pos.x+Math.cos(a)*r,this.pos.y+Math.random()*3.5,this.pos.z+Math.sin(a)*r]);
-      const pl=new THREE.Line(new THREE.BufferGeometry().setAttribute('position',new THREE.BufferAttribute(pp,3)),new THREE.LineBasicMaterial({color:this.color,transparent:true,opacity:1}));
-      scene.add(pl);setTimeout(()=>scene.remove(pl),700);
-    }
     if(this.isPlayer)audioEngine(false);
-    setTimeout(()=>{this._rm();this.dead=true;},520);
+    setTimeout(()=>{scene.remove(this.mesh);this.walls.forEach(w=>scene.remove(w.line));this.dead=true;},500);
   }
-  _rm(){scene.remove(this.mesh);this.walls.forEach(w=>{scene.remove(w.line);w.geo.dispose();w.line.material.dispose();});}
 }
 
-// ─── AI ────────────────────────────────────────────────────────────────────────
-const lD=d=>new THREE.Vector3(-d.z,0,d.x),rD=d=>new THREE.Vector3(d.z,0,-d.x);
+// --- PRO AI LOGIC ---
+const lD=d=>({x:-d.z,z:d.x}), rD=d=>({x:d.z,z:-d.x});
 
-// Ray-cast forward in steps of CELL — returns clear distance in world units
-function clearance(pos,d,maxD){
-  for(let dist=CELL;dist<=maxD;dist+=CELL){
-    const x=pos.x+d.x*dist, z=pos.z+d.z*dist;
-    if(Math.abs(x)>=HALF-0.5||Math.abs(z)>=HALF-0.5) return dist-CELL;
-    if(occ.has(Math.floor(x/CELL)+','+Math.floor(z/CELL))) return dist-CELL;
+function countArea(posX, posZ, dirX, dirZ, limit = 40) {
+  let count = 0;
+  let stack = [[posX + dirX * CELL, posZ + dirZ * CELL]];
+  let visited = new Set();
+  while (stack.length > 0 && count < limit) {
+    let [cx, cz] = stack.pop();
+    let key = Math.floor(cx / CELL) + ',' + Math.floor(cz / CELL);
+    if (!isBlocked(cx, cz) && !visited.has(key)) {
+      visited.add(key);count++;
+      stack.push([cx+CELL,cz],[cx-CELL,cz],[cx,cz+CELL],[cx,cz-CELL]);
+    }
   }
-  return maxD;
+  return count;
 }
 
-function aiStep(c){
-  if(!c.alive||c.cd>0) return;
-
-  const MAXLOOK=60; // cast all the way to the wall if needed
-  const REACT=14;   // start caring when fewer than this many units ahead are clear
-
-  const fwd=clearance(c.pos,c.dir,MAXLOOK);
-  if(fwd>=REACT) return; // plenty of room — go straight, no re-evaluation
-
-  // Forced to turn — compare left vs right clearance, pick better
-  const cL=clearance(c.pos,lD(c.dir),MAXLOOK);
-  const cR=clearance(c.pos,rD(c.dir),MAXLOOK);
-
-  if(cL>cR)      c.turn(true);
-  else if(cR>cL) c.turn(false);
-  else           c.turn(Math.random()<0.5); // equal — random
-
-  // Commit: cd long enough to travel past REACT distance so we don't immediately re-trigger
-  c.cd=0.55; // ~9 units at spd17 — well past the REACT threshold
+function aiStep(c) {
+  if (!c.alive || c.cd > 0) return;
+  const SENSE = 6;
+  if (!isBlocked(c.pos.x + c.dir.x*SENSE, c.pos.z + c.dir.z*SENSE)) return;
+  const ld=lD(c.dir), rd=rD(c.dir);
+  const aL=countArea(c.pos.x, c.pos.z, ld.x, ld.z, 50);
+  const aR=countArea(c.pos.x, c.pos.z, rd.x, rd.z, 50);
+  if(aL > aR) c.turn(true);
+  else if(aR > aL) c.turn(false);
+  else c.turn(Math.random() < 0.5);
 }
 
-// ─── AUDIO ─────────────────────────────────────────────────────────────────────
-let actx=null,engOsc=null,engGain=null,lfoOsc=null,lfoGain=null;
-function initAudio(){
-  if(actx)return;
-  actx=new(window.AudioContext||window.webkitAudioContext)();
-  const master=actx.createGain();master.gain.value=0.14;master.connect(actx.destination);
-  lfoOsc=actx.createOscillator();lfoOsc.type='sine';lfoOsc.frequency.value=6.5;
-  lfoGain=actx.createGain();lfoGain.gain.value=55;lfoOsc.connect(lfoGain);lfoOsc.start();
-  engOsc=actx.createOscillator();engOsc.type='sawtooth';engOsc.frequency.value=260;
-  lfoGain.connect(engOsc.frequency);
-  const hp=actx.createBiquadFilter();hp.type='highpass';hp.frequency.value=160;
-  const pk=actx.createBiquadFilter();pk.type='peaking';pk.frequency.value=900;pk.Q.value=3;pk.gain.value=10;
-  engGain=actx.createGain();engGain.gain.value=0;
-  engOsc.connect(hp);hp.connect(pk);pk.connect(engGain);engGain.connect(master);engOsc.start();
-  let alive=true;
-  (function pulse(s){
-    if(!alive)return;
-    const len=Math.floor(actx.sampleRate*0.035),buf=actx.createBuffer(1,len,actx.sampleRate),d=buf.getChannelData(0);
-    const acc=s%4===0||s%2===0;
-    for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.exp(-i/(acc?80:40));
-    const src=actx.createBufferSource();src.buffer=buf;
-    const g=actx.createGain();g.gain.value=acc?.13:.055;
-    const bp=actx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=acc?3200:1800;bp.Q.value=1.5;
-    src.connect(bp);bp.connect(g);g.connect(master);src.start();
-    setTimeout(()=>{if(alive)pulse((s+1)%4);},60000/(130*4));
-  })(0);
-}
-function audioEngine(on){if(!actx||!engGain)return;engGain.gain.setTargetAtTime(on?.85:0,actx.currentTime,.3);}
-function audioSpeed(spd){if(!actx||!engOsc)return;engOsc.frequency.setTargetAtTime(150+(spd-SPD0)*18,actx.currentTime,.1);lfoOsc.frequency.setTargetAtTime(5+(spd-SPD0)*.3,actx.currentTime,.5);}
-function playChirp(){if(!actx)return;const o=actx.createOscillator(),g=actx.createGain();o.type='sine';o.frequency.value=750;g.gain.setValueAtTime(.16,actx.currentTime);g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+.13);o.frequency.linearRampToValueAtTime(1250,actx.currentTime+.1);o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+.14);}
-function playDeath(){if(!actx)return;const o=actx.createOscillator(),g=actx.createGain();o.type='sawtooth';o.frequency.value=600;g.gain.setValueAtTime(.22,actx.currentTime);g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+.6);o.frequency.exponentialRampToValueAtTime(60,actx.currentTime+.55);o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+.65);}
+// --- AUDIO & STATE ---
+let actx=null,engGain=null;
+function initAudio(){if(actx)return;actx=new(window.AudioContext||window.webkitAudioContext)();engGain=actx.createGain();engGain.gain.value=0;engGain.connect(actx.destination);}
+function audioEngine(on){if(engGain)engGain.gain.setTargetAtTime(on?.1:0,actx.currentTime,.2);}
 
-// ─── GAME STATE ────────────────────────────────────────────────────────────────
+let cycles=[],player=null,state='menu',pts=0,round=1,rTimer=0,endPending=false;
 const scoreEl=document.getElementById('scoreEl'),roundEl=document.getElementById('roundEl');
-const menuScr=document.getElementById('menuScreen'),endScr=document.getElementById('endScreen');
-const endTitle=document.getElementById('endTitle'),endMsg=document.getElementById('endMsg');
-let cycles=[],player=null,state='menu';
-let pts=0,round=1,rTimer=0,endPending=false;
 
 function newGame(){
-  cycles.forEach(c=>{if(!c.dead)c._rm();});cycles=[];occ.clear();uid=0;rTimer=0;endPending=false;
-  scoreEl.textContent=pts;roundEl.textContent=round;
-  const numAI=Math.min(round,3);
-  [[0,HALF-8,0,-1,C.P,true],[-16,-HALF+8,0,1,C.A[0],false],[16,-HALF+8,0,1,C.A[1],false],[0,-HALF+5,1,0,C.A[2],false]]
-    .slice(0,1+numAI).forEach(s=>{const c=new Cycle(...s);if(c.isPlayer)player=c;cycles.push(c);});
-  camTarget.copy(player.pos);state='playing';audioEngine(true);
-  menuScr.classList.add('hidden');endScr.classList.add('hidden');
-}
-function triggerEnd(win){
-  if(endPending)return;endPending=true;if(!win)playDeath();
-  setTimeout(()=>{
-    state='end';audioEngine(false);
-    if(win){pts+=Math.floor(rTimer*10);endTitle.style.color='#ffdd00';endTitle.textContent='GRID CLEARED';round++;}
-    else{endTitle.style.color='#ff4400';endTitle.textContent='DEREZZED';pts=0;round=1;}
-    scoreEl.textContent=pts;roundEl.textContent=round;endMsg.textContent='SCORE: '+pts;
-    endScr.classList.remove('hidden');
-  },700);
-}
-document.getElementById('startBtn').addEventListener('click',()=>{pts=0;round=1;initAudio();newGame();});
-document.getElementById('restartBtn').addEventListener('click',()=>{initAudio();newGame();});
-
-// ─── INPUT ─────────────────────────────────────────────────────────────────────
-function doTurn(left){if(state!=='playing'||!player?.alive)return;player.turn(left);playChirp();}
-const flashL=document.getElementById('flashL'),flashR=document.getElementById('flashR');
-function flash(el){el.style.opacity='.5';setTimeout(()=>el.style.opacity='0',70);}
-document.getElementById('tapL').addEventListener('touchstart',e=>{e.preventDefault();doTurn(true); flash(flashL);},{passive:false});
-document.getElementById('tapR').addEventListener('touchstart',e=>{e.preventDefault();doTurn(false);flash(flashR);},{passive:false});
-document.getElementById('tapL').addEventListener('mousedown',()=>{doTurn(true); flash(flashL);});
-document.getElementById('tapR').addEventListener('mousedown',()=>{doTurn(false);flash(flashR);});
-document.addEventListener('keydown',e=>{
-  if(e.key==='ArrowLeft' ||e.key==='a'||e.key==='A'){e.preventDefault();doTurn(true);}
-  if(e.key==='ArrowRight'||e.key==='d'||e.key==='D'){e.preventDefault();doTurn(false);}
-});
-
-// ─── CAMERA ────────────────────────────────────────────────────────────────────
-function updateCam(dt){
-  if(!player)return;
-  camTarget.lerp(player.pos,Math.min(1,5*dt));
-  camera.position.set(camTarget.x+ISO_H,camTarget.y+ISO_H,camTarget.z+ISO_H);
-  camera.lookAt(camTarget.x,camTarget.y,camTarget.z);
+  cycles.forEach(c=>scene.remove(c.mesh));cycles=[];occ.clear();uid=0;rTimer=0;endPending=false;
+  const n=Math.min(round,3);
+  [[0,32,0,-1,C.P,true],[-16,-32,0,1,C.A[0],false],[16,-32,0,1,C.A[1],false],[0,-35,1,0,C.A[2],false]].slice(0,1+n).forEach(s=>{const c=new Cycle(...s);if(c.isPlayer)player=c;cycles.push(c);});
+  state='playing';audioEngine(true);
+  document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden'));
 }
 
-// ─── LOOP ──────────────────────────────────────────────────────────────────────
-let lastT=0;
+document.getElementById('startBtn').addEventListener('click',()=>{initAudio();newGame();});
+document.getElementById('restartBtn').addEventListener('click',()=>{newGame();});
+document.addEventListener('keydown',e=>{if(player?.alive){if(e.key==='ArrowLeft')player.turn(true);if(e.key==='ArrowRight')player.turn(false);}});
+
 function loop(t){
   requestAnimationFrame(loop);
-  const dt=Math.min((t-lastT)/1000,.05);lastT=t;
+  const dt=0.016;
   if(state==='playing'){
-    rTimer+=dt;const spd=SPD0*(1+(round-1)*SPDINC);
-    scoreEl.textContent=pts+Math.floor(rTimer*5);
-    audioSpeed(spd);
+    rTimer+=dt;const spd=SPD0+(round*SPDINC);
     cycles.forEach(c=>{if(!c.isPlayer)aiStep(c);c.update(dt,spd);});
-    updateCam(dt);
+    camTarget.lerp(player.pos,0.1);
+    camera.position.set(camTarget.x+ISO_H,camTarget.y+ISO_H,camTarget.z+ISO_H);
+    camera.lookAt(camTarget.x,0,camTarget.z);
     if(!endPending){
-      if(player&&!player.alive)triggerEnd(false);
-      else if(cycles.filter(c=>!c.isPlayer).every(c=>!c.alive))triggerEnd(true);
+      if(!player.alive){endPending=true;setTimeout(()=>document.getElementById('endScreen').classList.remove('hidden'),1000);}
+      else if(cycles.filter(c=>!c.isPlayer).every(c=>!c.alive)){round++;newGame();}
     }
   }
   renderer.render(scene,camera);
 }
-requestAnimationFrame(t=>{lastT=t;loop(t);});
+loop(0);
 </script>
 </body>
 </html>
