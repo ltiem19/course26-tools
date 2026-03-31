@@ -39,6 +39,16 @@
             font-size: 1.5rem;
             margin-bottom: 10px;
             font-weight: 300;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .header h2 {
+            font-size: 1.2rem;
+            margin: 15px 0;
+            font-weight: 500;
+            line-height: 1.4;
+            color: #ecf0f1;
         }
         
         .quiz-content {
@@ -136,36 +146,13 @@
             margin-bottom: 12px;
         }
         
-        .physics-note {
-            background: #e8f5e8;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 15px;
-            font-size: 0.95rem;
-            border-left: 3px solid #4caf50;
-        }
-        
         @media (max-width: 480px) {
             .container {
                 margin: 10px;
                 border-radius: 10px;
             }
-            
-            .header {
-                padding: 20px 15px;
-            }
-            
-            .quiz-content {
-                padding: 20px 15px;
-            }
-            
-            .option {
-                padding: 12px;
-            }
-            
-            .show-results-btn {
-                padding: 12px 25px;
-            }
+            .header h1 { font-size: 1.3rem; }
+            .header h2 { font-size: 1.1rem; }
         }
     </style>
 </head>
@@ -173,6 +160,7 @@
     <div class="container">
         <div class="header">
             <h1>Electronic Band Structure</h1>
+            <h2>Why do metals conduct while insulators or (undoped) semiconductors typically do not?</h2>
             <p>Select the best answer and click "Show Results"</p>
         </div>
         
@@ -195,7 +183,7 @@
                 
                 <div class="option" onclick="selectOption(4)">
                     <input type="radio" id="option4" name="answer" value="4">
-                    <label for="option4">It's complicated...just like my last relationship</label>
+                    <label for="option4">Ugh! I should have studied philosophy instead!</label>
                 </div>
                 
                 <div class="option" onclick="selectOption(5)">
@@ -214,11 +202,9 @@
         let selectedAnswer = null;
         
         function selectOption(optionNumber) {
-            // Remove previous selection
             document.querySelectorAll('.option').forEach(opt => opt.classList.remove('selected'));
             document.querySelectorAll('input[type="radio"]').forEach(radio => radio.checked = false);
             
-            // Select current option
             const selectedOption = document.querySelector(`#option${optionNumber}`);
             selectedOption.checked = true;
             selectedOption.closest('.option').classList.add('selected');
@@ -237,40 +223,28 @@
                     content = `<h3>Not quite right!</h3>
                     <p>While band gap size matters for semiconductors vs insulators, it doesn't explain why metals conduct. Metals often have overlapping bands or partially filled bands, not necessarily small gaps.</p>`;
                     break;
-                    
                 case 2:
                     content = `<h3>Temperature is important, but not everything!</h3>
-                    <p>Temperature affects carrier concentration in semiconductors (∝ e^(-Eg/2kT)), but metals conduct at all temperatures, even approaching absolute zero. The fundamental difference lies elsewhere.</p>`;
+                    <p>Temperature affects carrier concentration in semiconductors, but metals conduct at all temperatures. The fundamental difference lies in the band filling at T=0.</p>`;
                     break;
-                    
                 case 3:
                     isCorrect = true;
                     content = `<h3>Correct! Well done.</h3>
-                    <p>The Fermi level position relative to the band structure is crucial. For conduction, electrons need access to unoccupied states within ~kT of E<sub>F</sub>.</p>
-                    <p><strong>Metals:</strong> E<sub>F</sub> lies within a partially filled band → abundant unoccupied states</p>
-                    <p><strong>Semiconductors/Insulators:</strong> E<sub>F</sub> lies in the gap between filled valence and empty conduction bands → few available states at T≈0</p>`;
+                    <p>In a metal, the Fermi level intersects a band, meaning there are empty states within the energy window kB*T. In insulators, the valence band is full; since all states are occupied, the net velocity remains zero regardless of the applied force.</p>`;
                     break;
-                    
                 case 4:
-                    isCorrect = true;
-                    content = `<h3>Actually correct! (Despite the relationship humor)</h3>
-                    <p>It IS complicated! Conductivity depends on band filling, band overlap, defect states, temperature, doping, electron-phonon coupling, and quantum many-body effects.</p>`;
+                    content = `<h3>Physics Avoidance detected!</h3>
+                    <p>New career path at Starbucks initiated, uploading your CV to LinkedIn now.</p>`;
                     break;
-                    
                 case 5:
                     content = `<h3>Physics avoidance detected!</h3>
-                    <p>Sociology is fascinating, but electronic band theory explains technologies from LEDs to solar cells to quantum computers. The universe doesn't care about your career regrets - electrons still follow quantum mechanics!</p>
-                    <div class="physics-note">
-                        <strong>Ironic note:</strong> Even sociological research increasingly relies on electronic devices whose operation depends on... band theory. No escape!
-                    </div>`;
+                    <p>Sociology won't explain why your phone works. Electrons follow quantum mechanics regardless of career regrets!</p>`;
                     break;
             }
             
             resultsDiv.innerHTML = content;
             resultsDiv.style.display = 'block';
             resultsDiv.className = isCorrect ? 'results' : 'results wrong';
-            
-            // Scroll to results
             resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     </script>
