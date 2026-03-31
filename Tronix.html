@@ -4,74 +4,62 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
 <title>TRON GRID</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Courier New',monospace;touch-action:none}
 canvas{display:block;position:fixed;inset:0}
-#ui{position:fixed;inset:0;pointer-events:none}
+
+/* Tap zones — full screen, split 50/50, always behind game screens */
+#tapL,#tapR{position:fixed;top:0;bottom:0;width:50%;z-index:1;cursor:pointer}
+#tapL{left:0} #tapR{right:0}
+
+/* Brief flash feedback on tap */
+#flashL,#flashR{position:fixed;top:0;bottom:0;width:50%;opacity:0;pointer-events:none;z-index:2;transition:opacity .07s}
+#flashL{left:0; background:linear-gradient(to right,rgba(0,255,255,.10),transparent)}
+#flashR{right:0;background:linear-gradient(to left, rgba(0,255,255,.10),transparent)}
 
 /* HUD */
+#ui{position:fixed;inset:0;pointer-events:none;z-index:3}
 #hud{position:absolute;top:max(12px,env(safe-area-inset-top));left:16px;color:#ff0;font-size:12px;letter-spacing:2px;text-shadow:0 0 10px #ff0}
 #rhud{position:absolute;top:max(12px,env(safe-area-inset-top));right:16px;color:#ff0;font-size:12px;letter-spacing:2px;text-shadow:0 0 10px #ff0}
 
-/* Tilt gauge — bottom center */
-#gauge{position:absolute;bottom:max(22px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:58px;height:58px;border-radius:50%;border:1px solid rgba(255,200,0,.22);background:rgba(255,200,0,.03);opacity:.75}
-#gaugeX{position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(255,200,0,.15)}
-#gaugeY{position:absolute;top:0;bottom:0;left:50%;width:1px;background:rgba(255,200,0,.15)}
-#gaugeKnob{position:absolute;width:10px;height:10px;border-radius:50%;background:#ffdd00;box-shadow:0 0 8px #ffdd00;transform:translate(-50%,-50%);left:50%;top:50%;will-change:left,top}
-#gaugeLabel{position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);color:rgba(255,220,0,.3);font-size:8px;letter-spacing:2px;white-space:nowrap}
+/* Tap hint arrows — permanent, subtle */
+#hintL,#hintR{position:fixed;bottom:max(28px,env(safe-area-inset-bottom));font-size:28px;color:rgba(255,220,0,.18);z-index:2;pointer-events:none;letter-spacing:0}
+#hintL{left:18px} #hintR{right:18px}
 
-/* Invisible tap zones — full height, left/right halves */
-#tapL,#tapR{position:fixed;top:0;bottom:0;width:50%;pointer-events:all;z-index:1}
-#tapL{left:0}#tapR{right:0}
-.tapFlash{position:fixed;top:0;bottom:0;width:50%;opacity:0;pointer-events:none;transition:opacity .08s;z-index:2}
-#flashL{left:0;background:linear-gradient(to right,rgba(0,255,255,.08),transparent)}
-#flashR{right:0;background:linear-gradient(to left,rgba(0,255,255,.08),transparent)}
-
-/* Screens */
-.screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:all;z-index:10}
+/* Game screens */
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:all;z-index:10}
 .hidden{display:none!important}
-#menuScreen h1{font-size:clamp(40px,14vw,72px);color:#ffdd00;text-shadow:0 0 24px #ffdd00;letter-spacing:.25em;margin-bottom:6px}
-.sub{color:#554400;font-size:11px;letter-spacing:.25em;margin-bottom:5px}
-.hint{color:#2a2000;font-size:10px;letter-spacing:.15em;margin-bottom:28px;text-align:center;line-height:2}
+#menuScreen h1{font-size:clamp(40px,14vw,72px);color:#ffdd00;text-shadow:0 0 24px #ffdd00;letter-spacing:.25em;margin-bottom:8px}
+.sub{color:#554400;font-size:11px;letter-spacing:.25em;margin-bottom:6px}
+.hint{color:#2a2000;font-size:10px;letter-spacing:.15em;margin-bottom:30px;text-align:center;line-height:2}
 .abtn{border:1px solid #ffdd00;background:transparent;color:#ffdd00;font-family:'Courier New',monospace;font-size:13px;padding:13px 36px;cursor:pointer;letter-spacing:.3em;text-shadow:0 0 8px #ffdd00;touch-action:manipulation}
 .abtn:active{background:rgba(255,220,0,.14)}
 #endTitle{font-size:clamp(28px,8vw,44px);letter-spacing:.18em;margin-bottom:8px;text-shadow:0 0 20px currentColor}
 #endScore{color:#776600;font-size:12px;letter-spacing:.25em;margin-bottom:26px}
-
-/* Tilt permission note — shown only on iOS before first grant */
-#tiltNote{font-size:10px;color:#443300;letter-spacing:.15em;margin-top:14px;text-align:center}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="flashL" class="tapFlash"></div>
-<div id="flashR" class="tapFlash"></div>
+
+<!-- Tap zones behind everything -->
+<div id="tapL"></div>
+<div id="tapR"></div>
+<div id="flashL"></div>
+<div id="flashR"></div>
+<div id="hintL">&#9668;</div>
+<div id="hintR">&#9658;</div>
+
 <div id="ui">
   <div id="hud">SCORE: <span id="scoreEl">0</span></div>
   <div id="rhud">RND <span id="roundEl">1</span></div>
-  <div id="gauge">
-    <div id="gaugeX"></div>
-    <div id="gaugeY"></div>
-    <div id="gaugeKnob"></div>
-    <div id="gaugeLabel">TILT TO STEER</div>
-  </div>
-  <!-- Full-screen tap zones (beneath game screens) -->
-  <div id="tapL"></div>
-  <div id="tapR"></div>
 
   <div id="menuScreen" class="screen">
     <h1>TRON</h1>
     <div class="sub">LIGHT CYCLE COMBAT</div>
-    <div class="hint">
-      TILT PHONE LEFT / RIGHT TO TURN<br>
-      OR TAP LEFT / RIGHT HALF OF SCREEN<br>
-      ARROW KEYS ON DESKTOP
-    </div>
+    <div class="hint">TAP LEFT HALF ← TURN LEFT<br>TAP RIGHT HALF → TURN RIGHT</div>
     <button class="abtn" id="startBtn">ENTER GRID</button>
-    <div id="tiltNote"></div>
   </div>
   <div id="endScreen" class="screen hidden">
     <div id="endTitle" style="color:#ff4400">DEREZZED</div>
@@ -88,7 +76,6 @@ const ARENA=80,HALF=40,CELL=0.5;
 const SPD0=17,SPDINC=0.13,GRACE=2.0;
 const WALLY=[0.1,0.7,1.3],MAXPTS=9000;
 const C={P:0x00ffff,A:[0xff2266,0x44ffaa,0xaa44ff],W:0xffffff,BG:0x080500,GR:0x3a2800,BD:0xffcc00};
-const TILT_ON=22, TILT_OFF=8; // degrees: trigger / re-arm thresholds
 
 // ─── RENDERER ──────────────────────────────────────────────────────────────────
 const canvas=document.getElementById('c');
@@ -130,12 +117,11 @@ camera.lookAt(0,0,0);
   scene.add(new THREE.LineSegments(vg,new THREE.LineBasicMaterial({color:0x443300,transparent:true,opacity:.4})));
   const pm=new THREE.MeshBasicMaterial({color:0x996600,wireframe:true});
   [[-HALF,-HALF],[HALF,-HALF],[HALF,HALF],[-HALF,HALF]].forEach(([x,z])=>{
-    const m=new THREE.Mesh(new THREE.BoxGeometry(1.5,8,1.5),pm);
-    m.position.set(x,4,z);scene.add(m);
+    const m=new THREE.Mesh(new THREE.BoxGeometry(1.5,8,1.5),pm);m.position.set(x,4,z);scene.add(m);
   });
 }
 
-// ─── COLLISION GRID ────────────────────────────────────────────────────────────
+// ─── COLLISION ─────────────────────────────────────────────────────────────────
 const occ=new Map();
 const ck=(x,z)=>`${Math.floor(x/CELL)},${Math.floor(z/CELL)}`;
 
@@ -192,7 +178,7 @@ class Cycle{
       const line=new THREE.Line(geo,new THREE.LineBasicMaterial({color}));scene.add(line);
       return{buf,attr,geo,line,n:0};
     });
-    this._push(x,z);this._push(x,z); // 2 seed pts — line invisible with only 1
+    this._push(x,z);this._push(x,z);
   }
   _push(x,z){this.walls.forEach((w,i)=>{if(w.n>=MAXPTS)return;const b=w.n*3;w.buf[b]=x;w.buf[b+1]=WALLY[i];w.buf[b+2]=z;w.n++;w.geo.setDrawRange(0,w.n);w.attr.needsUpdate=true;});}
   _last(x,z){this.walls.forEach((w,i)=>{if(!w.n)return;const b=(w.n-1)*3;w.buf[b]=x;w.buf[b+1]=WALLY[i];w.buf[b+2]=z;w.attr.needsUpdate=true;});}
@@ -202,12 +188,6 @@ class Cycle{
     if(left){const nx=-this.dir.z,nz=this.dir.x;this.dir.x=nx;this.dir.z=nz;}
     else    {const nx= this.dir.z,nz=-this.dir.x;this.dir.x=nx;this.dir.z=nz;}
     this.cd=0.11;
-  }
-  face(dx,dz){
-    if(this.dir.x===-dx&&this.dir.z===-dz)return;
-    if(this.dir.x===dx&&this.dir.z===dz)return;
-    if(this.cd>0)return;
-    this._push(this.pos.x,this.pos.z);this.dir.x=dx;this.dir.z=dz;this.cd=0.11;
   }
   update(dt,spd){
     if(!this.alive)return;
@@ -273,49 +253,10 @@ function initAudio(){
     setTimeout(()=>{if(alive)pulse((s+1)%4);},60000/(130*4));
   })(0);
 }
-function audioEngine(on){if(!actx||!engGain)return;const t=actx.currentTime;engGain.gain.setTargetAtTime(on?.85:0,t,.3);}
-function audioSpeed(spd){if(!actx||!engOsc)return;const t=actx.currentTime;engOsc.frequency.setTargetAtTime(150+(spd-SPD0)*18,t,.1);lfoOsc.frequency.setTargetAtTime(5+(spd-SPD0)*.3,t,.5);}
+function audioEngine(on){if(!actx||!engGain)return;engGain.gain.setTargetAtTime(on?.85:0,actx.currentTime,.3);}
+function audioSpeed(spd){if(!actx||!engOsc)return;engOsc.frequency.setTargetAtTime(150+(spd-SPD0)*18,actx.currentTime,.1);lfoOsc.frequency.setTargetAtTime(5+(spd-SPD0)*.3,actx.currentTime,.5);}
 function playChirp(){if(!actx)return;const o=actx.createOscillator(),g=actx.createGain();o.type='sine';o.frequency.value=750;g.gain.setValueAtTime(.16,actx.currentTime);g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+.13);o.frequency.linearRampToValueAtTime(1250,actx.currentTime+.1);o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+.14);}
 function playDeath(){if(!actx)return;const o=actx.createOscillator(),g=actx.createGain();o.type='sawtooth';o.frequency.value=600;g.gain.setValueAtTime(.22,actx.currentTime);g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+.6);o.frequency.exponentialRampToValueAtTime(60,actx.currentTime+.55);o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+.65);}
-
-// ─── TILT CONTROL ──────────────────────────────────────────────────────────────
-// beta: ~90° when phone held upright portrait. Top-away → beta↑ → "up". Top-toward → beta↓ → "down"
-// gamma: left-right tilt. Negative=left, positive=right.
-let tiltArmed=true;
-const BETA_REF=90; // fixed upright reference — no calibration needed
-const gaugeKnob=document.getElementById('gaugeKnob');
-
-async function initTilt(){
-  if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
-    try{
-      const res=await DeviceOrientationEvent.requestPermission();
-      document.getElementById('tiltNote').textContent=res==='granted'?'TILT ENABLED ✓':'TILT UNAVAILABLE — USE TAP';
-    }catch(e){document.getElementById('tiltNote').textContent='TILT UNAVAILABLE — USE TAP';}
-  }
-  window.addEventListener('deviceorientation',onTilt,{passive:true});
-}
-
-function onTilt(e){
-  const gamma=e.gamma, beta=e.beta;
-  if(gamma===null||beta===null)return;
-  const bDev=beta-BETA_REF; // >0=tilt-up(top-away), <0=tilt-down(top-toward)
-
-  // 2D gauge dot — clamp axes to ±40°, map to 10%–90% of circle
-  gaugeKnob.style.left =(50+(Math.max(-40,Math.min(40,gamma))/40)*40)+'%';
-  gaugeKnob.style.top  =(50-(Math.max(-40,Math.min(40,bDev  ))/40)*40)+'%'; // invert Y: up=small top%
-
-  if(state!=='playing'||!player?.alive)return;
-
-  const absG=Math.abs(gamma), absB=Math.abs(bDev);
-  const dom=Math.max(absG,absB);
-  if(dom<TILT_OFF){tiltArmed=true;return;}  // within dead zone — re-arm
-  if(dom<TILT_ON||!tiltArmed)return;        // below trigger or already fired
-  tiltArmed=false;
-
-  // Dominant axis wins → absolute facing (no 180° reversal handled inside face())
-  if(absG>=absB) doFace(gamma<0 ? -1 : 1,  0); // left/right → face ±X
-  else           doFace(0, bDev>0  ? -1 : 1);   // up/down   → face ∓Z
-}
 
 // ─── GAME STATE ────────────────────────────────────────────────────────────────
 const scoreEl=document.getElementById('scoreEl'),roundEl=document.getElementById('roundEl');
@@ -327,8 +268,8 @@ function newGame(){
   cycles.forEach(c=>{if(!c.dead)c._rm();});cycles=[];occ.clear();uid=0;rTimer=0;endPending=false;
   scoreEl.textContent=score;roundEl.textContent=round;
   const numAI=Math.min(round,3);
-  const spawns=[[0,HALF-8,0,-1,C.P,true],[-16,-HALF+8,0,1,C.A[0],false],[16,-HALF+8,0,1,C.A[1],false],[0,-HALF+5,1,0,C.A[2],false]];
-  spawns.slice(0,1+numAI).forEach(s=>{const c=new Cycle(...s);if(c.isPlayer)player=c;cycles.push(c);});
+  [[0,HALF-8,0,-1,C.P,true],[-16,-HALF+8,0,1,C.A[0],false],[16,-HALF+8,0,1,C.A[1],false],[0,-HALF+5,1,0,C.A[2],false]]
+    .slice(0,1+numAI).forEach(s=>{const c=new Cycle(...s);if(c.isPlayer)player=c;cycles.push(c);});
   camTarget.copy(player.pos);state='playing';audioEngine(true);
   menuScr.classList.add('hidden');endScr.classList.add('hidden');
 }
@@ -342,32 +283,28 @@ function triggerEnd(win){
     endScr.classList.remove('hidden');
   },700);
 }
-
-document.getElementById('startBtn').addEventListener('click',async()=>{score=0;round=1;initAudio();await initTilt();newGame();});
+document.getElementById('startBtn').addEventListener('click',()=>{score=0;round=1;initAudio();newGame();});
 document.getElementById('restartBtn').addEventListener('click',()=>{initAudio();newGame();});
 
-// ─── INPUT ─────────────────────────────────────────────────────────────────────
-function doTurn(left){if(state!=='playing'||!player?.alive)return;player.turn(left);playChirp();}
-function doFace(dx,dz){if(state!=='playing'||!player?.alive)return;player.face(dx,dz);playChirp();}
+// ─── INPUT — the only two things that matter ───────────────────────────────────
+function doTurn(left){
+  if(state!=='playing'||!player?.alive)return;
+  player.turn(left);playChirp();
+}
 
-// Keyboard
-document.addEventListener('keydown',e=>{
-  if(e.key==='ArrowUp')   {e.preventDefault();doFace(0,-1);}
-  if(e.key==='ArrowDown') {e.preventDefault();doFace(0,1);}
-  if(e.key==='ArrowLeft') {e.preventDefault();doFace(-1,0);}
-  if(e.key==='ArrowRight'){e.preventDefault();doFace(1,0);}
-  if(e.key==='a'||e.key==='A')doTurn(true);
-  if(e.key==='d'||e.key==='D')doTurn(false);
-});
-
-// Tap zones — left/right half of screen
+// Tap zones
 const flashL=document.getElementById('flashL'),flashR=document.getElementById('flashR');
-function flash(el){el.style.opacity='.6';setTimeout(()=>el.style.opacity='0',80);}
-document.getElementById('tapL').addEventListener('touchstart',e=>{e.preventDefault();doTurn(true);flash(flashL);},{passive:false});
+function flash(el){el.style.opacity='.5';setTimeout(()=>el.style.opacity='0',70);}
+document.getElementById('tapL').addEventListener('touchstart',e=>{e.preventDefault();doTurn(true); flash(flashL);},{passive:false});
 document.getElementById('tapR').addEventListener('touchstart',e=>{e.preventDefault();doTurn(false);flash(flashR);},{passive:false});
-// Mouse fallback for desktop testing
-document.getElementById('tapL').addEventListener('mousedown',()=>{doTurn(true);flash(flashL);});
+document.getElementById('tapL').addEventListener('mousedown',()=>{doTurn(true); flash(flashL);});
 document.getElementById('tapR').addEventListener('mousedown',()=>{doTurn(false);flash(flashR);});
+
+// Keyboard (desktop)
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft' ||e.key==='a'||e.key==='A'){e.preventDefault();doTurn(true);}
+  if(e.key==='ArrowRight'||e.key==='d'||e.key==='D'){e.preventDefault();doTurn(false);}
+});
 
 // ─── CAMERA ────────────────────────────────────────────────────────────────────
 function updateCam(dt){
