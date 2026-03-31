@@ -221,11 +221,55 @@ class Cycle{
 
 // ─── AI ────────────────────────────────────────────────────────────────────────
 const lD=d=>new THREE.Vector3(-d.z,0,d.x),rD=d=>new THREE.Vector3(d.z,0,-d.x);
-function safe(pos,d,n){for(let i=1;i<=n;i++){const x=pos.x+d.x*i,z=pos.z+d.z*i;if(Math.abs(x)>=HALF-1||Math.abs(z)>=HALF-1)return false;if(occ.has(ck(x,z)))return false;}return true;}
+
+// Count free cells in direction d up to max n — returns how far before hitting something
+function clearance(pos,d,n){
+  for(let i=1;i<=n;i++){
+    const x=pos.x+d.x*i,z=pos.z+d.z*i;
+    if(Math.abs(x)>=HALF-1||Math.abs(z)>=HALF-1)return i-1;
+    if(occ.has(ck(x,z)))return i-1;
+  }return n;
+}
+
+// Score a direction: look ahead, then also peek left+right from end to reward open space
+function score(pos,d,horizon){
+  const fwd=clearance(pos,d,horizon);
+  if(fwd<2)return fwd; // nearly blocked — don't bother with side bonus
+  // bonus: open space perpendicular at the furthest reachable point
+  const tip={x:pos.x+d.x*fwd, y:0, z:pos.z+d.z*fwd};
+  const side=clearance(tip,lD(d),horizon*.5)+clearance(tip,rD(d),horizon*.5);
+  return fwd+side*0.35;
+}
+
 function aiStep(c){
   if(!c.alive||c.cd>0)return;
-  if(!safe(c.pos,c.dir,10)){const L=safe(c.pos,lD(c.dir),10),R=safe(c.pos,rD(c.dir),10);if(L&&!R)c.turn(true);else if(!L&&R)c.turn(false);else if(L&&R)c.turn(Math.random()<.5);}
-  else if(Math.random()<.007){if(safe(c.pos,lD(c.dir),6))c.turn(true);else if(safe(c.pos,rD(c.dir),6))c.turn(false);}
+  const HORIZON=28; // look this many units ahead
+  const EARLY=14;   // start worrying when fewer than this many clear units ahead
+
+  const fwd=clearance(c.pos,c.dir,HORIZON);
+
+  if(fwd<EARLY){
+    // Need to consider turning — score all three options
+    const sF=fwd; // already computed
+    const sL=score(c.pos,lD(c.dir),HORIZON);
+    const sR=score(c.pos,rD(c.dir),HORIZON);
+    const best=Math.max(sF,sL,sR);
+    if(best<=2){
+      // Desperate — just pick any open direction
+      if(sL>sR)c.turn(true); else if(sR>sL)c.turn(false); else c.turn(Math.random()<.5);
+    } else if(sL>=best&&sL>sF+2) c.turn(true);
+    else if(sR>=best&&sR>sF+2)   c.turn(false);
+    // else stay straight if forward is still best
+  } else {
+    // Path clear — small random wander to avoid predictable spirals
+    if(Math.random()<0.008){
+      const sL=score(c.pos,lD(c.dir),HORIZON);
+      const sR=score(c.pos,rD(c.dir),HORIZON);
+      // Only wander if the side option is meaningfully better
+      if(sL>fwd+8&&sL>=sR)     c.turn(true);
+      else if(sR>fwd+8&&sR>sL) c.turn(false);
+    }
+  }
 }
 
 // ─── AUDIO ─────────────────────────────────────────────────────────────────────
