@@ -175,7 +175,9 @@ class Cycle{
     this.walls=WALLY.map(y=>{
       const buf=new Float32Array(MAXPTS*3),attr=new THREE.BufferAttribute(buf,3);
       const geo=new THREE.BufferGeometry();geo.setAttribute('position',attr);geo.setDrawRange(0,0);
-      const line=new THREE.Line(geo,new THREE.LineBasicMaterial({color}));scene.add(line);
+      const line=new THREE.Line(geo,new THREE.LineBasicMaterial({color}));
+      line.frustumCulled=false;
+      scene.add(line);
       return{buf,attr,geo,line,n:0};
     });
     this._push(x,z);this._push(x,z);
@@ -185,8 +187,8 @@ class Cycle{
   turn(left){
     if(this.cd>0)return;
     this._push(this.pos.x,this.pos.z);
-    if(left){const nx=-this.dir.z,nz=this.dir.x;this.dir.x=nx;this.dir.z=nz;}
-    else    {const nx= this.dir.z,nz=-this.dir.x;this.dir.x=nx;this.dir.z=nz;}
+    if(left){const nx= this.dir.z,nz=-this.dir.x;this.dir.x=nx;this.dir.z=nz;}
+    else    {const nx=-this.dir.z,nz= this.dir.x;this.dir.x=nx;this.dir.z=nz;}
     this.cd=0.11;
   }
   update(dt,spd){
