@@ -6,6 +6,12 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#000;overflow:hidden;font-family:'Courier New',monospace;touch-action:none;-webkit-touch-callout:none;user-select:none}
 canvas#gl{display:block}
+@media (orientation:landscape){
+  #landscape-block{display:flex!important}
+  #hud,canvas#gl{visibility:hidden}
+}
+#landscape-block{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:999;
+  align-items:center;justify-content:center;color:#0f0;font-family:'Courier New',monospace;font-size:min(20px,4vw);text-align:center;padding:20px}
 #hud{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;color:#0f0}
 #score{position:absolute;top:10px;left:15px;font-size:min(18px,3.5vw)}
 #energy{position:absolute;top:10px;right:15px;font-size:min(18px,3.5vw)}
@@ -24,6 +30,7 @@ canvas#gl{display:block}
 </head>
 <body>
 <canvas id="gl"></canvas>
+<div id="landscape-block">📱 ROTATE TO PORTRAIT ↕</div>
 <div id="hud">
   <div id="score">SCORE: 0000</div>
   <div id="energy">ENERGY: ████████████████████</div>
@@ -124,18 +131,26 @@ function setScrape(on){if(!scrapeGain)return;if(on&&!scraping){scrapeGain.gain.l
   else if(!on&&scraping){scrapeGain.gain.linearRampToValueAtTime(0,audioCtx.currentTime+.1);scraping=false;}}
 
 // ══ GYROSCOPE ══
+let gyroPermissionGranted=false;
+function gyroHandler(e){
+  if(e.beta===null||e.gamma===null)return;
+  gyroAvail=true;gyroRawBeta=e.beta;gyroRawGamma=e.gamma;
+}
 function initGyro(){
-  const handler=e=>{
-    if(e.beta===null||e.gamma===null)return;
-    gyroAvail=true;
-    gyroRawBeta=e.beta;   // front/back tilt: 0=flat, +ve=tilted toward you
-    gyroRawGamma=e.gamma; // left/right tilt: -ve=left, +ve=right
-  };
-  // iOS 13+ needs permission
+  // Non-iOS: just attach listener, no permission needed
+  if(typeof DeviceOrientationEvent==='undefined')return;
+  if(typeof DeviceOrientationEvent.requestPermission!=='function'){
+    window.addEventListener('deviceorientation',gyroHandler);gyroPermissionGranted=true;
+  }
+  // iOS: do nothing here — permission must be requested from user gesture in requestGyroPermission()
+}
+function requestGyroPermission(){
+  // Called from game start tap (user gesture context)
+  if(gyroPermissionGranted)return;
   if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
-    DeviceOrientationEvent.requestPermission().then(r=>{if(r==='granted')window.addEventListener('deviceorientation',handler);}).catch(()=>{});
-  } else {
-    window.addEventListener('deviceorientation',handler);
+    DeviceOrientationEvent.requestPermission().then(r=>{
+      if(r==='granted'){window.addEventListener('deviceorientation',gyroHandler);gyroPermissionGranted=true;}
+    }).catch(()=>{});
   }
 }
 function calibrateGyro(){
@@ -310,7 +325,9 @@ function setupInput(){
   const sE=document.getElementById('instructions');
   const go=e=>{e.preventDefault();e.stopPropagation();initAudio();
     if(gameState==='menu'){gameState='play';sE.style.display='none';
-      if(gyroAvail&&!gyroCalibrated)calibrateGyro();
+      requestGyroPermission(); // iOS: must be in user gesture context
+      // Give gyro a moment to start reporting, then calibrate
+      setTimeout(()=>{if(gyroAvail&&!gyroCalibrated)calibrateGyro();},300);
       // Show control mode
       const cm=document.getElementById('ctrl-mode');
       setTimeout(()=>{cm.textContent=gyroAvail?'GYRO':'TOUCH-DRAG';setTimeout(()=>{cm.textContent='';},2000);},500);
@@ -342,7 +359,9 @@ function setupInput(){
   const endDrag=e=>{for(const t of e.changedTouches)if(t.identifier===dragTouchId){dragActive=false;dragTouchId=null;dragNX=0;dragNY=0;}};
   document.addEventListener('touchend',endDrag);document.addEventListener('touchcancel',endDrag);
 
-  window.addEventListener('resize',()=>{W=innerWidth;H=innerHeight;renderer.setSize(W,H);camera.aspect=W/H;camera.updateProjectionMatrix();});}
+  window.addEventListener('resize',()=>{W=innerWidth;H=innerHeight;renderer.setSize(W,H);camera.aspect=W/H;camera.updateProjectionMatrix();
+    // Recalibrate gyro after orientation change settles
+    if(gyroAvail&&gyroCalibrated)setTimeout(calibrateGyro,300);});}
 
 // ══ INIT ══
 function init(){scene=new THREE.Scene();scene.fog=new THREE.Fog(0x000000,300,1400);
@@ -359,7 +378,10 @@ function init(){scene=new THREE.Scene();scene.fog=new THREE.Fog(0x000000,300,140
   const cg=new THREE.BufferGeometry();cg.setAttribute('position',new THREE.Float32BufferAttribute(cv,3));
   camera.add(new THREE.LineSegments(cg,new THREE.LineBasicMaterial({color:0x00ff00})));
   spawnEnemies();spawnWeird();spawnWeird();spawnSpiders();
-  initGyro();setupInput();}
+  initGyro();setupInput();
+  // Try to lock portrait (Android Chrome supports this)
+  try{screen.orientation.lock('portrait').catch(()=>{});}catch(e){}
+}
 
 function wrap(o){['x','z'].forEach(a=>{if(o.position[a]>HALF)o.position[a]-=WORLD;if(o.position[a]<-HALF)o.position[a]+=WORLD;});}
 
