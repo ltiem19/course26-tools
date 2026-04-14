@@ -16,25 +16,34 @@
         const { useState, useMemo } = React;
 
         const BandStructureFormation = () => {
-          const [numWells, setNumWells] = useState(2);
+          const [numWells, setNumWells] = useState(1);
           const [separation, setSeparation] = useState(4.0);
           
-          const wellWidth = 1.0;
-          const V0 = 10.0;
+          const wellWidth = 2.0;
+          const V0 = 10.0; // Reduced to bring levels up
           
           const calculateEnergyLevels = (N, d) => {
             const levels = [];
-            const E0 = (Math.PI ** 2) / (2 * wellWidth ** 2);
             
-            if (N === 1) {
-              levels.push({ energy: E0, index: 0 });
-            } else {
-              const kappa = Math.sqrt(2 * V0);
-              const t = E0 * Math.exp(-kappa * d / 2);
+            // Calculate both ground (n=1) and first excited (n=2) states
+            const numBoundStates = 2;
+            
+            for (let n = 1; n <= numBoundStates; n++) {
+              const E_n = (n * Math.PI) ** 2 / (2 * wellWidth ** 2);
               
-              for (let k = 1; k <= N; k++) {
-                const energy = E0 + 2 * t * Math.cos(Math.PI * k / (N + 1));
-                levels.push({ energy, index: k - 1, coupling: t });
+              if (N === 1) {
+                levels.push({ energy: E_n, index: levels.length, state: n });
+              } else {
+                // Tunneling matrix element - moderate coupling
+                const kappa = Math.sqrt(2 * V0);
+                // Increased coupling for more visible splitting
+                const t = E_n * 0.35 * Math.exp(-kappa * d / 1.3);
+                
+                // For N wells, each bound state splits into a band
+                for (let k = 1; k <= N; k++) {
+                  const energy = E_n + 2 * t * Math.cos(Math.PI * k / (N + 1));
+                  levels.push({ energy, index: levels.length, coupling: t, state: n });
+                }
               }
             }
             
@@ -93,7 +102,7 @@
             ).join(' ');
             
             const xTicks = [0, 2, 4, 6, 8, 10];
-            const yTicks = [-12, -8, -4, 0];
+            const yTicks = [-10, -5, 0];
             
             return (
               <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
@@ -138,14 +147,32 @@
                 {/* Potential curve */}
                 <path d={pathData} fill="none" stroke="#2563eb" strokeWidth="2" />
                 
-                {/* Energy levels */}
+                {/* Energy levels - leak slightly into barriers */}
                 {energyLevels.map((level, index) => {
                   const y = scaleY(level.energy - V0);
                   const color = numWells === 2 ? (index === 0 ? "#dc2626" : "#059669") : `hsl(${index * 30}, 70%, 50%)`;
-                  return (
-                    <line key={index} x1={margin.left} y1={y} x2={width - margin.right} y2={y} 
-                      stroke={color} strokeWidth="2" strokeDasharray="5 5" />
-                  );
+                  const leakage = 0.3; // Amount to extend into barriers
+                  const lines = [];
+                  
+                  for (let j = 0; j < numWells; j++) {
+                    const baseWellStart = j * (wellWidth + separation);
+                    const baseWellEnd = baseWellStart + wellWidth;
+                    
+                    // Only draw if well is within plot boundaries
+                    if (baseWellStart < 10.0) {
+                      const wellStart = Math.max(0, baseWellStart - leakage);
+                      const wellEnd = Math.min(10.0, baseWellEnd + leakage);
+                      
+                      lines.push(
+                        <line key={`${index}-${j}`} 
+                          x1={scaleX(wellStart)} y1={y} 
+                          x2={scaleX(wellEnd)} y2={y} 
+                          stroke={color} strokeWidth="2" strokeDasharray="5 5" />
+                      );
+                    }
+                  }
+                  
+                  return lines;
                 })}
               </svg>
             );
@@ -164,7 +191,7 @@
                     </div>
                     <input
                       type="range"
-                      min="2"
+                      min="1"
                       max="10"
                       value={numWells}
                       onChange={(e) => setNumWells(parseInt(e.target.value))}
@@ -194,49 +221,6 @@
                 <h3 className="font-semibold mb-2 text-sm sm:text-base">Potential and Energy Levels</h3>
                 <div className="h-64 sm:h-80">
                   <ChartComponent data={potential} energyLevels={energyLevels} />
-                </div>
-              </div>
-              
-              <div className="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-4 mb-4 sm:mb-6">
-                <div className="bg-blue-50 p-3 sm:p-4 rounded">
-                  <h3 className="font-semibold mb-2 text-sm sm:text-base">Energy Levels</h3>
-                  <div className="space-y-1 text-xs sm:text-sm font-mono">
-                    {energyLevels.map((level, index) => (
-                      <div key={index} className="flex justify-between">
-                        <span>E₁^({index + 1}):</span>
-                        <span>{(level.energy - V0).toFixed(4)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="bg-green-50 p-3 sm:p-4 rounded">
-                  <h3 className="font-semibold mb-2 text-sm sm:text-base">Band Properties</h3>
-                  <div className="space-y-1 text-xs sm:text-sm">
-                    <div className="flex justify-between">
-                      <span>Band Width:</span>
-                      <span className="font-mono">{bandWidth.toFixed(6)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Tunneling Coupling:</span>
-                      <span className="font-mono">{coupling.toFixed(6)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Splitting Factor:</span>
-                      <span className="font-mono">e^(-κd) ≈ {Math.exp(-Math.sqrt(2 * V0) * separation / 2).toFixed(6)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-yellow-50 p-3 sm:p-4 rounded">
-                <h3 className="font-semibold mb-2 text-sm sm:text-base">Physics</h3>
-                <div className="text-xs sm:text-sm space-y-1 leading-relaxed">
-                  <p><strong>Large separation:</strong> Wells are isolated → degenerate energy levels</p>
-                  <p><strong>Small separation:</strong> Quantum tunneling couples wells → level splitting</p>
-                  <p><strong>Tunneling strength:</strong> t ∝ e^(-κd) where κ = √(2mV₀)/ℏ</p>
-                  <p><strong>Energy eigenvalues:</strong> E_k = E₀ + 2t cos(πk/(N+1)) for k = 1,2,...,N</p>
-                  <p><strong>Band formation:</strong> As N → ∞, discrete levels → continuous energy bands</p>
                 </div>
               </div>
             </div>
