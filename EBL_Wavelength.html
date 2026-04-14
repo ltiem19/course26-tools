@@ -3,200 +3,298 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>De Broglie Wavelength Calculator - EBL</title>
+    <title>De Broglie Wavelength - Discovery</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        input[type="range"] {
-            -webkit-appearance: none;
-            appearance: none;
-            background: rgb(71, 85, 105);
-            border-radius: 0.5rem;
-            height: 0.5rem;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 1.25rem;
-            height: 1.25rem;
-            border-radius: 50%;
-            background: rgb(6, 182, 212);
-            cursor: pointer;
-        }
-        input[type="range"]::-moz-range-thumb {
-            width: 1.25rem;
-            height: 1.25rem;
-            border-radius: 50%;
-            background: rgb(6, 182, 212);
-            cursor: pointer;
-            border: none;
-        }
-    </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 to-slate-800 text-white min-h-screen p-4 md:p-8">
-    <div class="max-w-4xl mx-auto">
-        <h1 class="text-2xl md:text-3xl font-bold mb-6 text-center">
-            De Broglie Wavelength for Electron Beam Lithography
-        </h1>
-        
-        <div class="bg-slate-800 rounded-lg p-4 md:p-6 mb-6 shadow-xl">
-            <h2 class="text-xl font-semibold mb-4">Derivation</h2>
-            <div class="space-y-3 text-sm md:text-base leading-relaxed">
-                <p>The <strong>de Broglie wavelength</strong> of a particle:</p>
-                <div class="bg-slate-700 p-3 rounded text-center text-lg">
-                    λ = h / p
-                </div>
-                
-                <div id="derivation-content">
-                    <!-- Will be filled by JavaScript -->
-                </div>
-            </div>
-        </div>
-        
-        <div class="bg-slate-800 rounded-lg p-4 md:p-6 mb-6 shadow-xl">
-            <h2 class="text-xl font-semibold mb-4">Interactive Calculation</h2>
-            
-            <div class="mb-6">
-                <div class="flex items-center gap-4 mb-4">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            id="relativistic-checkbox"
-                            class="w-4 h-4 accent-cyan-500"
-                        />
-                        <span class="text-sm font-medium">Use relativistic formula</span>
-                    </label>
-                </div>
-                
-                <label class="block mb-2 font-medium">
-                    Acceleration Voltage: <span class="text-cyan-400" id="energy-display">10</span> keV
-                </label>
-                <input
-                    type="range"
-                    id="energy-slider"
-                    min="1"
-                    max="100"
-                    step="0.5"
-                    value="10"
-                    class="w-full"
-                />
-                <div class="flex justify-between text-xs text-slate-400 mt-1">
-                    <span>1 keV</span>
-                    <span>100 keV</span>
-                </div>
-            </div>
-            
-            <div class="bg-gradient-to-r from-cyan-900 to-blue-900 rounded-lg p-4 md:p-6 text-center">
-                <div class="text-sm md:text-base text-slate-300 mb-2" id="mode-label">
-                    De Broglie Wavelength (Classical)
-                </div>
-                <div class="text-3xl md:text-4xl font-bold text-cyan-300" id="wavelength-pm">
-                    12.26 pm
-                </div>
-                <div class="text-xs md:text-sm text-slate-400 mt-2" id="wavelength-nm">
-                    = 0.0123 nm
-                </div>
-            </div>
-            
-            <div id="difference-note" class="mt-4 text-xs md:text-sm text-amber-300 bg-slate-700 p-3 rounded hidden">
-                <!-- Will be filled by JavaScript when difference > 0.5% -->
-            </div>
+    <div class="max-w-3xl mx-auto">
+        <div id="screen-container">
+            <!-- Screens will be dynamically inserted here -->
         </div>
     </div>
 
     <script>
-        // Constants
-        const h = 6.62607015e-34; // Planck constant in J·s
-        const me = 9.1093837015e-31; // electron mass in kg
-        const e = 1.602176634e-19; // elementary charge in C
-        const c = 299792458; // speed of light in m/s
-        
-        // Calculate wavelength - classical approximation
-        function calculateClassical(E_keV) {
-            const E_J = E_keV * 1000 * e;
+        const h = 6.62607015e-34;
+        const me = 9.1093837015e-31;
+        const e = 1.602176634e-19;
+        const c = 299792458;
+
+        let history = [];
+        let testVoltage = 10; // kV
+
+        const screens = {
+            start: {
+                title: "Discover the De Broglie Wavelength",
+                content: `
+                    <p class="text-lg mb-4">An electron is accelerated through voltage <strong>U = ${testVoltage} kV</strong>.</p>
+                    <p class="text-lg mb-6">What is its wavelength <strong>λ</strong>?</p>
+                    <div class="bg-slate-700 p-4 rounded text-center text-xl mb-6">
+                        λ = h / p
+                    </div>
+                    <p class="text-slate-300 mb-4">What is the electron's momentum <strong>p</strong>?</p>
+                `,
+                choices: [
+                    { label: 'p = mv', sublabel: 'classical particle', next: 'mv_what_is_v' },
+                    { label: 'p = E/c', sublabel: 'photon-like', next: 'Ec_what_is_E' }
+                ],
+                showBack: false
+            },
+
+            // Branch 1: p = mv
+            mv_what_is_v: {
+                title: "Classical Momentum: p = mv",
+                content: `
+                    <div class="bg-slate-700 p-4 rounded text-center text-xl mb-6">
+                        λ = h / (mv)
+                    </div>
+                    <p class="text-slate-300 mb-4">What is the electron's velocity <strong>v</strong>?</p>
+                `,
+                choices: [
+                    { label: 'v = distance / time', sublabel: 'kinematic definition', next: 'mv_v_tape_measure' },
+                    { label: 'v = c/n', sublabel: 'light in medium (n = refractive index)', next: 'mv_v_refractive' },
+                    { label: 'E = ½mv²', sublabel: 'solve for v from kinetic energy', next: 'mv_E_what_is_E' }
+                ],
+                showBack: true,
+                backTo: 'start'
+            },
+
+            mv_v_tape_measure: {
+                title: "Velocity = distance / time",
+                content: `
+                    <div class="text-6xl mb-6 text-center">📏⏱️</div>
+                    <p class="text-lg text-amber-300">Here's a tape measure and a stopwatch.</p>
+                    <p class="mt-4">Sure, that's the <em>definition</em> of velocity, but it doesn't help you calculate it from the acceleration voltage U.</p>
+                    <p class="mt-4 text-slate-400">Try a different approach.</p>
+                `,
+                choices: [{ label: '← Go Back', next: 'mv_what_is_v' }],
+                showBack: false
+            },
+
+            mv_v_refractive: {
+                title: "Velocity = c/n",
+                content: `
+                    <div class="text-6xl mb-6 text-center">💡🔬</div>
+                    <p class="text-lg text-amber-300">Nice try, but electrons aren't light in glass.</p>
+                    <p class="mt-4">That formula applies to electromagnetic waves in a medium with refractive index n. Electrons are massive particles, not photons.</p>
+                    <p class="mt-4 text-slate-400">Back to the drawing board.</p>
+                `,
+                choices: [{ label: '← Go Back', next: 'mv_what_is_v' }],
+                showBack: false
+            },
+
+            mv_E_what_is_E: {
+                title: "From Kinetic Energy: E = ½mv²",
+                content: `
+                    <div class="bg-slate-700 p-4 rounded text-center text-lg mb-4">
+                        E = ½mv²  →  v = √(2E/m)
+                    </div>
+                    <div class="bg-slate-700 p-4 rounded text-center text-xl mb-6">
+                        λ = h / (m√(2E/m)) = h / √(2mE)
+                    </div>
+                    <p class="text-slate-300 mb-4">What is the kinetic energy <strong>E</strong> gained from voltage U?</p>
+                `,
+                choices: [
+                    { label: 'E = eU', sublabel: 'charge × voltage', next: 'mv_E_correct' },
+                    { label: 'E = mU', sublabel: 'mass × voltage', next: 'mv_E_wrong_mU' },
+                    { label: 'E = ½U²', sublabel: 'half voltage squared', next: 'mv_E_wrong_half_U2' }
+                ],
+                showBack: true,
+                backTo: 'mv_what_is_v'
+            },
+
+            mv_E_wrong_mU: {
+                title: "E = mU",
+                content: `
+                    <div class="text-6xl mb-6 text-center">⚠️</div>
+                    <p class="text-lg text-amber-300">Dimensional disaster!</p>
+                    <p class="mt-4">Check your units: [mU] = kg·V, which is NOT energy (need Joules = kg·m²/s²).</p>
+                    <p class="mt-4">Energy gained by a charge moving through a potential is <em>charge</em> × voltage.</p>
+                `,
+                choices: [{ label: '← Go Back', next: 'mv_E_what_is_E' }],
+                showBack: false
+            },
+
+            mv_E_wrong_half_U2: {
+                title: "E = ½U²",
+                content: `
+                    <div class="text-6xl mb-6 text-center">🤔</div>
+                    <p class="text-lg text-amber-300">Where did the charge go?</p>
+                    <p class="mt-4">The electron has charge <em>e</em>. When it moves through potential U, it gains energy = charge × voltage.</p>
+                    <p class="mt-4">Also, check dimensions: [½U²] = V², not energy.</p>
+                `,
+                choices: [{ label: '← Go Back', next: 'mv_E_what_is_E' }],
+                showBack: false
+            },
+
+            mv_E_correct: {
+                title: "✓ Correct Path!",
+                content: `
+                    <div class="bg-green-900 p-6 rounded-lg mb-6">
+                        <div class="text-xl mb-4">Your derivation:</div>
+                        <div class="space-y-2 font-mono text-lg">
+                            <div>λ = h / p</div>
+                            <div>p = mv</div>
+                            <div>E = ½mv²  →  v = √(2E/m)</div>
+                            <div>E = eU</div>
+                            <div class="text-cyan-300 text-2xl mt-4">λ = h / √(2meU)</div>
+                        </div>
+                    </div>
+                    ${calculateResult('classical')}
+                `,
+                choices: [
+                    { label: '🔄 Start Over', next: 'start' }
+                ],
+                showBack: true,
+                backTo: 'mv_E_what_is_E'
+            },
+
+            // Branch 2: p = E/c
+            Ec_what_is_E: {
+                title: "Photon-like Momentum: p = E/c",
+                content: `
+                    <div class="bg-slate-700 p-4 rounded text-center text-xl mb-6">
+                        λ = h / (E/c) = hc / E
+                    </div>
+                    <p class="text-slate-300 mb-4">What is the electron's energy <strong>E</strong>?</p>
+                `,
+                choices: [
+                    { label: 'E = eU', sublabel: 'charge × voltage', next: 'Ec_E_eU' },
+                    { label: 'E = mU', sublabel: 'mass × voltage', next: 'Ec_E_mU' },
+                    { label: 'E = ½mU²', sublabel: 'kinetic energy form', next: 'Ec_E_half_mU2' }
+                ],
+                showBack: true,
+                backTo: 'start'
+            },
+
+            Ec_E_mU: {
+                title: "E = mU",
+                content: `
+                    <div class="text-6xl mb-6 text-center">❌</div>
+                    <p class="text-lg text-amber-300">Nope.</p>
+                    <p class="mt-4">Dimensions don't work: [mU] = kg·V ≠ energy.</p>
+                    <p class="mt-4">Energy from accelerating voltage requires the charge.</p>
+                `,
+                choices: [{ label: '← Go Back', next: 'Ec_what_is_E' }],
+                showBack: false
+            },
+
+            Ec_E_half_mU2: {
+                title: "E = ½mU²",
+                content: `
+                    <div class="text-6xl mb-6 text-center">🧐</div>
+                    <p class="text-lg text-amber-300">Creative, but wrong.</p>
+                    <p class="mt-4">The kinetic energy is E = ½m<em>v</em>², not ½mU². U is voltage, not velocity.</p>
+                    <p class="mt-4">Also dimensions: [½mU²] = kg·V² ≠ energy.</p>
+                `,
+                choices: [{ label: '← Go Back', next: 'Ec_what_is_E' }],
+                showBack: false
+            },
+
+            Ec_E_eU: {
+                title: "Photon Formula Applied to Electrons",
+                content: `
+                    <div class="bg-amber-900 p-6 rounded-lg mb-6">
+                        <div class="text-xl mb-4">Your formula:</div>
+                        <div class="font-mono text-2xl mb-4">λ = hc / (eU)</div>
+                        <div class="text-lg">At U = ${testVoltage} kV:</div>
+                        <div class="text-3xl text-amber-300 mt-2">${calculatePhotonWavelength(testVoltage)} pm</div>
+                    </div>
+                    <p class="text-lg text-amber-300 mb-4">But electrons aren't photons—they have mass!</p>
+                    <p class="mt-4 text-slate-400">This formula treats the electron like a massless particle. Think about what makes electrons different from photons and try a different approach.</p>
+                `,
+                choices: [
+                    { label: '← Try Classical Approach', next: 'start' }
+                ],
+                showBack: true,
+                backTo: 'Ec_what_is_E'
+            }
+        };
+
+        function calculatePhotonWavelength(U_kV) {
+            const U = U_kV * 1000;
+            const E_J = e * U;
+            const lambda = (h * c) / E_J;
+            return (lambda * 1e12).toFixed(2);
+        }
+
+        function calculateCorrectWavelength(U_kV) {
+            const U = U_kV * 1000;
+            const E_J = e * U;
             const p = Math.sqrt(2 * me * E_J);
             const lambda = h / p;
-            return lambda * 1e12; // Convert to pm
+            return (lambda * 1e12).toFixed(2);
         }
-        
-        // Calculate wavelength - relativistic formula
-        function calculateRelativistic(E_keV) {
-            const E_J = E_keV * 1000 * e;
-            const E_rest = me * c * c;
-            const E_total = E_J + E_rest;
-            const p = Math.sqrt(E_total * E_total - E_rest * E_rest) / c;
-            const lambda = h / p;
-            return lambda * 1e12; // Convert to pm
+
+        function calculateResult(method) {
+            const lambda_pm = calculateCorrectWavelength(testVoltage);
+            return `
+                <div class="bg-gradient-to-r from-cyan-900 to-blue-900 rounded-lg p-6 text-center">
+                    <div class="text-lg mb-2">At U = ${testVoltage} kV:</div>
+                    <div class="text-4xl font-bold text-cyan-300">${lambda_pm} pm</div>
+                    <div class="text-sm text-slate-300 mt-2">= ${(lambda_pm / 1000).toFixed(4)} nm</div>
+                </div>
+                <div class="mt-4 text-sm text-slate-300 bg-slate-700 p-4 rounded">
+                    <strong>Reference:</strong> Atomic spacing ~ 0.1 nm = 100 pm
+                </div>
+            `;
         }
-        
-        function updateDerivation(useRelativistic) {
-            const derivationContent = document.getElementById('derivation-content');
+
+        function renderScreen(screenId) {
+            const screen = screens[screenId];
+            const container = document.getElementById('screen-container');
+
+            let html = `
+                <div class="bg-slate-800 rounded-lg p-6 md:p-8 shadow-xl">
+            `;
             
-            if (!useRelativistic) {
-                derivationContent.innerHTML = `
-                    <p>For electrons with kinetic energy <em>E</em> (accelerated through voltage <em>U</em>):</p>
-                    <div class="bg-slate-700 p-3 rounded text-center">
-                        E = eU = ½mv²
-                    </div>
-                    <p>Solve for v, insert into p = mv, then into λ = h/p:</p>
-                    <div class="bg-slate-700 p-3 rounded text-center text-lg">
-                        λ = h / √(2m<sub>e</sub>E)
-                    </div>
-                `;
-            } else {
-                derivationContent.innerHTML = `
-                    <p>For electrons with kinetic energy <em>E</em> (accelerated through voltage <em>U</em>):</p>
-                    <div class="bg-slate-700 p-3 rounded text-center">
-                        E = eU
-                    </div>
-                    <p>At EBL energies (1-100 keV), <strong>relativistic effects</strong> must be included:</p>
-                    <div class="bg-slate-700 p-3 rounded text-center text-sm md:text-base">
-                        p = √[(E<sub>total</sub>² - E<sub>rest</sub>²) / c²]
-                    </div>
-                    <p class="text-xs md:text-sm text-slate-300">
-                        where E<sub>total</sub> = E<sub>kin</sub> + m<sub>e</sub>c² and E<sub>rest</sub> = m<sub>e</sub>c² = 511 keV
-                    </p>
+            // Add back button at the top if specified
+            if (screen.showBack) {
+                html += `
+                    <button 
+                        class="mb-4 bg-slate-600 hover:bg-slate-500 px-4 py-2 rounded transition-all"
+                        onclick="navigate('${screen.backTo}')"
+                    >
+                        ← Back
+                    </button>
                 `;
             }
-        }
-        
-        function updateCalculation() {
-            const energy = parseFloat(document.getElementById('energy-slider').value);
-            const useRelativistic = document.getElementById('relativistic-checkbox').checked;
             
-            const wavelength = useRelativistic ? calculateRelativistic(energy) : calculateClassical(energy);
-            const wavelengthClassical = calculateClassical(energy);
-            const wavelengthRelativistic = calculateRelativistic(energy);
-            const percentDifference = Math.abs((wavelengthClassical - wavelengthRelativistic) / wavelengthRelativistic * 100);
-            
-            // Update display
-            document.getElementById('energy-display').textContent = energy;
-            document.getElementById('mode-label').textContent = `De Broglie Wavelength (${useRelativistic ? 'Relativistic' : 'Classical'})`;
-            document.getElementById('wavelength-pm').textContent = `${wavelength.toFixed(2)} pm`;
-            document.getElementById('wavelength-nm').textContent = `= ${(wavelength / 1000).toFixed(4)} nm`;
-            
-            // Update difference note
-            const differenceNote = document.getElementById('difference-note');
-            if (percentDifference > 0.5) {
-                differenceNote.classList.remove('hidden');
-                differenceNote.innerHTML = `
-                    <strong>Note:</strong> At ${energy} keV, the classical approximation differs from the relativistic 
-                    result by ${percentDifference.toFixed(1)}%. 
-                    (Classical: ${wavelengthClassical.toFixed(2)} pm, Relativistic: ${wavelengthRelativistic.toFixed(2)} pm)
-                `;
-            } else {
-                differenceNote.classList.add('hidden');
+            html += `
+                    <h1 class="text-2xl md:text-3xl font-bold mb-6">${screen.title}</h1>
+                    <div class="mb-6">${screen.content}</div>
+            `;
+
+            if (screen.choices) {
+                html += '<div class="space-y-3">';
+                
+                screen.choices.forEach((choice, idx) => {
+                    html += `
+                        <button 
+                            class="w-full bg-slate-700 hover:bg-slate-600 p-4 rounded text-left transition-all hover:translate-x-1"
+                            onclick="navigate('${choice.next}')"
+                        >
+                            <div class="font-mono text-lg">${choice.label}</div>
+                            ${choice.sublabel ? `<div class="text-xs text-slate-400 mt-1">${choice.sublabel}</div>` : ''}
+                        </button>
+                    `;
+                });
+                html += '</div>';
             }
-            
-            // Update derivation
-            updateDerivation(useRelativistic);
+
+            html += '</div>';
+            container.innerHTML = html;
+            window.scrollTo(0, 0);
         }
-        
-        // Event listeners
-        document.getElementById('energy-slider').addEventListener('input', updateCalculation);
-        document.getElementById('relativistic-checkbox').addEventListener('change', updateCalculation);
-        
-        // Initial update
-        updateCalculation();
+
+        function navigate(screenId) {
+            if (screenId !== 'start' && history[history.length - 1] !== screenId) {
+                history.push(screenId);
+            }
+            renderScreen(screenId);
+        }
+
+        // Start
+        renderScreen('start');
     </script>
 </body>
 </html>
