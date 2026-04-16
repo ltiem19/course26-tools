@@ -1,552 +1,408 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thermal Excitation in Semiconductor Band Structure</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Thermal Excitation in Semiconductor Band Structure</title>
+<style>
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(to bottom right, #f8fafc, #dbeafe);
-            min-height: 100vh;
-            padding: 1rem;
-        }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #f8fafc, #dbeafe);
+    min-height: 100vh;
+    padding: clamp(0.5rem, 2vw, 1.25rem);
+    -webkit-text-size-adjust: 100%;
+  }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+  .container { max-width: 1100px; margin: 0 auto; }
 
-        h1 {
-            font-size: 1.875rem;
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 2rem;
-            color: #1e293b;
-        }
+  h1 {
+    font-size: clamp(1.1rem, 3.5vw, 1.7rem);
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 1.2rem;
+    color: #1e293b;
+  }
 
-        .card {
-            background: white;
-            border-radius: 0.75rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
+  .card {
+    background: #fff;
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    padding: clamp(0.75rem, 2vw, 1.5rem);
+    margin-bottom: 1rem;
+  }
 
-        .controls {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
+  .controls { display: flex; flex-direction: column; gap: 1.1rem; margin-bottom: 1.2rem; }
 
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
+  .control-group { display: flex; flex-direction: column; gap: 0.35rem; }
 
-        label {
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: #334155;
-        }
+  label { font-size: clamp(0.8rem, 2vw, 0.9rem); font-weight: 600; color: #334155; }
 
-        input[type="range"] {
-            width: 100%;
-            height: 0.5rem;
-            background: #e2e8f0;
-            border-radius: 0.5rem;
-            outline: none;
-            -webkit-appearance: none;
-            cursor: pointer;
-        }
+  /* Fat sliders for touch */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 0.55rem;
+    background: #e2e8f0;
+    border-radius: 0.5rem;
+    outline: none;
+    cursor: pointer;
+    touch-action: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 1.8rem; height: 1.8rem;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 1.8rem; height: 1.8rem;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  }
 
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 1.5rem;
-            height: 1.5rem;
-            border-radius: 50%;
-            background: #3b82f6;
-            cursor: pointer;
-            box-shadow: 0 0 2px rgba(0,0,0,0.2);
-        }
+  .range-labels { display: flex; justify-content: space-between; font-size: 0.72rem; color: #64748b; }
 
-        input[type="range"]::-moz-range-thumb {
-            width: 1.5rem;
-            height: 1.5rem;
-            border-radius: 50%;
-            background: #3b82f6;
-            cursor: pointer;
-            border: none;
-            box-shadow: 0 0 2px rgba(0,0,0,0.2);
-        }
+  .button-group { display: flex; gap: 0.4rem; }
 
-        .range-labels {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.75rem;
-            color: #64748b;
-        }
+  button {
+    flex: 1;
+    padding: 0.55rem 0.5rem;
+    border-radius: 0.5rem;
+    font-size: clamp(0.8rem, 2vw, 0.875rem);
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    min-height: 2.6rem; /* touch target */
+  }
+  button.active  { background: #3b82f6; color: #fff; }
+  button:not(.active) { background: #e2e8f0; color: #334155; }
+  button:not(.active):hover { background: #cbd5e1; }
 
-        .button-group {
-            display: flex;
-            gap: 0.5rem;
-        }
+  .canvas-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
 
-        button {
-            flex: 1;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
+  canvas {
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    display: block;
+    /* actual size set via JS */
+  }
 
-        button.active {
-            background: #3b82f6;
-            color: white;
-        }
+  .guide { font-size: clamp(0.75rem, 1.8vw, 0.875rem); color: #475569; }
+  .guide ul { margin: 0.4rem 0 0 1rem; }
+  .guide li { margin-bottom: 0.2rem; }
 
-        button:not(.active) {
-            background: #e2e8f0;
-            color: #334155;
-        }
+  h2 { font-size: clamp(1rem, 2.5vw, 1.2rem); font-weight: 600; margin-bottom: 0.75rem; color: #1e293b; }
 
-        button:not(.active):hover {
-            background: #cbd5e1;
-        }
+  .physics-params {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    font-size: clamp(0.78rem, 1.8vw, 0.875rem);
+  }
+  @media (max-width: 480px) { .physics-params { grid-template-columns: 1fr; } }
 
-        .canvas-container {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 1.5rem;
-        }
-
-        canvas {
-            border: 1px solid #cbd5e1;
-            border-radius: 0.5rem;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-            max-width: 100%;
-        }
-
-        .guide {
-            font-size: 0.875rem;
-            color: #475569;
-        }
-
-        .guide ul {
-            margin-left: 1rem;
-            margin-top: 0.5rem;
-        }
-
-        .guide li {
-            margin-bottom: 0.25rem;
-        }
-
-        .guide strong {
-            font-weight: 600;
-        }
-
-        .physics-params {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            font-size: 0.875rem;
-        }
-
-        h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            color: #1e293b;
-        }
-
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 1.5rem;
-            }
-
-            .physics-params {
-                grid-template-columns: 1fr;
-            }
-
-            input[type="range"]::-webkit-slider-thumb {
-                width: 1.75rem;
-                height: 1.75rem;
-            }
-
-            input[type="range"]::-moz-range-thumb {
-                width: 1.75rem;
-                height: 1.75rem;
-            }
-        }
-
-        .color-red {
-            color: #ef4444;
-            font-weight: 500;
-        }
-
-        .color-teal {
-            color: #14b8a6;
-            font-weight: 500;
-        }
-    </style>
+  .cr { color: #ef4444; font-weight: 600; }
+  .ct { color: #14b8a6; font-weight: 600; }
+</style>
 </head>
 <body>
-    <div class="container">
-        <h1>Thermal Excitation in Semiconductor Band Structure</h1>
-        
-        <div class="card">
-            <div class="controls">
-                <div class="control-group">
-                    <label for="bandgap">Band Gap: <span id="bandgap-value">0.60</span> eV</label>
-                    <input type="range" id="bandgap" min="0.1" max="1.0" step="0.1" value="0.6">
-                    <div class="range-labels">
-                        <span>0.1 eV</span>
-                        <span>1.0 eV</span>
-                    </div>
-                </div>
+<div class="container">
+  <h1>Thermal Excitation in Semiconductor Band Structure</h1>
 
-                <div class="control-group">
-                    <label for="temperature">Temperature: <span id="temp-value">0.1</span> K</label>
-                    <input type="range" id="temperature" min="0.1" max="1000" step="0.1" value="0.1">
-                    <div class="range-labels">
-                        <span>0.1 K</span>
-                        <span>1000 K</span>
-                    </div>
-                </div>
-
-                <div class="control-group">
-                    <label>Density of States</label>
-                    <div class="button-group">
-                        <button class="dos-btn" data-level="low">Low</button>
-                        <button class="dos-btn active" data-level="medium">Medium</button>
-                        <button class="dos-btn" data-level="high">High</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="canvas-container">
-                <canvas id="bandStructure"></canvas>
-            </div>
-
-            <div class="guide">
-                <p><strong>Visualization Guide:</strong></p>
-                <ul>
-                    <li>The <span class="color-red">red curve</span> shows the Fermi-Dirac distribution f(E)</li>
-                    <li><span class="color-teal">Filled circles</span> represent occupied electron states according to f(E)</li>
-                    <li>Circle spacing represents density of states: close spacing = high DOS, wide spacing = low DOS</li>
-                    <li>Higher temperature broadens the Fermi-Dirac distribution and increases excitation</li>
-                </ul>
-            </div>
+  <div class="card">
+    <div class="controls">
+      <div class="control-group">
+        <label>Band Gap: <span id="bandgap-value">0.60</span> eV</label>
+        <input type="range" id="bandgap" min="0.1" max="1.0" step="0.05" value="0.6">
+        <div class="range-labels"><span>0.1 eV</span><span>1.0 eV</span></div>
+      </div>
+      <div class="control-group">
+        <label>Temperature: <span id="temp-value">0.1</span> K</label>
+        <input type="range" id="temperature" min="0.1" max="1000" step="0.1" value="0.1">
+        <div class="range-labels"><span>0.1 K</span><span>1000 K</span></div>
+      </div>
+      <div class="control-group">
+        <label>Density of States</label>
+        <div class="button-group">
+          <button class="dos-btn" data-level="low">Low</button>
+          <button class="dos-btn active" data-level="medium">Medium</button>
+          <button class="dos-btn" data-level="high">High</button>
         </div>
-
-        <div class="card">
-            <h2>Physics Parameters</h2>
-            <div class="physics-params">
-                <div>
-                    <p><strong>Thermal Energy (kT):</strong> <span id="kt-value">0.000</span> eV</p>
-                    <p><strong>Band Gap Ratio (Eg/kT):</strong> <span id="ratio-value">∞</span></p>
-                </div>
-                <div>
-                    <p><strong>Intrinsic Carrier Density ∝ exp(-Eg/2kT)</strong></p>
-                    <p><strong>Excitation Probability:</strong> <span id="prob-value">0%</span></p>
-                </div>
-            </div>
-        </div>
+      </div>
     </div>
 
-    <script>
-        // Physical constants
-        const kB = 8.617e-5; // Boltzmann constant in eV/K
+    <div class="canvas-wrapper">
+      <canvas id="bandStructure"></canvas>
+    </div>
 
-        // State variables
-        let bandGap = 0.6;
-        let temperature = 0.1;
-        let dosLevel = 'medium';
-        let isMobile = window.innerWidth < 768;
+    <div class="guide">
+      <strong>Visualization Guide:</strong>
+      <ul>
+        <li>The <span class="cr">red curve</span> shows the Fermi-Dirac distribution f(E)</li>
+        <li><span class="ct">Filled circles</span> = occupied states (electrons); <strong>empty circles</strong> = unoccupied states (holes in VB)</li>
+        <li>Circle density ∝ DOS setting</li>
+        <li>Higher T broadens the FD step and populates the CB</li>
+      </ul>
+    </div>
+  </div>
 
-        // Canvas setup
-        const canvas = document.getElementById('bandStructure');
-        const ctx = canvas.getContext('2d');
 
-        // Responsive dimensions
-        function getCanvasDimensions() {
-            if (isMobile) {
-                return { width: 350, height: 450, padding: 55 };
-            }
-            return { width: 800, height: 600, padding: 80 };
-        }
+</div>
 
-        function resizeCanvas() {
-            isMobile = window.innerWidth < 768;
-            const dims = getCanvasDimensions();
-            canvas.width = dims.width;
-            canvas.height = dims.height;
-            drawVisualization();
-        }
+<script>
+  const kB = 8.617333e-5; // eV/K
 
-        // Initialize canvas
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
+  let bandGap = 0.6, temperature = 0.1, dosLevel = 'medium';
 
-        // Fermi-Dirac distribution
-        function fermiDirac(energy, fermiLevel, temp) {
-            const kT = kB * temp;
-            if (Math.abs(energy - fermiLevel) / kT > 50) {
-                return energy < fermiLevel ? 1 : 0;
-            }
-            return 1 / (1 + Math.exp((energy - fermiLevel) / kT));
-        }
+  const canvas = document.getElementById('bandStructure');
+  const ctx    = canvas.getContext('2d');
 
-        // DOS spacing
-        function getDosSpacing() {
-            switch(dosLevel) {
-                case 'low': return 0.4;
-                case 'medium': return 0.2;
-                case 'high': return 0.1;
-                default: return 0.2;
-            }
-        }
+  // ── DPR-aware canvas resize ──────────────────────────────────────────────
+  function getLogicalSize() {
+    const vw = Math.min(window.innerWidth, 1100);
+    if (vw < 500) return { w: vw - 32, h: 420, pad: 52 };
+    if (vw < 768) return { w: vw - 32, h: 500, pad: 60 };
+    return { w: Math.min(vw - 48, 950), h: 600, pad: 80 };
+  }
 
-        // Main drawing function
-        function drawVisualization() {
-            const { width, height, padding } = getCanvasDimensions();
-            ctx.clearRect(0, 0, width, height);
+  let logical = getLogicalSize();
 
-            const energyRange = 4;
-            const energyMin = -energyRange/2;
-            const energyMax = energyRange/2;
-            const fermiLevel = 0;
+  function resizeCanvas() {
+    logical = getLogicalSize();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width  = logical.w * dpr;
+    canvas.height = logical.h * dpr;
+    canvas.style.width  = logical.w + 'px';
+    canvas.style.height = logical.h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // reset + apply DPR scale
+    drawVisualization();
+  }
 
-            const distributionWidth = isMobile ? 60 : 100;
-            const bandWidth = width - 2 * padding - distributionWidth - 5;
+  window.addEventListener('resize', debounce(resizeCanvas, 80));
 
-            const energyToY = (energy) => height - padding - ((energy - energyMin) / (energyMax - energyMin)) * (height - 2 * padding);
-            const kToX = (k) => padding + (k + 3) / 6 * bandWidth;
+  // ── Physics helpers ──────────────────────────────────────────────────────
+  function fermiDirac(E, Ef, T) {
+    const kT = kB * T;
+    const x  = (E - Ef) / kT;
+    if (x >  50) return 0;
+    if (x < -50) return 1;
+    return 1 / (1 + Math.exp(x));
+  }
 
-            // Draw y-axis
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(padding, padding);
-            ctx.lineTo(padding, height - padding);
-            ctx.stroke();
+  // Log-scale opacity: maps f ∈ [fMin, 1] → opacity ∈ [opMin, 1]
+  // so that CB dots are visible whenever the FD curve visibly bends.
+  const LOG_F_MIN  = -10;   // show dots down to f ≈ 1e-10
+  const OP_MIN     =  0.06; // minimum opacity for the faintest dot
 
-            // Draw energy scale and grid
-            ctx.fillStyle = '#333';
-            ctx.font = isMobile ? '10px Arial' : '12px Arial';
-            ctx.textAlign = 'right';
-            for (let i = 0; i <= 8; i++) {
-                const energy = energyMin + i * (energyMax - energyMin) / 8;
-                const y = energyToY(energy);
-                ctx.fillText(energy.toFixed(1) + ' eV', padding - 10, y + 4);
+  function cbOpacity(f) {
+    if (f <= 0) return 0;
+    const logF = Math.log10(f);           // 0 → 0, 1e-10 → -10
+    const t    = Math.max(0, 1 + logF / Math.abs(LOG_F_MIN)); // linear in log-space [0,1]
+    return OP_MIN + (1 - OP_MIN) * t;
+  }
 
-                ctx.strokeStyle = '#eee';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(padding, y);
-                ctx.lineTo(padding + bandWidth, y);
-                ctx.stroke();
-            }
+  function getDosSpacing() {
+    return dosLevel === 'low' ? 0.4 : dosLevel === 'high' ? 0.1 : 0.2;
+  }
 
-            // Y-axis label
-            ctx.save();
-            ctx.translate(8, height/2);
-            ctx.rotate(-Math.PI/2);
-            ctx.fillStyle = '#333';
-            ctx.textAlign = 'center';
-            ctx.font = isMobile ? '10px Arial' : '12px Arial';
-            ctx.fillText('Energy (eV)', 0, 0);
-            ctx.restore();
+  // ── Main draw ────────────────────────────────────────────────────────────
+  function drawVisualization() {
+    const { w, h, pad } = logical;
+    ctx.clearRect(0, 0, w, h);
 
-            // Calculate band edges
-            const valenceBandMax = fermiLevel - bandGap/2;
-            const conductionBandMin = fermiLevel + bandGap/2;
+    const Emin = -2, Emax = 2;
+    const Ef   = 0;
+    const VBmax = Ef - bandGap / 2;
+    const CBmin = Ef + bandGap / 2;
 
-            // Draw bands
-            const kRange = 3;
-            const numPoints = 200;
+    const distW   = Math.round(w * 0.11);
+    const bandW   = w - 2 * pad - distW - 6;
+    const kRange  = 3;
 
-            // Valence band
-            ctx.strokeStyle = '#4ecdc4';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            for (let i = 0; i <= numPoints; i++) {
-                const k = -kRange + (2 * kRange * i) / numPoints;
-                const energy = valenceBandMax - 0.5 * k * k;
-                const x = kToX(k);
-                const y = energyToY(energy);
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            }
-            ctx.stroke();
+    const EtoY = E => h - pad - ((E - Emin) / (Emax - Emin)) * (h - 2 * pad);
+    const kToX = k => pad + (k + kRange) / (2 * kRange) * bandW;
 
-            // Conduction band
-            ctx.strokeStyle = '#95e1d3';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            for (let i = 0; i <= numPoints; i++) {
-                const k = -kRange + (2 * kRange * i) / numPoints;
-                const energy = conductionBandMin + 0.5 * k * k;
-                const x = kToX(k);
-                const y = energyToY(energy);
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            }
-            ctx.stroke();
+    const small = w < 500;
+    const baseFt = small ? 9 : 12;
 
-            // Draw DOS circles
-            const dosSpacing = getDosSpacing();
-            const circleRadius = isMobile ? 4 : 6;
+    // Grid + axis
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(pad, pad); ctx.lineTo(pad, h - pad); ctx.stroke();
 
-            // Valence band circles
-            for (let k = -kRange; k <= kRange; k += dosSpacing) {
-                const valenceEnergy = valenceBandMax - 0.5 * k * k;
-                const fillProbability = fermiDirac(valenceEnergy, fermiLevel, temperature);
+    ctx.fillStyle = '#333';
+    ctx.font = `${baseFt}px Arial`;
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= 8; i++) {
+      const E = Emin + i * (Emax - Emin) / 8;
+      const y = EtoY(E);
+      ctx.fillText(E.toFixed(1) + ' eV', pad - 6, y + 4);
+      ctx.strokeStyle = '#eee'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(pad + bandW, y); ctx.stroke();
+    }
 
-                const x = kToX(k);
-                const y = energyToY(valenceEnergy);
+    ctx.save();
+    ctx.translate(small ? 7 : 10, h / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#333'; ctx.textAlign = 'center';
+    ctx.font = `${baseFt}px Arial`;
+    ctx.fillText('Energy (eV)', 0, 0);
+    ctx.restore();
 
-                if (fillProbability > 0.99) {
-                    ctx.fillStyle = 'rgba(78, 205, 196, 1)';
-                    ctx.beginPath();
-                    ctx.arc(x, y, circleRadius, 0, 2 * Math.PI);
-                    ctx.fill();
-                } else if (fillProbability > 0.01) {
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                    ctx.strokeStyle = 'rgba(78, 205, 196, 0.8)';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.arc(x, y, circleRadius, 0, 2 * Math.PI);
-                    ctx.fill();
-                    ctx.stroke();
-                }
-            }
+    // Forbidden gap — shaded region (no states)
+    ctx.fillStyle = 'rgba(160,160,185,0.13)';
+    ctx.fillRect(pad, EtoY(CBmin), bandW, EtoY(VBmax) - EtoY(CBmin));
 
-            // Conduction band circles
-            for (let k = -kRange; k <= kRange; k += dosSpacing) {
-                const conductionEnergy = conductionBandMin + 0.5 * k * k;
-                const fillProbability = fermiDirac(conductionEnergy, fermiLevel, temperature);
+    // Bands
+    const nPts = 300;
+    function drawBand(getE, color) {
+      ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i <= nPts; i++) {
+        const k = -kRange + 2 * kRange * i / nPts;
+        const x = kToX(k), y = EtoY(getE(k));
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    drawBand(k => VBmax - 0.5 * k * k, '#4ecdc4');
+    drawBand(k => CBmin + 0.5 * k * k, '#95e1d3');
 
-                const x = kToX(k);
-                const y = energyToY(conductionEnergy);
+    // DOS circles
+    const sp = getDosSpacing();
+    const r  = small ? 3.5 : 5.5;
 
-                if (fillProbability > 0.01) {
-                    ctx.fillStyle = `rgba(149, 225, 211, ${Math.min(fillProbability * 10, 1)})`;
-                    ctx.beginPath();
-                    ctx.arc(x, y, circleRadius, 0, 2 * Math.PI);
-                    ctx.fill();
+    const TEAL = '#0e9482';
+    const VB_FILL = 0.99999; // = 1 - CB_SHOW → symmetric
+    const CB_SHOW = 0.00001; // above this → electron (filled circle) [×100 visual boost]
 
-                    ctx.strokeStyle = 'rgba(149, 225, 211, 1)';
-                    ctx.lineWidth = 1;
-                    ctx.stroke();
-                }
-            }
+    function filledDot(x, y) {
+      ctx.fillStyle = TEAL;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 2*Math.PI); ctx.fill();
+    }
 
-            // Draw Fermi-Dirac distribution
-            const distributionX = padding + bandWidth - 50;
+    function emptyCircle(x, y) {
+      ctx.fillStyle   = '#ffffff';
+      ctx.strokeStyle = TEAL;
+      ctx.lineWidth   = 2;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 2*Math.PI);
+      ctx.fill(); ctx.stroke();
+    }
 
-            ctx.strokeStyle = '#ff6b6b';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
+    // ── Valence band ──────────────────────────────────────────────────────
+    for (let k = -kRange; k <= kRange; k += sp) {
+      const E = VBmax - 0.5 * k * k;
+      const f = fermiDirac(E, Ef, temperature);
+      const x = kToX(k), y = EtoY(E);
+      if (f >= VB_FILL) filledDot(x, y); else emptyCircle(x, y);
+    }
 
-            const energySteps = 200;
-            for (let i = 0; i <= energySteps; i++) {
-                const energy = energyMin + (energyMax - energyMin) * i / energySteps;
-                const probability = fermiDirac(energy, fermiLevel, temperature);
-                const y = energyToY(energy);
-                const x = distributionX + probability * distributionWidth;
+    // ── Conduction band ───────────────────────────────────────────────────
+    for (let k = -kRange; k <= kRange; k += sp) {
+      const E = CBmin + 0.5 * k * k;
+      const f = fermiDirac(E, Ef, temperature);
+      const x = kToX(k), y = EtoY(E);
+      if (f >= CB_SHOW) filledDot(x, y); else emptyCircle(x, y);
+    }
 
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            }
-            ctx.stroke();
+    // Fermi-Dirac curve — solid in bands, dashed in gap (no states there)
+    const distX = pad + bandW - Math.round(bandW * 0.05);
+    function fdSegment(Estart, Eend, dash) {
+      if (dash) { ctx.setLineDash([3, 5]); ctx.globalAlpha = 0.35; }
+      ctx.beginPath();
+      let moved = false;
+      const steps = 300;
+      for (let i = 0; i <= steps; i++) {
+        const E = Estart + (Eend - Estart) * i / steps;
+        const x = distX + fermiDirac(E, Ef, temperature) * distW;
+        const y = EtoY(E);
+        moved ? ctx.lineTo(x, y) : (ctx.moveTo(x, y), moved = true);
+      }
+      ctx.stroke();
+      if (dash) { ctx.setLineDash([]); ctx.globalAlpha = 1; }
+    }
 
-            // Fermi level line
-            const fermiY = energyToY(fermiLevel);
-            ctx.strokeStyle = '#ff6b6b';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([3, 3]);
-            ctx.beginPath();
-            ctx.moveTo(distributionX, fermiY);
-            ctx.lineTo(distributionX + distributionWidth, fermiY);
-            ctx.stroke();
-            ctx.setLineDash([]);
+    ctx.strokeStyle = '#ff6b6b'; ctx.lineWidth = 2.5;
+    fdSegment(Emin,   VBmax, false);   // valence band — solid
+    fdSegment(VBmax,  CBmin, true);    // gap — dashed + faded
+    fdSegment(CBmin,  Emax,  false);   // conduction band — solid
 
-            // Distribution labels
-            ctx.fillStyle = '#333';
-            ctx.textAlign = 'center';
-            ctx.font = isMobile ? '8px Arial' : '10px Arial';
-            ctx.fillText('0', distributionX, height - padding + 15);
-            ctx.fillText('1', distributionX + distributionWidth, height - padding + 15);
-            ctx.fillText('f(E)', distributionX + distributionWidth/2, height - padding + 25);
+    // Fermi level dashed line
+    const fermiY = EtoY(Ef);
+    ctx.strokeStyle = '#ff6b6b'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(distX, fermiY); ctx.lineTo(distX + distW, fermiY); ctx.stroke();
+    ctx.setLineDash([]);
 
-            ctx.fillStyle = '#ff6b6b';
-            ctx.textAlign = 'left';
-            ctx.font = isMobile ? '8px Arial' : '10px Arial';
-            ctx.fillText('E_F', distributionX + distributionWidth + 5, fermiY + 3);
+    // Axis labels for f(E)
+    ctx.fillStyle = '#555'; ctx.textAlign = 'center'; ctx.font = `${baseFt - 1}px Arial`;
+    ctx.fillText('0', distX, h - pad + 14);
+    ctx.fillText('1', distX + distW, h - pad + 14);
+    ctx.fillText('f(E)', distX + distW / 2, h - pad + 24);
+    ctx.fillStyle = '#ff6b6b'; ctx.textAlign = 'left'; ctx.font = `${baseFt}px Arial`;
+    ctx.fillText('E_F', distX + distW + 4, fermiY + 4);
 
-            // Parameters in corner
-            ctx.fillStyle = '#333';
-            ctx.textAlign = 'right';
-            ctx.font = isMobile ? '10px Arial' : '14px Arial';
-            const infoX = width - 15;
-            const infoY = 25;
+    // Corner info
+    ctx.fillStyle = '#333'; ctx.textAlign = 'right'; ctx.font = `${baseFt + 1}px Arial`;
+    const ix = w - 10, iy = 22, ls = 16;
+    ctx.fillText(`Gap: ${bandGap.toFixed(2)} eV`, ix, iy);
+    ctx.fillText(`T: ${temperature} K`, ix, iy + ls);
+    ctx.fillText(`kT: ${(kB * temperature).toFixed(4)} eV`, ix, iy + 2*ls);
+  }
 
-            ctx.fillText(`Gap: ${bandGap.toFixed(2)} eV`, infoX, infoY);
-            ctx.fillText(`T: ${temperature} K`, infoX, infoY + 15);
-            ctx.fillText(`kT: ${(kB * temperature).toFixed(3)} eV`, infoX, infoY + 30);
+  function updateParams() {
+    const kT  = kB * temperature;
+    const rat = kT > 0 ? (bandGap / kT) : Infinity;
+    const prob = Math.exp(-bandGap / (2 * kT));
 
-            updatePhysicsParams();
-        }
+    document.getElementById('kt-value').textContent    = kT.toFixed(4);
+    document.getElementById('ratio-value').textContent = isFinite(rat) ? rat.toFixed(1) : '∞';
 
-        function updatePhysicsParams() {
-            const kT = kB * temperature;
-            document.getElementById('kt-value').textContent = kT.toFixed(3);
-            
-            const ratio = kT > 0 ? (bandGap / kT).toFixed(1) : '∞';
-            document.getElementById('ratio-value').textContent = ratio;
+    let probStr;
+    if (prob < 1e-300)      probStr = '< 10⁻³⁰⁰';
+    else if (prob < 0.0001) probStr = prob.toExponential(2);
+    else                    probStr = (prob * 100).toFixed(2) + '%';
+    document.getElementById('prob-value').textContent = probStr;
+  }
 
-            const prob = 100 * Math.exp(-bandGap / (2 * kT));
-            const probStr = prob < 1e-100 ? "0%" : parseFloat(prob.toFixed(1)).toString() + "%";
-            document.getElementById('prob-value').textContent = probStr;
-        }
+  // ── Controls ─────────────────────────────────────────────────────────────
+  document.getElementById('bandgap').addEventListener('input', e => {
+    bandGap = parseFloat(e.target.value);
+    document.getElementById('bandgap-value').textContent = bandGap.toFixed(2);
+    drawVisualization();
+  });
+  document.getElementById('temperature').addEventListener('input', e => {
+    temperature = parseFloat(e.target.value);
+    document.getElementById('temp-value').textContent = temperature;
+    drawVisualization();
+  });
+  document.querySelectorAll('.dos-btn').forEach(btn => btn.addEventListener('click', e => {
+    document.querySelectorAll('.dos-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    dosLevel = e.target.dataset.level;
+    drawVisualization();
+  }));
 
-        // Event listeners
-        document.getElementById('bandgap').addEventListener('input', (e) => {
-            bandGap = parseFloat(e.target.value);
-            document.getElementById('bandgap-value').textContent = bandGap.toFixed(2);
-            drawVisualization();
-        });
+  function debounce(fn, ms) {
+    let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+  }
 
-        document.getElementById('temperature').addEventListener('input', (e) => {
-            temperature = parseFloat(e.target.value);
-            document.getElementById('temp-value').textContent = temperature;
-            drawVisualization();
-        });
-
-        document.querySelectorAll('.dos-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.dos-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                dosLevel = e.target.dataset.level;
-                drawVisualization();
-            });
-        });
-
-        // Initial draw
-        drawVisualization();
-    </script>
+  // Boot
+  resizeCanvas();
+</script>
 </body>
 </html>
