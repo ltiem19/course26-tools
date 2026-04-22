@@ -2,346 +2,382 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>AC Drude Conductivity</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #f9fafb;
-            padding: 20px;
+            padding: 12px;
         }
+
         .container {
             max-width: 1280px;
             margin: 0 auto;
             background: white;
-            padding: 24px;
+            padding: 16px;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
+
         h1 {
             text-align: center;
             color: #1e3a8a;
-            margin-bottom: 24px;
-            font-size: 1.875rem;
+            margin-bottom: 16px;
+            font-size: clamp(1.2rem, 4vw, 1.8rem);
         }
+
         .controls {
             background: #eff6ff;
-            padding: 16px;
+            padding: 12px;
             border-radius: 8px;
-            margin-bottom: 24px;
-        }
-        .control-group {
             margin-bottom: 16px;
         }
-        label {
+
+        .control-label {
             display: block;
-            font-size: 0.875rem;
+            font-size: clamp(0.8rem, 3vw, 0.95rem);
             font-weight: 500;
             color: #374151;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
+
         input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
             width: 100%;
-            height: 24px;
+            height: 36px;
+            background: #bfdbfe;
+            border-radius: 18px;
+            outline: none;
+            touch-action: manipulation;
+            cursor: pointer;
+            margin-bottom: 4px;
         }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #2563eb;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #2563eb;
+            cursor: pointer;
+            border: none;
+        }
+
         .info-text {
-            font-size: 0.75rem;
+            font-size: clamp(0.7rem, 2.5vw, 0.8rem);
             color: #6b7280;
+            margin-bottom: 12px;
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
             margin-top: 4px;
         }
-        .checkbox-group {
+
+        .checkbox-label {
             display: flex;
             align-items: center;
             gap: 8px;
+            cursor: pointer;
+            touch-action: manipulation;
+            padding: 6px 0;
+            font-size: clamp(0.8rem, 3vw, 0.95rem);
+            font-weight: 500;
+            color: #374151;
         }
+
         input[type="checkbox"] {
-            width: 16px;
-            height: 16px;
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            touch-action: manipulation;
+            flex-shrink: 0;
         }
+
         .equations {
             background: #f9fafb;
-            padding: 16px;
+            padding: 12px;
             border-radius: 8px;
-            margin-bottom: 24px;
-        }
-        .equations p {
-            font-size: 0.875rem;
+            margin-bottom: 16px;
+            font-size: clamp(0.75rem, 2.5vw, 0.875rem);
             color: #374151;
-            margin-bottom: 4px;
+            line-height: 1.6;
         }
+
         .chart-container {
             position: relative;
-            height: 500px;
-            margin-bottom: 24px;
+            width: 100%;
+            height: clamp(280px, 50vw, 500px);
+            margin-bottom: 16px;
         }
+
         .info-boxes {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 16px;
-            margin-top: 24px;
+            gap: 12px;
         }
+
+        @media (min-width: 600px) {
+            .info-boxes { grid-template-columns: 1fr 1fr; }
+        }
+
         .info-box {
-            padding: 16px;
+            padding: 12px;
             border-radius: 8px;
-            font-size: 0.875rem;
-        }
-        .info-box h4 {
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-        .info-box p {
-            margin-bottom: 4px;
+            font-size: clamp(0.75rem, 2.5vw, 0.875rem);
             line-height: 1.5;
         }
-        .info-green {
-            background: #ecfdf5;
-            color: #065f46;
+
+        .info-box h4 {
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: clamp(0.8rem, 2.8vw, 0.95rem);
         }
-        .info-yellow {
-            background: #fef3c7;
-            color: #92400e;
-        }
-        @media (min-width: 640px) {
-            .info-boxes {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
+
+        .info-box p { margin-bottom: 4px; }
+
+        .info-green { background: #ecfdf5; color: #065f46; }
+        .info-yellow { background: #fef3c7; color: #92400e; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>AC Drude Conductivity</h1>
-        
-        <div class="controls">
-            <h2 style="font-size: 1.125rem; font-weight: 600; color: #1e40af; margin-bottom: 12px;">Parameters</h2>
-            
-            <div class="control-group">
-                <label for="tauSlider">Relaxation Time τ = <span id="tauValue">1.0e-14</span> s</label>
-                <input type="range" id="tauSlider" min="-16" max="-12" step="0.2" value="-14">
-                <div class="info-text">Crossover frequency: <span id="crossoverFreq">15.9</span> THz</div>
-            </div>
-            
-            <div class="checkbox-group">
+<div class="container">
+    <h1>AC Drude Conductivity</h1>
+
+    <div class="controls">
+        <label class="control-label" for="tauSlider">
+            Relaxation time &tau; = <span id="tauValue">1.0&times;10<sup>-14</sup></span> s
+        </label>
+        <input type="range" id="tauSlider" min="-16" max="-12" step="0.2" value="-14">
+        <div class="info-text">Crossover: <span id="crossoverFreq"></span></div>
+
+        <div class="checkbox-row">
+            <label class="checkbox-label">
                 <input type="checkbox" id="logScale" checked>
-                <label for="logScale" style="margin: 0;">Log Scale</label>
-            </div>
-        </div>
-        
-        <div class="equations">
-            <p><strong>σ(ω) = 1/(1 + iωτ)</strong></p>
-            <p>Real: σ'(ω) = 1/(1 + ω²τ²)</p>
-            <p>Imaginary: σ''(ω) = ωτ/(1 + ω²τ²)</p>
-        </div>
-        
-        <div class="chart-container">
-            <canvas id="drudeChart"></canvas>
-        </div>
-        
-        <div class="info-boxes">
-            <div class="info-box info-green">
-                <h4>Key Physics</h4>
-                <p><strong>τ (relaxation time)</strong> is the only parameter that matters for the curve shape.</p>
-                <p>Shorter τ → higher crossover frequency → "dirty" metal with more scattering</p>
-                <p>Longer τ → lower crossover frequency → "pure" metal with less scattering</p>
-            </div>
-            
-            <div class="info-box info-yellow">
-                <h4>Crossover Behavior</h4>
-                <p>At f = 1/(2πτ), the real and imaginary parts cross over at σ₀/2.</p>
-                <p>Below: metallic behavior (σ' dominates)</p>
-                <p>Above: dielectric-like behavior (electron inertia matters)</p>
-                <p><strong>Peak of imaginary part is always σ₀/2 = 0.5</strong></p>
-            </div>
+                Log scale
+            </label>
         </div>
     </div>
 
-    <script>
-        let chart;
-        let tau = 1e-14;
-        let logScale = true;
+    <div class="equations">
+        <strong>&sigma;(&omega;) = &sigma;<sub>0</sub> / (1 + i&omega;&tau;)</strong><br>
+        &sigma;'(&omega;) = &sigma;<sub>0</sub> / (1 + &omega;<sup>2</sup>&tau;<sup>2</sup>)<br>
+        &sigma;''(&omega;) = &sigma;<sub>0</sub> &omega;&tau; / (1 + &omega;<sup>2</sup>&tau;<sup>2</sup>)
+    </div>
 
-        function generateData() {
-            const frequencies = [];
-            for (let i = 8; i <= 18; i += 0.1) {
-                frequencies.push(Math.pow(10, i));
-            }
+    <div class="chart-container">
+        <canvas id="drudeChart"></canvas>
+    </div>
 
-            const realData = [];
-            const imagData = [];
+    <div class="info-boxes">
+        <div class="info-box info-green">
+            <h4>Key Physics</h4>
+            <p>&tau; is the only parameter that changes the curve shape.</p>
+            <p>Shorter &tau; &rarr; higher crossover &rarr; "dirty" metal</p>
+            <p>Longer &tau; &rarr; lower crossover &rarr; "pure" metal</p>
+        </div>
+        <div class="info-box info-yellow">
+            <h4>Crossover at &omega;&tau; = 1</h4>
+            <p>&sigma;' = &sigma;'' = &sigma;<sub>0</sub>/2 at f = 1/(2&pi;&tau;)</p>
+            <p>Peak of imaginary part is always &sigma;<sub>0</sub>/2</p>
+            <p>Below: metallic &nbsp; Above: dielectric-like</p>
+        </div>
+    </div>
+</div>
 
-            frequencies.forEach(f => {
-                const omega = 2 * Math.PI * f;
-                const omegaTau = omega * tau;
-                const denom = 1 + omegaTau * omegaTau;
-                
-                const sigmaReal = 1 / denom;
-                const sigmaImag = omegaTau / denom;
-                
-                if (logScale) {
-                    realData.push({
-                        x: Math.log10(f),
-                        y: Math.log10(Math.max(sigmaReal, 1e-12))
-                    });
-                    imagData.push({
-                        x: Math.log10(f),
-                        y: Math.log10(Math.max(sigmaImag, 1e-12))
-                    });
-                } else {
-                    realData.push({
-                        x: f,
-                        y: sigmaReal
-                    });
-                    imagData.push({
-                        x: f,
-                        y: sigmaImag
-                    });
+<script>
+var chart;
+var tau = 1e-14;
+var logScale = true;
+
+// Fixed ticks for log mode (indices into log10 frequency space)
+var LOG_TICKS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+
+function formatFreqLinear(f) {
+    if (f >= 1e18) return Math.round(f/1e18) + 'E';
+    if (f >= 1e15) return Math.round(f/1e15) + 'P';
+    if (f >= 1e12) return Math.round(f/1e12) + 'T';
+    if (f >= 1e9)  return Math.round(f/1e9)  + 'G';
+    if (f >= 1e6)  return Math.round(f/1e6)  + 'M';
+    return Math.round(f) + '';
+}
+
+function formatFreqLog(logf) {
+    var f = Math.pow(10, logf);
+    return formatFreqLinear(f);
+}
+
+function updateInfo() {
+    // tau display
+    var exp = Math.round(Math.log10(tau));
+    var man = tau / Math.pow(10, exp);
+    document.getElementById('tauValue').innerHTML =
+        man.toFixed(1) + '&times;10<sup>' + exp + '</sup>';
+
+    // crossover frequency
+    var fc = 1 / (2 * Math.PI * tau);
+    document.getElementById('crossoverFreq').textContent = formatFreqLinear(fc) + 'Hz';
+}
+
+function generateDatasets() {
+    var realPts = [], imagPts = [];
+    for (var li = 8; li <= 18; li += 0.05) {
+        var f = Math.pow(10, li);
+        var omega = 2 * Math.PI * f;
+        var ot = omega * tau;
+        var denom = 1 + ot * ot;
+        var sr = 1 / denom;
+        var si = ot / denom;
+
+        if (logScale) {
+            realPts.push({ x: li, y: Math.log10(Math.max(sr, 1e-12)) });
+            imagPts.push({ x: li, y: Math.log10(Math.max(si, 1e-12)) });
+        } else {
+            realPts.push({ x: f, y: sr });
+            imagPts.push({ x: f, y: si });
+        }
+    }
+    return { realPts: realPts, imagPts: imagPts };
+}
+
+function buildChartOptions() {
+    var xAxis, yAxis;
+
+    if (logScale) {
+        xAxis = {
+            type: 'linear',
+            title: { display: true, text: 'log\u2081\u2080 (Frequency [Hz])' },
+            ticks: {
+                callback: function(val) { return formatFreqLog(val); },
+                stepSize: 1
+            },
+            min: 8, max: 18
+        };
+        yAxis = {
+            title: { display: true, text: 'log\u2081\u2080 (\u03c3/\u03c3\u2080)' },
+            ticks: {
+                callback: function(val) {
+                    return '10^' + val.toFixed(0);
                 }
-            });
-
-            return { realData, imagData };
-        }
-
-        function formatFrequency(value) {
-            if (logScale) {
-                return `10^${Math.round(value)}`;
-            } else {
-                const freq = value;
-                if (freq >= 1e18) return `${Math.round(freq/1e18)}E`;
-                if (freq >= 1e15) return `${Math.round(freq/1e15)}P`;
-                if (freq >= 1e12) return `${Math.round(freq/1e12)}T`;
-                if (freq >= 1e9) return `${Math.round(freq/1e9)}G`;
-                if (freq >= 1e6) return `${Math.round(freq/1e6)}M`;
-                return `${Math.round(freq)}`;
             }
-        }
-
-        function formatConductivity(value) {
-            if (logScale) {
-                return `10^${value.toFixed(1)}`;
-            } else {
-                return value.toFixed(3);
+        };
+    } else {
+        xAxis = {
+            type: 'logarithmic',
+            title: { display: true, text: 'Frequency [Hz]' },
+            ticks: {
+                callback: function(val) {
+                    // Only label powers of 10
+                    var log = Math.log10(val);
+                    if (Math.abs(log - Math.round(log)) < 0.01) {
+                        return formatFreqLinear(val);
+                    }
+                    return '';
+                }
+            },
+            min: 1e8, max: 1e18
+        };
+        yAxis = {
+            title: { display: true, text: '\u03c3/\u03c3\u2080' },
+            min: 0, max: 1,
+            ticks: {
+                callback: function(val) { return val.toFixed(1); }
             }
-        }
+        };
+    }
 
-        function createChart() {
-            const ctx = document.getElementById('drudeChart').getContext('2d');
-            const { realData, imagData } = generateData();
-
-            const config = {
-                type: 'line',
-                data: {
-                    datasets: [{
-                        label: "Real Part σ'",
-                        data: realData,
-                        borderColor: '#2563eb',
-                        backgroundColor: '#2563eb',
-                        borderWidth: 3,
-                        pointRadius: 0,
-                        tension: 0
-                    }, {
-                        label: "Imaginary Part σ''",
-                        data: imagData,
-                        borderColor: '#dc2626',
-                        backgroundColor: '#dc2626',
-                        borderWidth: 3,
-                        pointRadius: 0,
-                        tension: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            align: 'end'
-                        },
-                        tooltip: {
-                            callbacks: {
-                                title: function(context) {
-                                    return `f = ${formatFrequency(context[0].parsed.x)} Hz`;
-                                },
-                                label: function(context) {
-                                    const label = context.dataset.label || '';
-                                    const value = logScale ? `10^${context.parsed.y.toFixed(2)}` : context.parsed.y.toFixed(3);
-                                    return `${label}: ${value}`;
-                                }
-                            }
-                        }
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: {
+            legend: { position: 'top', align: 'end' },
+            tooltip: {
+                callbacks: {
+                    title: function(ctx) {
+                        var x = ctx[0].parsed.x;
+                        if (logScale) return 'f = ' + formatFreqLog(x) + 'Hz';
+                        return 'f = ' + formatFreqLinear(x) + 'Hz';
                     },
-                    scales: {
-                        x: {
-                            type: logScale ? 'linear' : 'logarithmic',
-                            title: {
-                                display: true,
-                                text: logScale ? 'log₁₀(Frequency [Hz])' : 'Frequency [Hz]'
-                            },
-                            ticks: {
-                                callback: function(value) {
-                                    return formatFrequency(value);
-                                }
-                            }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: logScale ? 'log₁₀(σ/σ₀)' : 'σ/σ₀'
-                            },
-                            ticks: {
-                                callback: function(value) {
-                                    return formatConductivity(value);
-                                }
-                            }
-                        }
+                    label: function(ctx) {
+                        var y = ctx.parsed.y;
+                        var val = logScale ? '10^' + y.toFixed(2) : y.toFixed(3);
+                        return ctx.dataset.label + ': ' + val;
                     }
                 }
-            };
-
-            if (chart) {
-                chart.destroy();
             }
-            chart = new Chart(ctx, config);
-        }
+        },
+        scales: { x: xAxis, y: yAxis }
+    };
+}
 
-        function updateChart() {
-            const { realData, imagData } = generateData();
-            chart.data.datasets[0].data = realData;
-            chart.data.datasets[1].data = imagData;
-            
-            chart.options.scales.x.type = logScale ? 'linear' : 'logarithmic';
-            chart.options.scales.x.title.text = logScale ? 'log₁₀(Frequency [Hz])' : 'Frequency [Hz]';
-            chart.options.scales.y.title.text = logScale ? 'log₁₀(σ/σ₀)' : 'σ/σ₀';
-            
-            chart.update();
-        }
+function initChart() {
+    var ds = generateDatasets();
+    var ctx = document.getElementById('drudeChart').getContext('2d');
 
-        function updateTauDisplay() {
-            document.getElementById('tauValue').textContent = tau.toExponential(1);
-            const crossover = 1 / (tau * 2 * Math.PI * 1e12);
-            document.getElementById('crossoverFreq').textContent = crossover.toFixed(1);
-        }
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            datasets: [
+                {
+                    label: "\u03c3' (Real)",
+                    data: ds.realPts,
+                    borderColor: '#2563eb',
+                    borderWidth: 3,
+                    pointRadius: 0,
+                    tension: 0
+                },
+                {
+                    label: '\u03c3\u2019\u2019 (Imaginary)',
+                    data: ds.imagPts,
+                    borderColor: '#dc2626',
+                    borderWidth: 3,
+                    pointRadius: 0,
+                    tension: 0
+                }
+            ]
+        },
+        options: buildChartOptions()
+    });
+}
 
-        // Event listeners
-        document.getElementById('tauSlider').addEventListener('input', (e) => {
-            tau = Math.pow(10, parseFloat(e.target.value));
-            updateTauDisplay();
-            updateChart();
-        });
+function updateChart() {
+    var ds = generateDatasets();
+    chart.data.datasets[0].data = ds.realPts;
+    chart.data.datasets[1].data = ds.imagPts;
+    chart.options = buildChartOptions();
+    chart.update('none');
+}
 
-        document.getElementById('logScale').addEventListener('change', (e) => {
-            logScale = e.target.checked;
-            updateChart();
-        });
+document.getElementById('tauSlider').addEventListener('input', function() {
+    tau = Math.pow(10, parseFloat(this.value));
+    updateInfo();
+    updateChart();
+});
 
-        // Initialize
-        updateTauDisplay();
-        createChart();
-    </script>
+document.getElementById('logScale').addEventListener('change', function() {
+    logScale = this.checked;
+    updateChart();
+});
+
+updateInfo();
+initChart();
+</script>
 </body>
 </html>
