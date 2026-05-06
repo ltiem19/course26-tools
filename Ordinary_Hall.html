@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Hall Effect – Drude</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  background:#f0f2f5;color:#222;
+  display:flex;flex-direction:column;align-items:center;
+  padding:10px 10px 20px;gap:8px;
+}
+h1{font-size:14px;font-weight:700;color:#1a4a7a;letter-spacing:.3px;text-align:center}
+.sub{font-size:11px;color:#888;text-align:center}
+canvas{display:block;width:100%;max-width:420px;border-radius:6px;
+       box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.sliders{width:100%;max-width:420px;margin-top:4px}
+.row{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.lbl{font-size:12px;color:#334;min-width:90px;line-height:1.35}
+.lbl small{display:block;font-size:10px;color:#888}
+input[type=range]{flex:1;height:34px;accent-color:#1a6abf;cursor:pointer}
+.val{font-size:11px;font-family:monospace;color:#b05000;min-width:90px;text-align:right}
+.eqs{display:flex;gap:28px;justify-content:center;align-items:center;margin-top:6px}
+.frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;line-height:1.25;font-size:13px}
+.frac .num{border-bottom:1.5px solid currentColor;padding:0 4px;text-align:center}
+.frac .den{padding:0 4px;text-align:center}
+.eq{font-size:13px;display:flex;align-items:center;gap:5px}
+</style>
+</head>
+<body>
+<h1>Classical Hall Effect — Drude Model</h1>
+<div class="sub">ρ<sub>xx</sub> and ρ<sub>xy</sub> vs. B &nbsp;(small-field regime)</div>
+
+<canvas id="cvBar"></canvas>
+<canvas id="cvPlot"></canvas>
+
+<div class="sliders">
+  <div class="row">
+    <div class="lbl">Width w<small>μm</small></div>
+    <input type="range" id="slW" min="1" max="50" value="20" step="1">
+    <div class="val" id="vW">2.0 μm</div>
+  </div>
+  <div class="row">
+    <div class="lbl">Density n<small>cm⁻²</small></div>
+    <input type="range" id="slN" min="0" max="100" value="0" step="1">
+    <div class="val" id="vN"></div>
+  </div>
+  <div class="row">
+    <div class="lbl">Mobility μ<small>cm²/Vs</small></div>
+    <input type="range" id="slMu" min="0" max="100" value="0" step="1">
+    <div class="val" id="vMu"></div>
+  </div>
+</div>
+<div class="eqs">
+  <span class="eq" style="color:#cc2222">
+    ρ<sub>xx</sub> =
+    <span class="frac">
+      <span class="num">1</span>
+      <span class="den">n·e·μ</span>
+    </span>
+  </span>
+  <span class="eq" style="color:#1a6abf">
+    ρ<sub>xy</sub> =
+    <span class="frac">
+      <span class="num">B</span>
+      <span class="den">n·e</span>
+    </span>
+  </span>
+</div>
+
+<script>
+const EC   = 1.602e-19;
+const BMAX = 0.5;    // T
+const YMAX = 10000;  // Ω/□  — fixed axis
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+function logMap(pos,lo,hi){
+  return Math.pow(10, Math.log10(lo)+(Math.log10(hi)-Math.log10(lo))*pos/100);
+}
+function fmtR(x){
+  if(x>=1e6) return (x/1e6).toFixed(2)+' MΩ/□';
+  if(x>=1e3) return (x/1e3).toFixed(2)+' kΩ/□';
+  return x.toFixed(1)+' Ω/□';
+}
+function fmtSci(x){
+  const e=Math.floor(Math.log10(x)), m=x/Math.pow(10,e);
+  const sup=n=>[...(n<0?'⁻':'')+Math.abs(n).toString()]
+    .map(c=>('⁰¹²³⁴⁵⁶⁷⁸⁹')[c]??c).join('');
+  return Math.abs(m-1)<0.05?`10${sup(e)}`:`${m.toFixed(1)}×10${sup(e)}`;
+}
+
+// ── state ────────────────────────────────────────────────────────────────────
+let W_m=2e-6, n_si=6.5e14, mu_si=1.0;
+
+function readSliders(){
+  const wUm = +document.getElementById('slW').value/10;
+  W_m = wUm*1e-6;
+  document.getElementById('vW').textContent = wUm.toFixed(1)+' μm';
+
+  // log: 6.5×10¹⁰ .. 5×10¹² cm⁻²
+  const nCm2 = logMap(+document.getElementById('slN').value, 6.5e10, 5e12);
+  n_si = nCm2*1e4;
+  document.getElementById('vN').textContent = fmtSci(nCm2)+' cm⁻²';
+
+  // log: 10⁴ .. 10⁶ cm²/Vs
+  const muCm2 = logMap(+document.getElementById('slMu').value, 1e4, 1e6);
+  mu_si = muCm2*1e-4;
+  document.getElementById('vMu').textContent = fmtSci(muCm2)+' cm²/Vs';
+}
+
+function rhoXX()   { return 1/(n_si*EC*mu_si); }  // Ω/□, B-independent
+function slopeXY() { return 1/(n_si*EC); }         // Ω/□ per T
+
+// ── Hall bar schematic ────────────────────────────────────────────────────────
+function drawBar(){
+  const cv  = document.getElementById('cvBar');
+  const dpr = window.devicePixelRatio||1;
+  const CW  = Math.min(cv.parentElement.clientWidth, 420);
+  const CH  = Math.round(CW*0.44);
+  cv.width=CW*dpr; cv.height=CH*dpr;
+  cv.style.width=CW+'px'; cv.style.height=CH+'px';
+  const c = cv.getContext('2d');
+  c.scale(dpr,dpr);
+  c.fillStyle='#fff'; c.fillRect(0,0,CW,CH);
+
+  // geometry
+  const wFrac  = (W_m*1e6-0.1)/4.9;            // 0..1
+  const bW_min = 14, bW_max = CH*0.44;
+  const bW     = bW_min + wFrac*(bW_max-bW_min);
+  const bL     = CW*0.48;
+  const cx     = CW*0.42;                       // shifted left for Vxy circle
+  const cy     = CH*0.52;
+
+  const x1      = cx - bL*0.22;                // left contact pair
+  const x2      = cx + bL*0.22;                // right contact pair
+  const tickLen = 9;
+  const cr      = Math.max(12, Math.round(CW*0.032)); // label-circle radius
+
+  // ── bar body ──
+  c.fillStyle='#dce8f5'; c.strokeStyle='#3a7fd4'; c.lineWidth=1.5;
+  c.beginPath(); c.rect(cx-bL/2, cy-bW/2, bL, bW); c.fill(); c.stroke();
+
+  // ── S / D ──
+  c.fillStyle='#555'; c.font='bold 10px sans-serif'; c.textAlign='center';
+  c.fillText('S', cx-bL/2-13, cy+4);
+  c.fillText('D', cx+bL/2+13, cy+4);
+
+  // ── current arrow (inside bar) ──
+  c.strokeStyle='#b05000'; c.lineWidth=1.8;
+  const iA=cx-bL*0.27, iB=cx+bL*0.27;
+  c.beginPath(); c.moveTo(iA,cy); c.lineTo(iB-6,cy); c.stroke();
+  c.beginPath();
+  c.moveTo(iB,cy); c.lineTo(iB-8,cy-4.5);
+  c.moveTo(iB,cy); c.lineTo(iB-8,cy+4.5);
+  c.stroke();
+
+  // ── contact tick marks (top + bottom at x1 and x2) ──
+  c.strokeStyle='#444'; c.lineWidth=1.3;
+  [x1,x2].forEach(x=>{
+    c.beginPath(); c.moveTo(x,cy-bW/2); c.lineTo(x,cy-bW/2-tickLen); c.stroke();
+    c.beginPath(); c.moveTo(x,cy+bW/2); c.lineTo(x,cy+bW/2+tickLen); c.stroke();
+    // small dot at bar edge
+    c.fillStyle='#444';
+    c.beginPath(); c.arc(x,cy-bW/2,2.5,0,2*Math.PI); c.fill();
+    c.beginPath(); c.arc(x,cy+bW/2,2.5,0,2*Math.PI); c.fill();
+  });
+
+  // tip coordinates
+  const t_x1_top = {x:x1, y:cy-bW/2-tickLen};
+  const t_x2_top = {x:x2, y:cy-bW/2-tickLen};
+  const t_x2_bot = {x:x2, y:cy+bW/2+tickLen};
+
+  // ── Vxx circle (red) ─ above bar, between x1-top and x2-top ──
+  const vxxX = (x1+x2)/2;
+  const vxxY = Math.max(cr+3, cy-bW/2-tickLen-cr-7);
+
+  c.strokeStyle='#cc2222'; c.lineWidth=1.3;
+  c.beginPath(); c.moveTo(t_x1_top.x,t_x1_top.y); c.lineTo(vxxX,vxxY); c.stroke();
+  c.beginPath(); c.moveTo(t_x2_top.x,t_x2_top.y); c.lineTo(vxxX,vxxY); c.stroke();
+
+  c.fillStyle='#fff'; c.strokeStyle='#cc2222'; c.lineWidth=2;
+  c.beginPath(); c.arc(vxxX,vxxY,cr,0,2*Math.PI); c.fill(); c.stroke();
+  c.fillStyle='#cc2222'; c.textAlign='center';
+  c.font=`bold ${Math.max(8,Math.round(cr*0.70))}px -apple-system,sans-serif`;
+  c.fillText('Vxx', vxxX, vxxY+cr*0.30);
+
+  // ── Vxy circle (blue) ─ right side, between x2-top and x2-bot ──
+  const vxyX = cx+bL/2+cr+9;
+  const vxyY = cy;
+
+  c.strokeStyle='#1a6abf'; c.lineWidth=1.3;
+  c.beginPath(); c.moveTo(t_x2_top.x,t_x2_top.y); c.lineTo(vxyX,vxyY); c.stroke();
+  c.beginPath(); c.moveTo(t_x2_bot.x,t_x2_bot.y); c.lineTo(vxyX,vxyY); c.stroke();
+
+  c.fillStyle='#fff'; c.strokeStyle='#1a6abf'; c.lineWidth=2;
+  c.beginPath(); c.arc(vxyX,vxyY,cr,0,2*Math.PI); c.fill(); c.stroke();
+  c.fillStyle='#1a6abf'; c.textAlign='center';
+  c.font=`bold ${Math.max(8,Math.round(cr*0.70))}px -apple-system,sans-serif`;
+  c.fillText('Vxy', vxyX, vxyY+cr*0.30);
+
+  // ── B symbol (dot-in-circle = out of plane) ──
+  const bdx=cx-bL*0.38, bdy=cy-bW/2-17;
+  if(bdy>7){
+    c.strokeStyle='#b03030'; c.lineWidth=1.3;
+    c.beginPath(); c.arc(bdx,bdy,6,0,2*Math.PI); c.stroke();
+    c.fillStyle='#c03030';
+    c.beginPath(); c.arc(bdx,bdy,2,0,2*Math.PI); c.fill();
+    c.fillStyle='#b03030'; c.font='9px sans-serif'; c.textAlign='left';
+    c.fillText('B', bdx+9, bdy+3.5);
+  }
+}
+
+// ── ρ(B) plot ─────────────────────────────────────────────────────────────────
+function drawPlot(){
+  const cv  = document.getElementById('cvPlot');
+  const dpr = window.devicePixelRatio||1;
+  const CW  = Math.min(cv.parentElement.clientWidth, 420);
+  const CH  = Math.round(CW*0.72);
+  cv.width=CW*dpr; cv.height=CH*dpr;
+  cv.style.width=CW+'px'; cv.style.height=CH+'px';
+  const c = cv.getContext('2d');
+  c.scale(dpr,dpr);
+
+  const ml=62,mr=14,mt=20,mb=44;
+  const pw=CW-ml-mr, ph=CH-mt-mb;
+
+  c.fillStyle='#fff'; c.fillRect(0,0,CW,CH);
+
+  const rxx=rhoXX(), sl=slopeXY();
+  const xS = B => ml+B/BMAX*pw;
+  const yS = r => mt+ph*(1-r/YMAX);
+
+  // grid
+  c.strokeStyle='#eaecf0'; c.lineWidth=1;
+  for(let i=0;i<=5;i++){
+    c.beginPath();c.moveTo(ml+i*pw/5,mt);c.lineTo(ml+i*pw/5,mt+ph);c.stroke();
+  }
+  for(let i=0;i<=5;i++){
+    c.beginPath();c.moveTo(ml,mt+i*ph/5);c.lineTo(ml+pw,mt+i*ph/5);c.stroke();
+  }
+
+  // axes
+  c.strokeStyle='#999'; c.lineWidth=1.5;
+  c.beginPath();c.moveTo(ml,mt);c.lineTo(ml,mt+ph);c.lineTo(ml+pw,mt+ph);c.stroke();
+
+  const fs = Math.max(9,Math.min(11,CW/38));
+  c.font=`${fs}px -apple-system,sans-serif`;
+
+  // x ticks
+  c.fillStyle='#555'; c.textAlign='center';
+  for(let i=0;i<=5;i++){
+    const B=i*BMAX/5;
+    c.fillText(B.toFixed(2),xS(B),mt+ph+14);
+  }
+  c.font=`bold ${fs}px -apple-system,sans-serif`;
+  c.fillStyle='#333';
+  c.fillText('B  (T)',ml+pw/2,mt+ph+30);
+
+  // y ticks — fixed 0..10 kΩ/□
+  c.font=`${fs}px -apple-system,sans-serif`;
+  c.textAlign='right'; c.fillStyle='#555';
+  for(let i=0;i<=5;i++){
+    const r=i*YMAX/5;
+    c.fillText((r/1e3).toFixed(0), ml-5, yS(r)+4);
+  }
+  c.save();c.translate(11,mt+ph/2);c.rotate(-Math.PI/2);
+  c.textAlign='center';c.fillStyle='#333';
+  c.font=`bold ${fs}px -apple-system,sans-serif`;
+  c.fillText('ρ  (kΩ/□)',0,0);c.restore();
+
+  // clip curves to plot area
+  c.save();
+  c.beginPath();c.rect(ml,mt,pw,ph);c.clip();
+
+  // ρ_xx — horizontal dashed red
+  c.strokeStyle='#cc2222'; c.lineWidth=2.5; c.setLineDash([7,4]);
+  c.beginPath();c.moveTo(xS(0),yS(rxx));c.lineTo(xS(BMAX),yS(rxx));c.stroke();
+  c.setLineDash([]);
+
+  // ρ_xy — linear blue
+  c.strokeStyle='#1a6abf'; c.lineWidth=2.5;
+  c.beginPath();c.moveTo(xS(0),yS(0));c.lineTo(xS(BMAX),yS(sl*BMAX));c.stroke();
+
+  c.restore();
+
+  // off-scale indicators
+  const arrowUp=(x,label,col)=>{
+    c.fillStyle=col;
+    c.beginPath();c.moveTo(x,mt+5);c.lineTo(x-5,mt+15);c.lineTo(x+5,mt+15);c.closePath();c.fill();
+    c.font=`bold 9px sans-serif`;c.textAlign='center';c.fillStyle=col;
+    c.fillText(label,x,mt+26);
+  };
+  if(rxx   >YMAX) arrowUp(ml+pw*0.15,'ρ_xx↑','#cc2222');
+  if(sl*BMAX>YMAX) arrowUp(ml+pw*0.82,'ρ_xy↑','#1a6abf');
+
+  // legend
+  const lx=ml+pw-8, ly=mt+13;
+  c.font=`bold ${fs}px -apple-system,sans-serif`;
+  c.strokeStyle='#cc2222';c.lineWidth=2;c.setLineDash([5,3]);
+  c.beginPath();c.moveTo(lx-54,ly);c.lineTo(lx-34,ly);c.stroke();c.setLineDash([]);
+  c.fillStyle='#cc2222';c.textAlign='right';c.fillText('ρ_xx',lx,ly+4);
+  c.strokeStyle='#1a6abf';c.lineWidth=2;
+  c.beginPath();c.moveTo(lx-54,ly+17);c.lineTo(lx-34,ly+17);c.stroke();
+  c.fillStyle='#1a6abf';c.fillText('ρ_xy',lx,ly+21);
+
+
+}
+
+function update(){ readSliders(); drawBar(); drawPlot(); }
+['slW','slN','slMu'].forEach(id=>
+  document.getElementById(id).addEventListener('input',update));
+window.addEventListener('resize',()=>{ drawBar(); drawPlot(); });
+update();
+</script>
+</body>
+</html>
