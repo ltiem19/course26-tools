@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0e1a">
+<title>Cyclotron + disorder</title>
+<style>
+:root {
+  --bg: #0a0e1a;
+  --panel: #131929;
+  --border: #1f2942;
+  --text: #e8ecf4;
+  --muted: #8893a8;
+  --accent: #6ad0ff;
+  --accent-dim: #3a7ba0;
+}
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  overscroll-behavior: none;
+}
+body {
+  padding: 12px;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  gap: 12px;
+}
+@media (min-width: 820px) {
+  .container { grid-template-columns: 1fr 280px; align-items: start; }
+}
+.canvas-wrap {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+  position: relative;
+}
+canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #0a0e1a;
+  border-radius: 4px;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.legend {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-size: 11px;
+  color: var(--muted);
+  background: rgba(10, 14, 26, 0.72);
+  padding: 6px 9px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  pointer-events: none;
+}
+.legend .dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.controls {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.title {
+  font-size: 14px;
+  font-weight: 600;
+}
+.subtitle {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+}
+.label-name { color: var(--muted); }
+.label-value {
+  color: var(--accent);
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+input[type="range"] {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: #2a3550;
+  border-radius: 3px;
+  outline: none;
+  touch-action: manipulation;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(106, 208, 255, 0.5);
+  border: none;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 8px rgba(106, 208, 255, 0.5);
+}
+button {
+  background: #1f2942;
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 10px 8px;
+  min-height: 44px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  flex: 1;
+  touch-action: manipulation;
+}
+button:active { background: #2a3a5a; border-color: var(--accent-dim); }
+@media (hover: hover) {
+  button:hover { background: #2a3a5a; border-color: var(--accent-dim); }
+}
+.button-row {
+  display: flex;
+  gap: 8px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="canvas-wrap">
+    <canvas id="canvas"></canvas>
+    <div class="legend">
+      <div><span class="dot" style="background:#7cdcff"></span>electron</div>
+      <div><span class="dot" style="background:#ff6448"></span>scatterer</div>
+      <div>⊙ B out of page</div>
+    </div>
+  </div>
+  <div class="controls">
+    <div>
+      <div class="title">Cyclotron + disorder</div>
+      <div class="subtitle">Tap canvas to place the electron. Hard walls → skipping orbits at the edges.</div>
+    </div>
+    <div class="control-group">
+      <div class="label-row">
+        <span class="label-name">Magnetic field B</span>
+        <span class="label-value" id="b-value">2.00</span>
+      </div>
+      <input type="range" id="b-slider" min="0" max="8" step="0.05" value="2">
+    </div>
+    <div class="control-group">
+      <div class="label-row">
+        <span class="label-name">Scatterer density n<sub>imp</sub></span>
+        <span class="label-value" id="n-value">20</span>
+      </div>
+      <input type="range" id="n-slider" min="0" max="120" step="1" value="20">
+    </div>
+    <div class="button-row">
+      <button id="pause-btn">Pause</button>
+      <button id="reset-btn">Reset</button>
+      <button id="trail-btn">Trail: long</button>
+    </div>
+  </div>
+</div>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+// Logical world units
+const W = 700;
+const H = 500;
+const wallPad = 6;
+
+// DPI-aware setup
+function setupCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(W * dpr);
+  canvas.height = Math.floor(H * dpr);
+  canvas.style.aspectRatio = W + ' / ' + H;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(dpr, dpr);
+}
+setupCanvas();
+
+let B = 2;
+let nDefects = 20;
+let defects = [];
+let electron = { x: W/2, y: H/2, vx: 1, vy: 0 };
+let trail = [];
+let trailMaxLen = 700;
+let trailMode = 'long';
+let scatterCooldown = 0;
+let defectFlashes = new Map();
+let isPaused = false;
+
+const speedScale = 150;
+const scatterRadius = 9;
+const baseDt = 1/60;
+const substeps = 4;
+const dt = baseDt / substeps;
+
+function regenerateDefects() {
+  defects = [];
+  for (let i = 0; i < nDefects; i++) {
+    let attempts = 0;
+    let d;
+    do {
+      d = {
+        x: 25 + Math.random() * (W - 50),
+        y: 25 + Math.random() * (H - 50),
+      };
+      attempts++;
+    } while (
+      attempts < 10 &&
+      Math.hypot(d.x - electron.x, d.y - electron.y) < 50
+    );
+    defects.push(d);
+  }
+  defectFlashes = new Map();
+}
+
+function placeElectron(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const sx = W / rect.width;
+  const sy = H / rect.height;
+  let x = (clientX - rect.left) * sx;
+  let y = (clientY - rect.top) * sy;
+  x = Math.max(wallPad + 3, Math.min(W - wallPad - 3, x));
+  y = Math.max(wallPad + 3, Math.min(H - wallPad - 3, y));
+  electron.x = x;
+  electron.y = y;
+  // Fresh randomized initial velocity direction (|v| = 1)
+  const angle = Math.random() * 2 * Math.PI;
+  electron.vx = Math.cos(angle);
+  electron.vy = Math.sin(angle);
+  trail = [];
+  scatterCooldown = 0;
+}
+
+function reset() {
+  electron = { x: W/2, y: H/2, vx: 1, vy: 0 };
+  trail = [];
+  scatterCooldown = 0;
+  regenerateDefects();
+}
+
+function step() {
+  scatterCooldown -= dt;
+
+  // Cyclotron rotation (exact: rotates v by ω_c·dt; |v| conserved)
+  const dtheta = B * dt;
+  if (dtheta !== 0) {
+    const c = Math.cos(dtheta);
+    const s = Math.sin(dtheta);
+    const nvx = c * electron.vx - s * electron.vy;
+    const nvy = s * electron.vx + c * electron.vy;
+    electron.vx = nvx;
+    electron.vy = nvy;
+  }
+
+  // Translate
+  electron.x += electron.vx * speedScale * dt;
+  electron.y += electron.vy * speedScale * dt;
+
+  // Hard-wall elastic reflection (no periodic wrap)
+  const xMin = wallPad, xMax = W - wallPad;
+  const yMin = wallPad, yMax = H - wallPad;
+  if (electron.x < xMin) {
+    electron.x = 2 * xMin - electron.x;
+    electron.vx = -electron.vx;
+  } else if (electron.x > xMax) {
+    electron.x = 2 * xMax - electron.x;
+    electron.vx = -electron.vx;
+  }
+  if (electron.y < yMin) {
+    electron.y = 2 * yMin - electron.y;
+    electron.vy = -electron.vy;
+  } else if (electron.y > yMax) {
+    electron.y = 2 * yMax - electron.y;
+    electron.vy = -electron.vy;
+  }
+
+  trail.push({ x: electron.x, y: electron.y });
+  const cap = trailMode === 'long' ? trailMaxLen : 120;
+  while (trail.length > cap) trail.shift();
+
+  // Scattering: isotropic randomization of v on disk overlap
+  if (scatterCooldown <= 0) {
+    for (let i = 0; i < defects.length; i++) {
+      const d = defects[i];
+      const dx = electron.x - d.x;
+      const dy = electron.y - d.y;
+      if (dx*dx + dy*dy < scatterRadius * scatterRadius) {
+        const angle = Math.random() * 2 * Math.PI;
+        electron.vx = Math.cos(angle);
+        electron.vy = Math.sin(angle);
+        scatterCooldown = 0.04;
+        defectFlashes.set(d, 0.35);
+        break;
+      }
+    }
+  }
+}
+
+function render() {
+  // Background
+  ctx.fillStyle = '#0a0e1a';
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle grid
+  ctx.strokeStyle = '#141c2e';
+  ctx.lineWidth = 0.5;
+  for (let i = 50; i < W; i += 50) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke();
+  }
+  for (let i = 50; i < H; i += 50) {
+    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke();
+  }
+
+  // Hard-wall border
+  ctx.strokeStyle = '#3a4868';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(wallPad, wallPad, W - 2 * wallPad, H - 2 * wallPad);
+
+  // B-field indicators (⊙ out of page); intensity tracks B
+  const fieldAlpha = Math.min(0.35, 0.06 + B * 0.04);
+  ctx.strokeStyle = 'rgba(120, 170, 230, ' + fieldAlpha + ')';
+  ctx.fillStyle = 'rgba(120, 170, 230, ' + fieldAlpha + ')';
+  ctx.lineWidth = 1;
+  for (let i = 60; i < W - 30; i += 100) {
+    for (let j = 60; j < H - 30; j += 100) {
+      ctx.beginPath(); ctx.arc(i, j, 6, 0, 2 * Math.PI); ctx.stroke();
+      ctx.beginPath(); ctx.arc(i, j, 1.5, 0, 2 * Math.PI); ctx.fill();
+    }
+  }
+
+  // Defects
+  for (let i = 0; i < defects.length; i++) {
+    const d = defects[i];
+    let flash = defectFlashes.get(d) || 0;
+    if (flash > 0) {
+      flash -= baseDt;
+      if (flash <= 0) defectFlashes.delete(d);
+      else defectFlashes.set(d, flash);
+    }
+    const grad = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, scatterRadius * 1.8);
+    const intensity = 0.25 + flash * 2.0;
+    grad.addColorStop(0, 'rgba(255, 110, 80, ' + Math.min(0.65, intensity) + ')');
+    grad.addColorStop(1, 'rgba(255, 110, 80, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, scatterRadius * 1.8, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.fillStyle = flash > 0 ? '#ffd09a' : '#ff6448';
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, 2.5, 0, 2 * Math.PI);
+    ctx.fill();
+  }
+
+  // Trail (continuous — no wrap)
+  ctx.lineWidth = 1.8;
+  ctx.lineCap = 'round';
+  const L = trail.length;
+  for (let i = 1; i < L; i++) {
+    const p0 = trail[i - 1];
+    const p1 = trail[i];
+    const alpha = (i / L) * 0.85;
+    ctx.strokeStyle = 'rgba(124, 220, 255, ' + alpha + ')';
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    ctx.lineTo(p1.x, p1.y);
+    ctx.stroke();
+  }
+
+  // Electron glow + core
+  const gsize = 16;
+  const eg = ctx.createRadialGradient(electron.x, electron.y, 0, electron.x, electron.y, gsize);
+  eg.addColorStop(0, 'rgba(200, 245, 255, 1)');
+  eg.addColorStop(0.35, 'rgba(124, 220, 255, 0.55)');
+  eg.addColorStop(1, 'rgba(80, 150, 255, 0)');
+  ctx.fillStyle = eg;
+  ctx.beginPath();
+  ctx.arc(electron.x, electron.y, gsize, 0, 2 * Math.PI);
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(electron.x, electron.y, 3.5, 0, 2 * Math.PI);
+  ctx.fill();
+
+  // Velocity arrow
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.lineWidth = 1.5;
+  const aLen = 14;
+  const tipX = electron.x + electron.vx * aLen;
+  const tipY = electron.y + electron.vy * aLen;
+  ctx.beginPath();
+  ctx.moveTo(electron.x, electron.y);
+  ctx.lineTo(tipX, tipY);
+  ctx.stroke();
+  const headAng = Math.atan2(electron.vy, electron.vx);
+  const hs = 4;
+  ctx.beginPath();
+  ctx.moveTo(tipX, tipY);
+  ctx.lineTo(tipX - hs * Math.cos(headAng - 0.4), tipY - hs * Math.sin(headAng - 0.4));
+  ctx.moveTo(tipX, tipY);
+  ctx.lineTo(tipX - hs * Math.cos(headAng + 0.4), tipY - hs * Math.sin(headAng + 0.4));
+  ctx.stroke();
+}
+
+function updateLabels() {
+  document.getElementById('b-value').textContent = B.toFixed(2);
+  document.getElementById('n-value').textContent = nDefects;
+}
+
+function loop() {
+  if (!isPaused) {
+    for (let i = 0; i < substeps; i++) step();
+  }
+  render();
+  requestAnimationFrame(loop);
+}
+
+// Sliders
+document.getElementById('b-slider').addEventListener('input', function (e) {
+  B = parseFloat(e.target.value);
+  updateLabels();
+});
+document.getElementById('n-slider').addEventListener('input', function (e) {
+  nDefects = parseInt(e.target.value, 10);
+  regenerateDefects();
+  updateLabels();
+});
+
+// Buttons
+document.getElementById('pause-btn').addEventListener('click', function (e) {
+  isPaused = !isPaused;
+  e.currentTarget.textContent = isPaused ? 'Play' : 'Pause';
+});
+document.getElementById('reset-btn').addEventListener('click', reset);
+document.getElementById('trail-btn').addEventListener('click', function (e) {
+  trailMode = trailMode === 'long' ? 'short' : 'long';
+  e.currentTarget.textContent = 'Trail: ' + trailMode;
+});
+
+// Tap / click to place electron (pointer events cover mouse, touch, stylus)
+canvas.addEventListener('pointerdown', function (e) {
+  e.preventDefault();
+  placeElectron(e.clientX, e.clientY);
+});
+
+// Re-setup canvas on DPI / orientation change
+window.addEventListener('resize', function () {
+  setupCanvas();
+});
+
+regenerateDefects();
+updateLabels();
+loop();
+</script>
+</body>
+</html>
