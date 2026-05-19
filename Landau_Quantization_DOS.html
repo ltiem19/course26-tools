@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0e1a">
+<title>Landau Quantization & Density of States</title>
+<style>
+:root {
+  --bg: #0a0e1a;
+  --panel: #131929;
+  --border: #1f2942;
+  --text: #e8ecf4;
+  --muted: #8893a8;
+  --accent: #6ad0ff;
+  --accent-dim: #3a7ba0;
+}
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  overscroll-behavior: none;
+}
+body {
+  padding: 12px;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  gap: 12px;
+}
+@media (min-width: 820px) {
+  .container { grid-template-columns: 1fr 280px; align-items: start; }
+}
+.canvas-wrap {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  position: relative;
+}
+canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #0a0e1a;
+  border-radius: 4px;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.controls {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.title {
+  font-size: 14px;
+  font-weight: 600;
+}
+.subtitle {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+}
+.checkbox-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.hidden {
+  display: none !important;
+}
+.label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+}
+.label-name { color: var(--muted); }
+.label-value {
+  color: var(--accent);
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+input[type="range"] {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: #2a3550;
+  border-radius: 3px;
+  outline: none;
+  touch-action: manipulation;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(106, 208, 255, 0.5);
+  border: none;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 8px rgba(106, 208, 255, 0.5);
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="canvas-wrap">
+    <canvas id="display-canvas"></canvas>
+  </div>
+  <div class="controls">
+    <div>
+      <div class="title">Landau Quantization & DOS</div>
+      <div class="subtitle">Observe the continuous 2D paraboloid dispersion reorganizing into highly degenerate, discrete Landau levels with increasing magnetic field.</div>
+    </div>
+    <div class="control-group">
+      <div class="label-row">
+        <span class="label-name">Magnetic field B</span>
+        <span class="label-value" id="b-value">0.00</span>
+      </div>
+      <input type="range" id="b-slider" min="0" max="8" step="0.02" value="0">
+    </div>
+    <label class="checkbox-row">
+      <input type="checkbox" id="disorder-checkbox">
+      <span>Enable Impurity Disorder</span>
+    </label>
+    <div class="control-group hidden" id="disorder-control-group">
+      <div class="label-row">
+        <span class="label-name">Disorder Broadening Γ</span>
+        <span class="label-value" id="gamma-value">10.00</span>
+      </div>
+      <input type="range" id="gamma-slider" min="2" max="25" step="0.1" value="10">
+    </div>
+  </div>
+</div>
+<script>
+const canvas = document.getElementById('display-canvas');
+const ctx = canvas.getContext('2d');
+
+const W = 900;
+const H = 500;
+
+function setupCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(W * dpr);
+  canvas.height = Math.floor(H * dpr);
+  canvas.style.aspectRatio = W + ' / ' + H;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(dpr, dpr);
+}
+setupCanvas();
+
+let B = 0;
+let useDisorder = false;
+let Gamma = 10; 
+
+const gridSteps = 26;
+const maxEnergyVal = 210;
+const EFermi = 115;
+
+const kMax = 140;
+const cCoeff = maxEnergyVal / (kMax * kMax);
+const energyScale = 22;
+
+function render() {
+  ctx.fillStyle = '#0a0e1a';
+  ctx.fillRect(0, 0, W, H);
+
+  const X0 = 240;
+  const Y0 = H - 80;
+
+  const dosX0 = 580;
+  const dosY0 = H - 80;
+  const maxDosW = 240;
+
+  function project(kx, ky, E) {
+    const isoX = kx - ky * 0.6;
+    const isoY = -E + ky * 0.3;
+    return { x: X0 + isoX, y: Y0 + isoY };
+  }
+
+  // Helper to compute normalized, area-conserving DOS value at any energy E
+  function getDosAtEnergy(E, targetGamma) {
+    let localDos = 0;
+    const totalLLCount = Math.ceil((maxEnergyVal + 60) / (B * energyScale));
+    const baseConstantDosWidth = maxDosW * 0.35;
+    const llPeakWidth = baseConstantDosWidth + (B * 16);
+    const minGammaCutoff = 2.0;
+    
+    // Scaling globally reduced by 0.5 to eliminate right edge canvas clipping
+    const normalizationFactor = llPeakWidth * (B * energyScale) * (minGammaCutoff / 2.0) * 0.5;
+
+    for (let N = 0; N < totalLLCount; N++) {
+      const levelEnergy = (N + 0.5) * B * energyScale;
+      const deltaE = E - levelEnergy;
+      const arg = (deltaE * deltaE) / (2 * targetGamma * targetGamma);
+      if (arg < 12) {
+        localDos += normalizationFactor * Math.exp(-arg) / (targetGamma * Math.sqrt(2 * Math.PI));
+      }
+    }
+    return localDos;
+  }
+
+  // --- 1. Draw 3D Isometric View (Left Side) ---
+  if (B === 0) {
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= gridSteps; i++) {
+      const kx = -kMax + (2 * kMax * i) / gridSteps;
+      ctx.beginPath();
+      let first = true;
+      for (let j = 0; j <= gridSteps; j++) {
+        const ky = -kMax + (2 * kMax * j) / gridSteps;
+        const E = cCoeff * (kx * kx + ky * ky);
+        if (E <= maxEnergyVal) {
+          const pt = project(kx, ky, E);
+          if (first) { ctx.moveTo(pt.x, pt.y); first = false; }
+          else { ctx.lineTo(pt.x, pt.y); }
+        }
+      }
+      ctx.strokeStyle = 'rgba(255, 51, 51, 0.28)';
+      ctx.stroke();
+    }
+
+    for (let j = 0; j <= gridSteps; j++) {
+      const ky = -kMax + (2 * kMax * j) / gridSteps;
+      ctx.beginPath();
+      let first = true;
+      for (let i = 0; i <= gridSteps; i++) {
+        const kx = -kMax + (2 * kMax * i) / gridSteps;
+        const E = cCoeff * (kx * kx + ky * ky);
+        if (E <= maxEnergyVal) {
+          const pt = project(kx, ky, E);
+          if (first) { ctx.moveTo(pt.x, pt.y); first = false; }
+          else { ctx.lineTo(pt.x, pt.y); }
+        }
+      }
+      ctx.strokeStyle = 'rgba(255, 51, 51, 0.28)';
+      ctx.stroke();
+    }
+  } else {
+    let N = 0;
+    while (true) {
+      const energyFactor = (N + 0.5) * B;
+      const levelEnergy = energyFactor * energyScale;
+      if (levelEnergy > maxEnergyVal + 20) break;
+
+      const currentRadiusK = Math.sqrt(levelEnergy / cCoeff);
+      ctx.beginPath();
+      const ringSegments = 72;
+      for (let s = 0; s <= ringSegments; s++) {
+        const theta = (s * 2 * Math.PI) / ringSegments;
+        const kx = currentRadiusK * Math.cos(theta);
+        const ky = currentRadiusK * Math.sin(theta);
+        const pt = project(kx, ky, levelEnergy);
+        if (s === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      }
+
+      if (levelEnergy <= EFermi) {
+        ctx.strokeStyle = '#ff3333';
+        ctx.lineWidth = 3.5;
+      } else {
+        ctx.strokeStyle = 'rgba(255, 51, 51, 0.22)';
+        ctx.lineWidth = 2;
+      }
+      ctx.stroke();
+
+      if (B >= 1.2 && levelEnergy <= maxEnergyVal) {
+        const labelPt = project(-currentRadiusK, 0, levelEnergy);
+        ctx.fillStyle = '#8893a8';
+        ctx.font = '12px sans-serif';
+        ctx.fillText(`N = ${N}`, labelPt.x - 42, labelPt.y + 4);
+      }
+      N++;
+    }
+
+    if (B >= 1.2) {
+      const e0 = (0.5 * B) * energyScale;
+      const e1 = (1.5 * B) * energyScale;
+      if (e1 <= maxEnergyVal) {
+        const r1 = Math.sqrt(e1 / cCoeff);
+        const bPt0 = project(r1, 0, e0);
+        const bPt1 = project(r1, 0, e1);
+        const bracketX = Math.max(bPt0.x, bPt1.x) + 20;
+
+        ctx.strokeStyle = '#8893a8';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(bracketX - 4, bPt0.y);
+        ctx.lineTo(bracketX, bPt0.y);
+        ctx.lineTo(bracketX, bPt1.y);
+        ctx.lineTo(bracketX - 4, bPt1.y);
+        ctx.stroke();
+
+        ctx.fillStyle = '#e8ecf4';
+        ctx.font = '13px sans-serif';
+        ctx.fillText('Δε = ħω_c', bracketX + 10, (bPt0.y + bPt1.y) / 2 + 5);
+      }
+    }
+  }
+
+  const rFermiK = Math.sqrt(EFermi / cCoeff);
+  ctx.fillStyle = 'rgba(106, 208, 255, 0.12)';
+  ctx.strokeStyle = 'rgba(106, 208, 255, 0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  const planeSegments = 64;
+  for (let s = 0; s <= planeSegments; s++) {
+    const theta = (s * 2 * Math.PI) / planeSegments;
+    const kx = rFermiK * Math.cos(theta);
+    const ky = rFermiK * Math.sin(theta);
+    const pt = project(kx, ky, EFermi);
+    if (s === 0) ctx.moveTo(pt.x, pt.y);
+    else ctx.lineTo(pt.x, pt.y);
+  }
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(232, 236, 244, 0.25)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(X0, Y0 - EFermi);
+  ctx.lineTo(dosX0, dosY0 - EFermi);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.strokeStyle = '#3a4868';
+  ctx.lineWidth = 1.5;
+  ctx.fillStyle = '#e8ecf4';
+  ctx.font = 'italic 14px sans-serif';
+
+  const axisE_top = project(0, 0, maxEnergyVal + 30);
+  const axisE_bot = project(0, 0, 0);
+  ctx.beginPath();
+  ctx.moveTo(axisE_bot.x, axisE_bot.y);
+  ctx.lineTo(axisE_top.x, axisE_top.y);
+  ctx.stroke();
+  ctx.fillText('E', axisE_top.x - 15, axisE_top.y + 4);
+
+  const axisKx_end = project(kMax + 25, 0, 0);
+  ctx.beginPath();
+  ctx.moveTo(axisE_bot.x, axisE_bot.y);
+  ctx.lineTo(axisKx_end.x, axisKx_end.y);
+  ctx.stroke();
+  ctx.fillText('kₓ', axisKx_end.x + 8, axisKx_end.y + 4);
+
+  const axisKy_end = project(0, kMax + 25, 0);
+  ctx.beginPath();
+  ctx.moveTo(axisE_bot.x, axisE_bot.y);
+  ctx.lineTo(axisKy_end.x, axisKy_end.y);
+  ctx.stroke();
+  ctx.fillText('kᵧ', axisKy_end.x - 16, axisKy_end.y + 12);
+
+
+  // --- 2. Draw Density of States (Right Side) ---
+  ctx.strokeStyle = '#3a4868';
+  ctx.lineWidth = 1.5;
+  
+  ctx.beginPath();
+  ctx.moveTo(dosX0, dosY0);
+  ctx.lineTo(dosX0 + maxDosW + 20, dosY0);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(dosX0, dosY0);
+  ctx.lineTo(dosX0, dosY0 - maxEnergyVal - 30);
+  ctx.stroke();
+
+  ctx.fillStyle = '#e8ecf4';
+  ctx.font = '13px sans-serif';
+  ctx.fillText('Density of states D(E)', dosX0 + 35, dosY0 + 22);
+  ctx.fillText('E', dosX0 - 15, dosY0 - maxEnergyVal - 22);
+
+  ctx.fillStyle = '#6ad0ff';
+  ctx.fillText('E_F', dosX0 - 26, dosY0 - EFermi + 4);
+
+  // Scaled by 0.5 to prevent window boundary clashing
+  const baseConstantDosWidth = maxDosW * 0.35 * 0.5;
+
+  if (B === 0) {
+    ctx.fillStyle = 'rgba(106, 208, 255, 0.65)';
+    ctx.strokeStyle = '#6ad0ff';
+    ctx.lineWidth = 2;
+    ctx.fillRect(dosX0 + 1, dosY0 - EFermi, baseConstantDosWidth, EFermi);
+    ctx.strokeRect(dosX0 + 1, dosY0 - maxEnergyVal, baseConstantDosWidth, maxEnergyVal);
+  } else if (!useDisorder) {
+    const levelHeightThickness = 6; 
+    const discretePeakWidth = getDosAtEnergy(0.5 * B * energyScale, 2.0);
+
+    let N = 0;
+    while (true) {
+      const energyFactor = (N + 0.5) * B;
+      const levelEnergy = energyFactor * energyScale;
+      if (levelEnergy > maxEnergyVal + 10) break;
+
+      const yLevelPos = dosY0 - levelEnergy;
+
+      if (levelEnergy <= EFermi) {
+        ctx.fillStyle = 'rgba(106, 208, 255, 0.85)';
+        ctx.strokeStyle = '#6ad0ff';
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(dosX0 + 1, yLevelPos - levelHeightThickness/2, discretePeakWidth, levelHeightThickness);
+        ctx.strokeRect(dosX0 + 1, yLevelPos - levelHeightThickness/2, discretePeakWidth, levelHeightThickness);
+      } else {
+        ctx.strokeStyle = 'rgba(106, 208, 255, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(dosX0 + 1, yLevelPos - levelHeightThickness/2, discretePeakWidth, levelHeightThickness);
+      }
+      N++;
+    }
+  } else {
+    const steps = 540;
+    const de = maxEnergyVal / steps;
+    ctx.lineWidth = 1.2;
+    
+    for (let s = 0; s < steps; s++) {
+      const E = s * de;
+      const yPos = dosY0 - E;
+      
+      const amplitudeX = getDosAtEnergy(E, Gamma);
+
+      if (amplitudeX > 0.5) {
+        if (E <= EFermi) {
+          ctx.fillStyle = 'rgba(106, 208, 255, 0.7)';
+          ctx.fillRect(dosX0 + 1, yPos - de, amplitudeX, de + 0.3);
+          
+          ctx.strokeStyle = '#6ad0ff';
+          ctx.beginPath();
+          ctx.moveTo(dosX0 + 1 + amplitudeX, yPos - de);
+          ctx.lineTo(dosX0 + 1 + amplitudeX, yPos);
+          ctx.stroke();
+        } else {
+          ctx.strokeStyle = 'rgba(106, 208, 255, 0.3)';
+          ctx.beginPath();
+          ctx.moveTo(dosX0 + 1, yPos - de / 2);
+          ctx.lineTo(dosX0 + 1 + amplitudeX, yPos - de / 2);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+}
+
+const bSlider = document.getElementById('b-slider');
+const bValue = document.getElementById('b-value');
+const disorderCheckbox = document.getElementById('disorder-checkbox');
+const disorderGroup = document.getElementById('disorder-control-group');
+const gammaSlider = document.getElementById('gamma-slider');
+const gammaValue = document.getElementById('gamma-value');
+
+bSlider.addEventListener('input', function (e) {
+  B = parseFloat(e.target.value);
+  bValue.textContent = B.toFixed(2);
+  render();
+});
+
+disorderCheckbox.addEventListener('change', function (e) {
+  useDisorder = e.target.checked;
+  if (useDisorder) {
+    disorderGroup.classList.remove('hidden');
+  } else {
+    disorderGroup.classList.add('hidden');
+  }
+  render();
+});
+
+gammaSlider.addEventListener('input', function (e) {
+  Gamma = parseFloat(e.target.value);
+  gammaValue.textContent = Gamma.toFixed(2);
+  render();
+});
+
+window.addEventListener('resize', () => {
+  setupCanvas();
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
