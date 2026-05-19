@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Quantum Hall Effect</title>
+<style>
+:root {
+  --bg:#ffffff; --panel:#f4f6fa; --border:#d0d7e6;
+  --text:#1a1e2e; --muted:#5a6480; --accent:#1a7abf;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  overscroll-behavior:none;}
+body{padding:10px;padding-bottom:env(safe-area-inset-bottom,10px);}
+.container{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:8px;}
+
+.canvas-wrap{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px;}
+.panel-label{font-size:11px;color:var(--muted);text-align:right;padding-bottom:4px;}
+canvas{display:block;width:100%;height:auto;background:#fff;border-radius:4px;
+  touch-action:none;-webkit-user-select:none;user-select:none;}
+
+/* info cards below top canvas — shown always, layout adapts */
+.info-row{display:flex;gap:8px;flex-wrap:wrap;}
+.info-card{flex:1;min-width:200px;background:var(--panel);border:1px solid var(--border);
+  border-radius:8px;padding:10px 12px;}
+.info-card h3{font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px;}
+.info-card p{font-size:11px;color:var(--muted);line-height:1.55;}
+
+/* slider */
+.slider-bar{background:var(--panel);border:1px solid var(--border);border-radius:8px;
+  padding:12px 16px;display:flex;align-items:center;gap:12px;}
+.slider-bar label{font-size:12px;color:var(--muted);white-space:nowrap;}
+.val{font-family:'SF Mono',Menlo,Consolas,monospace;font-size:13px;color:var(--accent);
+  white-space:nowrap;min-width:52px;text-align:right;}
+input[type=range]{flex:1;-webkit-appearance:none;appearance:none;
+  height:6px;background:#c8d4e8;border-radius:3px;outline:none;touch-action:manipulation;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;
+  width:28px;height:28px;background:var(--accent);border-radius:50%;
+  cursor:pointer;border:3px solid #fff;box-shadow:0 1px 6px rgba(26,122,191,.4);}
+input[type=range]::-moz-range-thumb{width:28px;height:28px;background:var(--accent);
+  border-radius:50%;cursor:pointer;border:3px solid #fff;}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="canvas-wrap">
+    <div class="panel-label">Panel 1 &amp; 2: Edge Bending &amp; 2DEG State Topography</div>
+    <canvas id="top-canvas"></canvas>
+  </div>
+
+  <div class="info-row">
+    <div class="info-card">
+      <h3>Confinement Schematic</h3>
+      <p>• Red lines: Quantized Landau levels<br>
+         • Bending: Caused by boundary potential<br>
+         • Intersections with E<sub>F</sub> create ideal 1D chiral boundary transport channels</p>
+    </div>
+    <div class="info-card">
+      <h3>Edge Channels &amp; Quantum Hall Effect</h3>
+      <p>Sweep <em>B</em> to shift Landau levels relative to E<sub>F</sub>.
+         Bulk becomes insulating between LLs; chiral edge channels carry the current.</p>
+    </div>
+  </div>
+
+  <div class="slider-bar">
+    <label>Magnetic Field <em>B</em></label>
+    <input type="range" id="b-slider" min="0.5" max="8" step="0.02" value="4">
+    <span class="val" id="b-value">4.00 T</span>
+  </div>
+
+  <div class="canvas-wrap">
+    <div class="panel-label">Panel 3: Quantum Hall Magnetotransport Coefficients</div>
+    <canvas id="transport-canvas"></canvas>
+  </div>
+</div>
+
+<script>
+const topCanvas = document.getElementById('top-canvas');
+const tCtx = topCanvas.getContext('2d');
+const transportCanvas = document.getElementById('transport-canvas');
+const rCtx = transportCanvas.getContext('2d');
+
+// logical canvas sizes (device-independent pixels)
+const TW = 900, TH = 225;
+const RW = 900, RH = 240;
+
+function setupCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  topCanvas.width  = Math.floor(TW * dpr);
+  topCanvas.height = Math.floor(TH * dpr);
+  topCanvas.style.aspectRatio = TW + '/' + TH;
+  tCtx.setTransform(1,0,0,1,0,0); tCtx.scale(dpr,dpr);
+
+  transportCanvas.width  = Math.floor(RW * dpr);
+  transportCanvas.height = Math.floor(RH * dpr);
+  transportCanvas.style.aspectRatio = RW + '/' + RH;
+  rCtx.setTransform(1,0,0,1,0,0); rCtx.scale(dpr,dpr);
+}
+setupCanvas();
+
+let B = 4.0;
+const EFermi = 105.0, energyScale = 24;
+
+// geometry — relative to TW/TH logical pixels
+const axisX0 = 75, axisWidth = 560, axisRight = axisX0 + axisWidth;
+const p1OriginY = 155;
+
+function edgePot(x) {
+  const eL = x - axisX0, eR = axisRight - x;
+  let p = 0;
+  if (eL < 80) p += 0.055 * Math.pow(80 - eL, 2);
+  if (eR < 80) p += 0.055 * Math.pow(80 - eR, 2);
+  return p;
+}
+function landauE(N, Bv, x) { return (N + 0.5) * Bv * energyScale + edgePot(x); }
+
+const C = {
+  bg:'#fff', axis:'#8090b0', text:'#1a1e2e', muted:'#5a6480',
+  EF:'#1a7abf', LLfill:'#cc2222', LLempty:'rgba(200,40,40,0.20)',
+  edgeCh:'#1a7abf', grid:'#dde3ef', rxy:'#1e8c4a', rxx:'#1a7abf', tracker:'#cc2222',
+};
+
+function renderTop() {
+  tCtx.fillStyle = C.bg; tCtx.fillRect(0,0,TW,TH);
+
+  // axes
+  tCtx.strokeStyle = C.axis; tCtx.lineWidth = 1.5;
+  tCtx.beginPath();
+  tCtx.moveTo(axisX0, p1OriginY); tCtx.lineTo(axisRight+18, p1OriginY);
+  tCtx.moveTo(axisX0, p1OriginY); tCtx.lineTo(axisX0, p1OriginY-132);
+  tCtx.stroke();
+  tCtx.fillStyle = C.text; tCtx.font = 'italic 13px serif';
+  tCtx.fillText('E', axisX0-18, p1OriginY-118);
+  tCtx.fillText('x', axisRight+24, p1OriginY+5);
+
+  // EF
+  tCtx.strokeStyle = C.EF; tCtx.lineWidth = 1.4; tCtx.setLineDash([5,4]);
+  tCtx.beginPath();
+  tCtx.moveTo(axisX0, p1OriginY-EFermi); tCtx.lineTo(axisRight, p1OriginY-EFermi);
+  tCtx.stroke(); tCtx.setLineDash([]);
+  tCtx.fillStyle = C.EF; tCtx.font = '12px sans-serif';
+  tCtx.fillText('E_F', axisX0-38, p1OriginY-EFermi+4);
+
+  let edgeChs=[], bulkDOS=0, N=0;
+  while (true) {
+    const baseE = (N+0.5)*B*energyScale;
+    if (baseE > 230) break;
+    tCtx.beginPath();
+    let px=axisX0, pe=landauE(N,B,px);
+    for (let x=axisX0; x<=axisRight; x++) {
+      const E=landauE(N,B,x);
+      x===axisX0 ? tCtx.moveTo(x,p1OriginY-E) : tCtx.lineTo(x,p1OriginY-E);
+      if ((pe-EFermi)*(E-EFermi)<=0 && x>axisX0)
+        edgeChs.push({ x: px+(x-px)*((EFermi-pe)/(E-pe)) });
+      px=x; pe=E;
+    }
+    bulkDOS += Math.exp(-Math.pow(baseE-EFermi,2)/32);
+    tCtx.strokeStyle = baseE<=EFermi ? C.LLfill : C.LLempty;
+    tCtx.lineWidth   = baseE<=EFermi ? 2.6 : 1.4;
+    tCtx.stroke();
+    tCtx.fillStyle=C.muted; tCtx.font='10px sans-serif';
+    tCtx.fillText(`N=${N}`, axisRight+8, p1OriginY-landauE(N,B,axisRight)+4);
+    N++;
+  }
+
+  // isometric slab
+  const p2Y=p1OriginY+32, slabH=110;
+  function proj(x,y){return{x:x-y*0.42, y:p2Y+y*0.2};}
+
+  tCtx.strokeStyle='rgba(100,120,170,0.18)'; tCtx.lineWidth=1; tCtx.setLineDash([2,3]);
+  tCtx.beginPath();
+  tCtx.moveTo(axisX0,p1OriginY); tCtx.lineTo(proj(axisX0,0).x,proj(axisX0,0).y);
+  tCtx.moveTo(axisRight,p1OriginY); tCtx.lineTo(proj(axisRight,0).x,proj(axisRight,0).y);
+  tCtx.stroke(); tCtx.setLineDash([]);
+
+  const bulkF=Math.min(1, bulkDOS*1.8), steps=120, ddx=axisWidth/steps;
+  for (let i=0;i<steps;i++){
+    const lx=axisX0+i*ddx, rx=lx+ddx;
+    let occ=0,ll=0;
+    while(true){const bE=(ll+0.5)*B*energyScale;if(bE>230)break;if(landauE(ll,B,lx)<=EFermi)occ++;ll++;}
+    const alpha=bulkF*(occ>0?0.55:0);
+    const pL0=proj(lx,0),pL1=proj(lx,slabH),pR1=proj(rx,slabH),pR0=proj(rx,0);
+    tCtx.beginPath();
+    tCtx.moveTo(pL0.x,pL0.y);tCtx.lineTo(pL1.x,pL1.y);
+    tCtx.lineTo(pR1.x,pR1.y);tCtx.lineTo(pR0.x,pR0.y);tCtx.closePath();
+    tCtx.fillStyle='rgba(200,212,235,0.40)';tCtx.fill();
+    if(alpha>0){tCtx.fillStyle=`rgba(26,122,191,${alpha*0.9})`;tCtx.fill();}
+    tCtx.strokeStyle='rgba(180,192,215,0.45)';tCtx.lineWidth=0.5;tCtx.stroke();
+  }
+
+  edgeChs.forEach(ch=>{
+    const s=proj(ch.x,0),e=proj(ch.x,slabH);
+    tCtx.lineWidth=3.5;tCtx.strokeStyle=C.edgeCh;
+    tCtx.shadowBlur=6;tCtx.shadowColor=C.edgeCh;
+    tCtx.beginPath();tCtx.moveTo(s.x,s.y);tCtx.lineTo(e.x,e.y);tCtx.stroke();
+    tCtx.shadowBlur=0;
+  });
+
+  const lp=proj(axisX0+axisWidth/2, slabH/2);
+  tCtx.font='bold 10.5px sans-serif';
+  if(bulkF>0.4){
+    tCtx.fillStyle=C.edgeCh;
+    tCtx.fillText('BULK: CONDUCTING (E_F inside LL)',lp.x-95,lp.y);
+  } else {
+    tCtx.fillStyle=C.muted;
+    tCtx.fillText('BULK: INSULATING (E_F between LLs)',lp.x-100,lp.y-9);
+    tCtx.fillStyle=C.edgeCh;
+    tCtx.fillText('➔ 1D Edge Channels Carrying Current',lp.x-105,lp.y+8);
+  }
+
+  // ν label
+  let nuC=0,nc=0;
+  while(true){const bE=(nc+0.5)*B*energyScale;if(bE>230)break;if(bE<=EFermi)nuC++;nc++;}
+  tCtx.fillStyle=C.text;tCtx.font='bold 12px sans-serif';
+  tCtx.fillText(`ν = ${nuC}  (B = ${B.toFixed(2)} T)`, axisX0+6, 16);
+}
+
+function renderTransport() {
+  rCtx.fillStyle=C.bg; rCtx.fillRect(0,0,RW,RH);
+  const ox=70,oy=RH-40,pw=RW-105,ph=RH-72;
+
+  rCtx.strokeStyle=C.grid;rCtx.lineWidth=1;
+  for(let i=1;i<=8;i++){
+    const cx=ox+(i/8)*pw;
+    rCtx.beginPath();rCtx.moveTo(cx,oy);rCtx.lineTo(cx,oy-ph-6);rCtx.stroke();
+    rCtx.fillStyle=C.muted;rCtx.font='11px sans-serif';
+    rCtx.fillText(i,cx-3,oy+14);
+  }
+  rCtx.strokeStyle=C.axis;rCtx.lineWidth=1.5;
+  rCtx.beginPath();
+  rCtx.moveTo(ox,oy);rCtx.lineTo(ox+pw+16,oy);
+  rCtx.moveTo(ox,oy);rCtx.lineTo(ox,oy-ph-12);
+  rCtx.stroke();
+  rCtx.fillStyle=C.muted;rCtx.font='12px sans-serif';
+  rCtx.fillText('Magnetic field B (T)',ox+pw/2-55,oy+32);
+
+  // Rxy
+  rCtx.beginPath();
+  for(let px=0;px<=pw;px++){
+    const sB=0.5+(px/pw)*7.5,sx=ox+px;
+    let fl=0,ln=0;
+    while(true){const bE=(ln+0.5)*sB*energyScale;if(bE>220)break;if(bE<=EFermi)fl++;ln++;}
+    const nu=Math.max(1,fl);
+    let rv=(1/nu)*ph*0.85;
+    const tw=Math.exp(-Math.pow((nu+0.5)*sB*energyScale-EFermi,2)/60);
+    if(tw>0.01) rv=rv*(1-tw)+(1/(nu+1))*ph*0.85*tw;
+    px===0?rCtx.moveTo(sx,oy-rv):rCtx.lineTo(sx,oy-rv);
+  }
+  rCtx.strokeStyle=C.rxy;rCtx.lineWidth=2;rCtx.stroke();
+
+  // Rxx
+  rCtx.beginPath();
+  for(let px=0;px<=pw;px++){
+    const sB=0.5+(px/pw)*7.5,sx=ox+px;
+    let dos=0,ln=0;
+    while(true){const bE=(ln+0.5)*sB*energyScale;if(bE>240)break;dos+=Math.exp(-Math.pow(bE-EFermi,2)/50);ln++;}
+    const rv=dos*ph*0.24*(sB*0.35);
+    px===0?rCtx.moveTo(sx,oy-Math.min(ph,rv)):rCtx.lineTo(sx,oy-Math.min(ph,rv));
+  }
+  rCtx.strokeStyle=C.rxx;rCtx.lineWidth=2;rCtx.stroke();
+
+  // tracker
+  const tx=ox+((B-0.5)/7.5)*pw;
+  rCtx.strokeStyle=C.tracker;rCtx.lineWidth=1.5;rCtx.setLineDash([3,3]);
+  rCtx.beginPath();rCtx.moveTo(tx,oy);rCtx.lineTo(tx,oy-ph-6);rCtx.stroke();
+  rCtx.setLineDash([]);
+
+  let aL=0,lc=0;
+  while(true){const bE=(lc+0.5)*B*energyScale;if(bE>220)break;if(bE<=EFermi)aL++;lc++;}
+  const cnu=Math.max(1,aL);
+  let aRxy=(1/cnu)*ph*0.85;
+  const tw2=Math.exp(-Math.pow((cnu+0.5)*B*energyScale-EFermi,2)/60);
+  if(tw2>0.01) aRxy=aRxy*(1-tw2)+(1/(cnu+1))*ph*0.85*tw2;
+  let aRxx=0,lc2=0;
+  while(true){const bE=(lc2+0.5)*B*energyScale;if(bE>240)break;aRxx+=Math.exp(-Math.pow(bE-EFermi,2)/50);lc2++;}
+  aRxx=aRxx*ph*0.24*(B*0.35);
+
+  rCtx.fillStyle=C.rxy;rCtx.beginPath();rCtx.arc(tx,oy-aRxy,5,0,2*Math.PI);rCtx.fill();
+  rCtx.fillStyle=C.rxx;rCtx.beginPath();rCtx.arc(tx,oy-Math.min(ph,aRxx),5,0,2*Math.PI);rCtx.fill();
+
+  rCtx.font='11px sans-serif';
+  rCtx.fillStyle=C.rxy;rCtx.fillText('■ Hall Resistance Rₓᵧ (Plateaus)',ox+12,20);
+  rCtx.fillStyle=C.rxx;rCtx.fillText('■ Longitudinal Resistance Rₓₓ (Peaks)',ox+12,36);
+}
+
+document.getElementById('b-slider').addEventListener('input', e=>{
+  B=parseFloat(e.target.value);
+  document.getElementById('b-value').textContent=B.toFixed(2)+' T';
+  renderTop(); renderTransport();
+});
+window.addEventListener('resize',()=>{setupCanvas();renderTop();renderTransport();});
+renderTop(); renderTransport();
+</script>
+</body>
+</html>
