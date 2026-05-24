@@ -186,7 +186,6 @@ button:active { background: #2a3a5a; border-color: var(--accent-dim); }
       <canvas id="canvas"></canvas>
       <div class="legend">
         <div><span class="dot" style="background:#7cdcff"></span>electron</div>
-        <div><span class="dot" style="background:#ff6448"></span>scatterer</div>
         <div>⊙ B out of page</div>
       </div>
     </div>
@@ -208,13 +207,6 @@ button:active { background: #2a3a5a; border-color: var(--accent-dim); }
         <span class="label-value" id="b-value">0.00</span>
       </div>
       <input type="range" id="b-slider" min="0" max="8" step="0.05" value="0">
-    </div>
-    <div class="control-group">
-      <div class="label-row">
-        <span class="label-name">Scatterer density n<sub>imp</sub></span>
-        <span class="label-value" id="n-value">0</span>
-      </div>
-      <input type="range" id="n-slider" min="0" max="120" step="1" value="0">
     </div>
     <div class="button-row">
       <button id="pause-btn">Pause</button>
@@ -238,7 +230,6 @@ const wallPad = 6;
 
 function setupCanvas() {
   const dpr = window.devicePixelRatio || 1;
-  
   canvas.width = Math.floor(W * dpr);
   canvas.height = Math.floor(H * dpr);
   canvas.style.aspectRatio = W + ' / ' + H;
@@ -254,49 +245,20 @@ function setupCanvas() {
 setupCanvas();
 
 let B = 0;
-let nDefects = 0;
-let defects = [];
-let electron = null; 
+let electron = null;
 let trail = [];
 let trailMaxLen = 700;
 let trailMode = 'long';
-let scatterCooldown = 0;
-let defectFlashes = new Map();
 let isPaused = false;
 
 const speedScale = 150;
-const scatterRadius = 9;
 const baseDt = 1/60;
 const substeps = 4;
 const dt = baseDt / substeps;
 
-const gridSteps = 26; 
-const maxEnergyVal = 210; 
-const EFermi = 115; 
-
-function regenerateDefects() {
-  defects = [];
-  if (electron === null) {
-    defectFlashes = new Map();
-    return;
-  }
-  for (let i = 0; i < nDefects; i++) {
-    let attempts = 0;
-    let d;
-    do {
-      d = {
-        x: 25 + Math.random() * (W - 50),
-        y: 25 + Math.random() * (H - 50),
-      };
-      attempts++;
-    } while (
-      attempts < 10 &&
-      Math.hypot(d.x - electron.x, d.y - electron.y) < 50
-    );
-    defects.push(d);
-  }
-  defectFlashes = new Map();
-}
+const gridSteps = 26;
+const maxEnergyVal = 210;
+const EFermi = 115;
 
 function placeElectron(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
@@ -306,27 +268,20 @@ function placeElectron(clientX, clientY) {
   let y = (clientY - rect.top) * sy;
   x = Math.max(wallPad + 3, Math.min(W - wallPad - 3, x));
   y = Math.max(wallPad + 3, Math.min(H - wallPad - 3, y));
-  
-  electron = { x: x, y: y, vx: 0, vy: 0 };
+  electron = { x, y, vx: 0, vy: 0 };
   const angle = Math.random() * 2 * Math.PI;
   electron.vx = Math.cos(angle);
   electron.vy = Math.sin(angle);
   trail = [];
-  scatterCooldown = 0;
-  
-  regenerateDefects();
 }
 
 function reset() {
   electron = null;
   trail = [];
-  scatterCooldown = 0;
-  regenerateDefects();
 }
 
 function step() {
   if (electron === null) return;
-  scatterCooldown -= dt;
 
   const dtheta = B * dt;
   if (dtheta !== 0) {
@@ -343,40 +298,14 @@ function step() {
 
   const xMin = wallPad, xMax = W - wallPad;
   const yMin = wallPad, yMax = H - wallPad;
-  if (electron.x < xMin) {
-    electron.x = 2 * xMin - electron.x;
-    electron.vx = -electron.vx;
-  } else if (electron.x > xMax) {
-    electron.x = 2 * xMax - electron.x;
-    electron.vx = -electron.vx;
-  }
-  if (electron.y < yMin) {
-    electron.y = 2 * yMin - electron.y;
-    electron.vy = -electron.vy;
-  } else if (electron.y > yMax) {
-    electron.y = 2 * yMax - electron.y;
-    electron.vy = -electron.vy;
-  }
+  if (electron.x < xMin) { electron.x = 2 * xMin - electron.x; electron.vx = -electron.vx; }
+  else if (electron.x > xMax) { electron.x = 2 * xMax - electron.x; electron.vx = -electron.vx; }
+  if (electron.y < yMin) { electron.y = 2 * yMin - electron.y; electron.vy = -electron.vy; }
+  else if (electron.y > yMax) { electron.y = 2 * yMax - electron.y; electron.vy = -electron.vy; }
 
   trail.push({ x: electron.x, y: electron.y });
   const cap = trailMode === 'long' ? trailMaxLen : 120;
   while (trail.length > cap) trail.shift();
-
-  if (scatterCooldown <= 0) {
-    for (let i = 0; i < defects.length; i++) {
-      const d = defects[i];
-      const dx = electron.x - d.x;
-      const dy = electron.y - d.y;
-      if (dx*dx + dy*dy < scatterRadius * scatterRadius) {
-        const angle = Math.random() * 2 * Math.PI;
-        electron.vx = Math.cos(angle);
-        electron.vy = Math.sin(angle);
-        scatterCooldown = 0.04;
-        defectFlashes.set(d, 0.35);
-        break;
-      }
-    }
-  }
 }
 
 function render() {
@@ -405,28 +334,6 @@ function render() {
       ctx.beginPath(); ctx.arc(i, j, 6, 0, 2 * Math.PI); ctx.stroke();
       ctx.beginPath(); ctx.arc(i, j, 1.5, 0, 2 * Math.PI); ctx.fill();
     }
-  }
-
-  for (let i = 0; i < defects.length; i++) {
-    const d = defects[i];
-    let flash = defectFlashes.get(d) || 0;
-    if (flash > 0) {
-      flash -= baseDt;
-      if (flash <= 0) defectFlashes.delete(d);
-      else defectFlashes.set(d, flash);
-    }
-    const grad = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, scatterRadius * 1.8);
-    const intensity = 0.25 + flash * 2.0;
-    grad.addColorStop(0, 'rgba(255, 110, 80, ' + Math.min(0.65, intensity) + ')');
-    grad.addColorStop(1, 'rgba(255, 110, 80, 0)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(d.x, d.y, scatterRadius * 1.8, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.fillStyle = flash > 0 ? '#ffd09a' : '#ff6448';
-    ctx.beginPath();
-    ctx.arc(d.x, d.y, 2.5, 0, 2 * Math.PI);
-    ctx.fill();
   }
 
   if (electron === null) {
@@ -520,7 +427,6 @@ function renderEnergy() {
       eCtx.strokeStyle = 'rgba(255, 51, 51, 0.28)';
       eCtx.stroke();
     }
-
     for (let j = 0; j <= gridSteps; j++) {
       const ky = -kMax + (2 * kMax * j) / gridSteps;
       eCtx.beginPath();
@@ -540,17 +446,13 @@ function renderEnergy() {
   } else {
     eCtx.strokeStyle = '#ff3333';
     eCtx.lineWidth = 3.5;
-
     let N = 0;
     while (true) {
       const energyFactor = (N + 0.5) * B;
       const levelEnergy = energyFactor * energyScale;
-      
       if (levelEnergy > maxEnergyVal + 20) break;
-
       const currentRadiusK = Math.sqrt(levelEnergy / cCoeff);
       eCtx.beginPath();
-
       const ringSegments = 72;
       for (let s = 0; s <= ringSegments; s++) {
         const theta = (s * 2 * Math.PI) / ringSegments;
@@ -561,27 +463,22 @@ function renderEnergy() {
         else eCtx.lineTo(pt.x, pt.y);
       }
       eCtx.stroke();
-
       if (B >= 1.0) {
         const labelPt = project(-currentRadiusK, 0, levelEnergy);
         eCtx.fillStyle = '#8893a8';
         eCtx.font = '13px sans-serif';
         eCtx.fillText(`N = ${N}`, labelPt.x - 45, labelPt.y + 4);
       }
-
       N++;
     }
-
     if (B >= 1.0) {
       const e0 = (0.5 * B) * energyScale;
       const e1 = (1.5 * B) * energyScale;
-      
       if (e1 <= maxEnergyVal) {
         const r1 = Math.sqrt(e1 / cCoeff);
         const bPt0 = project(r1, 0, e0);
         const bPt1 = project(r1, 0, e1);
         const bracketX = Math.max(bPt0.x, bPt1.x) + 20;
-
         eCtx.strokeStyle = '#8893a8';
         eCtx.lineWidth = 1.2;
         eCtx.beginPath();
@@ -590,7 +487,6 @@ function renderEnergy() {
         eCtx.lineTo(bracketX, bPt1.y);
         eCtx.lineTo(bracketX - 4, bPt1.y);
         eCtx.stroke();
-
         eCtx.fillStyle = '#e8ecf4';
         eCtx.font = '14px sans-serif';
         eCtx.fillText('Δε_{ΔN=1} = ħ (eB / m*)', bracketX + 12, (bPt0.y + bPt1.y) / 2 + 5);
@@ -603,7 +499,6 @@ function renderEnergy() {
   eCtx.strokeStyle = 'rgba(106, 208, 255, 0.5)';
   eCtx.lineWidth = 1;
   eCtx.beginPath();
-  
   const planeSegments = 72;
   for (let s = 0; s <= planeSegments; s++) {
     const theta = (s * 2 * Math.PI) / planeSegments;
@@ -672,7 +567,7 @@ function renderEnergy() {
 
   const cx = viewX0 + viewW / 2;
   const cy = viewY0 + viewH / 2;
-  const topViewKScale = 0.38; 
+  const topViewKScale = 0.38;
 
   eCtx.strokeStyle = 'rgba(58, 72, 104, 0.5)';
   eCtx.lineWidth = 1;
@@ -687,14 +582,13 @@ function renderEnergy() {
   eCtx.fillText('kᵧ', cx - 14, viewY0 + 15);
 
   const rFermiScreen = rFermiK * topViewKScale;
-
   eCtx.strokeStyle = '#6ad0ff';
   eCtx.lineWidth = 1.5;
   eCtx.setLineDash([4, 3]);
   eCtx.beginPath();
   eCtx.arc(cx, cy, rFermiScreen, 0, 2 * Math.PI);
   eCtx.stroke();
-  eCtx.setLineDash([]); 
+  eCtx.setLineDash([]);
 
   eCtx.fillStyle = '#6ad0ff';
   eCtx.font = '10px sans-serif';
@@ -711,22 +605,13 @@ function renderEnergy() {
     while (true) {
       const energyFactor = (N + 0.5) * B;
       const levelEnergy = energyFactor * energyScale;
-      
       if (levelEnergy > maxEnergyVal) break;
-
       const currentRadiusK = Math.sqrt(levelEnergy / cCoeff);
       const radiusScreen = currentRadiusK * topViewKScale;
-
-      if (levelEnergy <= EFermi) {
-        eCtx.strokeStyle = '#ff3333'; 
-      } else {
-        eCtx.strokeStyle = 'rgba(255, 51, 51, 0.2)'; 
-      }
-
+      eCtx.strokeStyle = levelEnergy <= EFermi ? '#ff3333' : 'rgba(255, 51, 51, 0.2)';
       eCtx.beginPath();
       eCtx.arc(cx, cy, radiusScreen, 0, 2 * Math.PI);
       eCtx.stroke();
-
       N++;
     }
   }
@@ -734,7 +619,6 @@ function renderEnergy() {
 
 function updateLabels() {
   document.getElementById('b-value').textContent = B.toFixed(2);
-  document.getElementById('n-value').textContent = nDefects;
 }
 
 function loop() {
@@ -746,36 +630,27 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-document.getElementById('b-slider').addEventListener('input', function (e) {
+document.getElementById('b-slider').addEventListener('input', function(e) {
   B = parseFloat(e.target.value);
   updateLabels();
 });
-document.getElementById('n-slider').addEventListener('input', function (e) {
-  nDefects = parseInt(e.target.value, 10);
-  regenerateDefects();
-  updateLabels();
-});
-
-document.getElementById('pause-btn').addEventListener('click', function (e) {
+document.getElementById('pause-btn').addEventListener('click', function(e) {
   isPaused = !isPaused;
   e.currentTarget.textContent = isPaused ? 'Play' : 'Pause';
 });
 document.getElementById('reset-btn').addEventListener('click', reset);
-document.getElementById('trail-btn').addEventListener('click', function (e) {
+document.getElementById('trail-btn').addEventListener('click', function(e) {
   trailMode = trailMode === 'long' ? 'short' : 'long';
   e.currentTarget.textContent = 'Trail: ' + trailMode;
 });
 
-canvas.addEventListener('pointerdown', function (e) {
+canvas.addEventListener('pointerdown', function(e) {
   e.preventDefault();
   placeElectron(e.clientX, e.clientY);
 });
 
-window.addEventListener('resize', function () {
-  setupCanvas();
-});
+window.addEventListener('resize', setupCanvas);
 
-regenerateDefects();
 updateLabels();
 loop();
 </script>
