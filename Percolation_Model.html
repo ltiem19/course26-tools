@@ -4,146 +4,78 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0a0e1a">
+<meta name="theme-color" content="#f1f5f9">
 <title>Landau Level Localized vs Extended States</title>
 <style>
-:root {
-  --bg: #0a0e1a;
-  --panel: #131929;
-  --border: #1f2942;
-  --text: #e8ecf4;
-  --muted: #8893a8;
-  --accent: #6ad0ff;
-  --accent-dim: #3a7ba0;
-}
 *, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+  box-sizing: border-box; margin: 0; padding: 0;
   -webkit-tap-highlight-color: transparent;
 }
 html, body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: #f1f5f9; color: #1e293b;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   overscroll-behavior: none;
 }
-body {
-  padding: 12px;
-  min-height: 100vh;
-  min-height: 100dvh;
-}
+body { padding: 12px; min-height: 100vh; min-height: 100dvh; }
 .container {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: grid;
-  gap: 12px;
+  max-width: 1200px; margin: 0 auto;
+  display: grid; gap: 12px;
 }
 @media (min-width: 900px) {
-  .container { grid-template-columns: 1fr 300px; align-items: start; }
+  .container { grid-template-columns: 1fr 280px; align-items: start; }
 }
-.left-column {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-}
+.left-column { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .canvas-wrap {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-  position: relative;
+  background: #ffffff; border: 1px solid #cbd5e1;
+  border-radius: 10px; padding: 10px; position: relative;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
 }
 canvas {
-  display: block;
-  width: 100%;
-  height: auto;
-  background: #0a0e1a;
-  border-radius: 4px;
-  touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
+  display: block; width: 100%; height: auto;
+  border-radius: 6px; touch-action: none;
+  -webkit-user-select: none; user-select: none;
 }
 .legend {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  font-size: 11px;
-  color: var(--muted);
-  background: rgba(10, 14, 26, 0.72);
-  padding: 6px 9px;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  pointer-events: none;
+  position: absolute; top: 14px; right: 14px;
+  font-size: 11px; color: #475569;
+  background: rgba(255,255,255,0.93);
+  padding: 6px 10px; border-radius: 6px;
+  border: 1px solid #cbd5e1; pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07);
 }
 .controls {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  background: #ffffff; border: 1px solid #cbd5e1;
+  border-radius: 10px; padding: 16px;
+  display: flex; flex-direction: column; gap: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
 }
-.title {
-  font-size: 14px;
-  font-weight: 600;
-}
-.subtitle {
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 3px;
-  line-height: 1.4;
-}
-.control-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.label-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  font-size: 12px;
-}
-.label-name { color: var(--muted); }
+.ctrl-title { font-size: 14px; font-weight: 700; color: #1e293b; }
+.ctrl-sub   { font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.5; }
+.control-group { display: flex; flex-direction: column; gap: 6px; }
+.label-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; }
+.label-name  { color: #475569; font-weight: 500; }
 .label-value {
-  color: var(--accent);
-  font-family: 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 13px;
+  color: #2563eb; font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 13px; font-weight: 700;
+  background: #eff6ff; padding: 1px 7px; border-radius: 4px;
 }
 input[type="range"] {
-  width: 100%;
-  -webkit-appearance: none;
-  appearance: none;
-  height: 6px;
-  background: #2a3550;
-  border-radius: 3px;
-  outline: none;
-  touch-action: manipulation;
+  width: 100%; -webkit-appearance: none; appearance: none;
+  height: 5px; background: #e2e8f0; border-radius: 3px;
+  outline: none; touch-action: manipulation;
 }
 input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 22px;
-  height: 22px;
-  background: var(--accent);
-  border-radius: 50%;
-  cursor: pointer;
-  box-shadow: 0 0 8px rgba(106, 208, 255, 0.5);
-  border: none;
+  -webkit-appearance: none; appearance: none;
+  width: 22px; height: 22px; background: #2563eb;
+  border-radius: 50%; cursor: pointer;
+  box-shadow: 0 0 0 3px #fff, 0 0 0 5px #bfdbfe; border: none;
 }
 input[type="range"]::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
-  background: var(--accent);
-  border-radius: 50%;
-  cursor: pointer;
-  border: none;
-  box-shadow: 0 0 8px rgba(106, 208, 255, 0.5);
+  width: 22px; height: 22px; background: #2563eb;
+  border-radius: 50%; cursor: pointer;
+  border: 2px solid #fff; box-shadow: 0 0 0 3px #bfdbfe;
 }
 </style>
 </head>
@@ -152,17 +84,17 @@ input[type="range"]::-moz-range-thumb {
   <div class="left-column">
     <div class="canvas-wrap">
       <canvas id="main-canvas"></canvas>
-      <div class="legend">Energy Landscape & Density of States</div>
+      <div class="legend">Energy Landscape &amp; Density of States</div>
     </div>
     <div class="canvas-wrap">
       <canvas id="topview-canvas"></canvas>
-      <div class="legend">2D Sample Top View (Electron Puddles at E_F)</div>
+      <div class="legend">2D Sample Top View (States at E_F)</div>
     </div>
   </div>
   <div class="controls">
     <div>
-      <div class="title">Localization vs. Extended States</div>
-      <div class="subtitle">Simulate how a local impurity landscape splits Landau levels into a spectrum of localized bulk orbits surrounding extended conducting pathways.</div>
+      <div class="ctrl-title">Localization vs. Extended States</div>
+      <div class="ctrl-sub">Impurity landscape splits Landau levels into localized bulk orbits surrounding extended conducting pathways.</div>
     </div>
     <div class="control-group">
       <div class="label-row">
@@ -187,284 +119,221 @@ input[type="range"]::-moz-range-thumb {
     </div>
   </div>
 </div>
+
 <script>
-const mainCanvas = document.getElementById('main-canvas');
-const mCtx = mainCanvas.getContext('2d');
-
+const mainCanvas    = document.getElementById('main-canvas');
+const mCtx          = mainCanvas.getContext('2d');
 const topviewCanvas = document.getElementById('topview-canvas');
-const tCtx = topviewCanvas.getContext('2d');
+const tCtx          = topviewCanvas.getContext('2d');
 
-const MW = 900;
-const MH = 380;
-const TW = 900;
-const TH = 260;
+const MW = 900, MH = 380, TW = 900, TH = 260;
+
+// ── light palette ─────────────────────────────────────────────
+const C = {
+  bg:           '#f8fafc',
+  axes:         '#94a3b8',
+  text:         '#1e293b',
+  muted:        '#64748b',
+  fermi:        '#2563eb',
+  fermiDash:    'rgba(37,99,235,0.45)',
+  landau:       '#dc2626',
+  landauDim:    'rgba(220,38,38,0.22)',
+  dosOccFull:   'rgba(37,99,235,0.75)',
+  dosOccDim:    'rgba(37,99,235,0.25)',
+  dosEmptyFull: 'rgba(37,99,235,0.55)',
+  dosEmptyDim:  'rgba(37,99,235,0.15)',
+  dosStroke:    '#2563eb',
+  mapActive:    'rgba(37,99,235,0.90)',
+  mapInactive:  'rgba(226,232,240,0.5)',
+  mapBorder:    '#cbd5e1',
+  impurity:     '#dc2626',
+};
 
 function setupCanvas() {
   const dpr = window.devicePixelRatio || 1;
-  mainCanvas.width = Math.floor(MW * dpr);
-  mainCanvas.height = Math.floor(MH * dpr);
+  mainCanvas.width    = Math.floor(MW * dpr);
+  mainCanvas.height   = Math.floor(MH * dpr);
   mainCanvas.style.aspectRatio = MW + ' / ' + MH;
-  mCtx.setTransform(1, 0, 0, 1, 0, 0);
-  mCtx.scale(dpr, dpr);
+  mCtx.setTransform(1,0,0,1,0,0); mCtx.scale(dpr, dpr);
 
-  topviewCanvas.width = Math.floor(TW * dpr);
+  topviewCanvas.width  = Math.floor(TW * dpr);
   topviewCanvas.height = Math.floor(TH * dpr);
   topviewCanvas.style.aspectRatio = TW + ' / ' + TH;
-  tCtx.setTransform(1, 0, 0, 1, 0, 0);
-  tCtx.scale(dpr, dpr);
+  tCtx.setTransform(1,0,0,1,0,0); tCtx.scale(dpr, dpr);
 }
 setupCanvas();
 
-let B = 4.0;
-let EFermi = 55.0;
-let V0 = 0.0;
+let B = 4.0, EFermi = 55.0, V0 = 0.0;
+const energyScale = 18, maxEnergyVal = 190;
+const impCX = 220, impSigma = 38;
 
-const energyScale = 18;
-const maxEnergyVal = 190;
-
-const impurityCenterX = 220; 
-const impuritySigma = 38;
-
-function getImpurityProfile(x) {
-  const dx = x - impurityCenterX;
-  return V0 * Math.exp(-(dx * dx) / (2 * impuritySigma * impuritySigma));
+function impurity1D(x) {
+  return V0 * Math.exp(-((x-impCX)**2) / (2*impSigma**2));
 }
-
-function get2DImpurityProfile(x, y, yCenter) {
-  const dx = x - impurityCenterX;
-  const dy = y - yCenter;
-  return V0 * Math.exp(-(dx * dx + dy * dy) / (2 * impuritySigma * impuritySigma));
+function impurity2D(x, y, yC) {
+  return V0 * Math.exp(-((x-impCX)**2 + (y-yC)**2) / (2*impSigma**2));
 }
-
-function getLandauEnergy(N, currentB, x) {
-  const baseEnergy = (N + 0.5) * currentB * energyScale;
-  return baseEnergy + getImpurityProfile(x);
+function landauE(N, x) {
+  return (N + 0.5)*B*energyScale + impurity1D(x);
 }
 
 function render() {
-  mCtx.fillStyle = '#0a0e1a';
+  // ── main canvas ───────────────────────────────────────────
+  mCtx.fillStyle = C.bg;
   mCtx.fillRect(0, 0, MW, MH);
 
-  const viewW = 500;
-  const originY = MH - 50;
-  const dosX0 = 600;
-  const maxDosW = 240;
+  const viewW = 500, originY = MH - 50;
+  const dosX0 = 600, maxDosW = 240;
 
-  mCtx.strokeStyle = '#3a4868';
-  mCtx.lineWidth = 1.5;
+  // axes
+  mCtx.strokeStyle = C.axes; mCtx.lineWidth = 1.5;
   mCtx.beginPath();
-  mCtx.moveTo(40, originY);
-  mCtx.lineTo(viewW + 20, originY);
-  mCtx.moveTo(40, originY);
-  mCtx.lineTo(40, originY - maxEnergyVal - 20);
+  mCtx.moveTo(40, originY); mCtx.lineTo(viewW+20, originY);
+  mCtx.moveTo(40, originY); mCtx.lineTo(40, originY-maxEnergyVal-20);
   mCtx.stroke();
-
-  mCtx.fillStyle = '#e8ecf4';
-  mCtx.font = '13px sans-serif';
-  mCtx.fillText('E', 22, originY - maxEnergyVal - 12);
+  mCtx.fillStyle = C.text; mCtx.font = '13px sans-serif';
+  mCtx.fillText('E', 22, originY-maxEnergyVal-12);
   mCtx.font = 'italic 13px sans-serif';
-  mCtx.fillText('x (Position across 2DEG)', viewW / 2 - 40, originY + 22);
+  mCtx.fillText('x (position across 2DEG)', viewW/2-50, originY+22);
 
-  mCtx.strokeStyle = 'rgba(106, 208, 255, 0.4)';
-  mCtx.lineWidth = 1.5;
-  mCtx.setLineDash([5, 4]);
+  // E_F dashed line
+  mCtx.strokeStyle = C.fermiDash; mCtx.lineWidth = 1.5;
+  mCtx.setLineDash([5,4]);
   mCtx.beginPath();
-  mCtx.moveTo(40, originY - EFermi);
-  mCtx.lineTo(dosX0 + maxDosW, originY - EFermi);
-  mCtx.stroke();
-  mCtx.setLineDash([]);
-  mCtx.fillStyle = '#6ad0ff';
-  mCtx.font = '12px sans-serif';
-  mCtx.fillText('E_F', 18, originY - EFermi + 4);
+  mCtx.moveTo(40, originY-EFermi); mCtx.lineTo(dosX0+maxDosW, originY-EFermi);
+  mCtx.stroke(); mCtx.setLineDash([]);
+  mCtx.fillStyle = C.fermi; mCtx.font = '12px sans-serif';
+  mCtx.fillText('E_F', 18, originY-EFermi+4);
 
   if (B === 0) {
-    mCtx.strokeStyle = 'rgba(255, 51, 51, 0.4)';
-    mCtx.lineWidth = 2.5;
+    // flat potential profile
+    mCtx.strokeStyle = C.landau; mCtx.lineWidth = 2;
     mCtx.beginPath();
     for (let x = 40; x <= viewW; x++) {
-      const y = originY - getImpurityProfile(x);
-      if (x === 40) mCtx.moveTo(x, y); else mCtx.lineTo(x, y);
+      const y = originY - impurity1D(x);
+      x === 40 ? mCtx.moveTo(x,y) : mCtx.lineTo(x,y);
     }
     mCtx.stroke();
-
-    mCtx.fillStyle = 'rgba(106, 208, 255, 0.15)';
-    mCtx.fillRect(dosX0, originY - EFermi, maxDosW * 0.4, EFermi);
-    mCtx.strokeStyle = '#6ad0ff';
-    mCtx.lineWidth = 2;
-    mCtx.strokeRect(dosX0, originY - maxEnergyVal, maxDosW * 0.4, maxEnergyVal);
+    // constant DOS
+    mCtx.fillStyle   = C.dosOccDim;
+    mCtx.strokeStyle = C.dosStroke; mCtx.lineWidth = 2;
+    mCtx.fillRect(dosX0, originY-EFermi, maxDosW*0.4, EFermi);
+    mCtx.strokeRect(dosX0, originY-maxEnergyVal, maxDosW*0.4, maxEnergyVal);
   } else {
+    // Landau level curves
     let N = 0;
     while (true) {
-      const baseE = (N + 0.5) * B * energyScale;
-      if (baseE > maxEnergyVal + 20) break;
-
+      const baseE = (N+0.5)*B*energyScale;
+      if (baseE > maxEnergyVal+20) break;
       mCtx.beginPath();
       for (let x = 40; x <= viewW; x++) {
-        const E = getLandauEnergy(N, B, x);
-        const yScreen = originY - E;
-        if (x === 40) mCtx.moveTo(x, yScreen); else mCtx.lineTo(x, yScreen);
+        const yScr = originY - landauE(N, x);
+        x === 40 ? mCtx.moveTo(x, yScr) : mCtx.lineTo(x, yScr);
       }
-      
-      if (baseE <= EFermi) {
-        mCtx.strokeStyle = '#ff3333';
-        mCtx.lineWidth = 3;
-      } else {
-        mCtx.strokeStyle = 'rgba(255, 51, 51, 0.25)';
-        mCtx.lineWidth = 1.5;
-      }
+      mCtx.strokeStyle = baseE <= EFermi ? C.landau : C.landauDim;
+      mCtx.lineWidth   = baseE <= EFermi ? 2.5 : 1.5;
       mCtx.stroke();
-
-      mCtx.fillStyle = '#8893a8';
-      mCtx.font = '11px sans-serif';
-      mCtx.fillText(`N=${N}`, viewW + 26, originY - getLandauEnergy(N, B, viewW) + 4);
+      mCtx.fillStyle = C.muted; mCtx.font = '11px sans-serif';
+      mCtx.fillText(`N=${N}`, viewW+26, originY - landauE(N, viewW) + 4);
       N++;
     }
 
-    mCtx.strokeStyle = '#3a4868';
-    mCtx.lineWidth = 1.5;
+    // DOS axes
+    mCtx.strokeStyle = C.axes; mCtx.lineWidth = 1.5;
     mCtx.beginPath();
-    mCtx.moveTo(dosX0, originY);
-    mCtx.lineTo(dosX0 + maxDosW + 20, originY);
-    mCtx.moveTo(dosX0, originY);
-    mCtx.lineTo(dosX0, originY - maxEnergyVal - 20);
+    mCtx.moveTo(dosX0, originY); mCtx.lineTo(dosX0+maxDosW+20, originY);
+    mCtx.moveTo(dosX0, originY); mCtx.lineTo(dosX0, originY-maxEnergyVal-20);
     mCtx.stroke();
-    mCtx.fillStyle = '#e8ecf4';
-    mCtx.fillText('D(E)', dosX0 + maxDosW + 5, originY + 4);
+    mCtx.fillStyle = C.text; mCtx.font = '13px sans-serif';
+    mCtx.fillText('D(E)', dosX0+maxDosW+5, originY+4);
 
-    const steps = 320;
-    const de = maxEnergyVal / steps;
-    const sampleGamma = Math.max(4.5, V0 * 0.5); 
-
+    const steps = 320, de = maxEnergyVal / steps;
+    const gamma = Math.max(4.5, V0*0.5);
+    const nMax  = Math.ceil((maxEnergyVal+60) / (B*energyScale));
     mCtx.lineWidth = 2;
+
     for (let s = 0; s < steps; s++) {
       const E = s * de;
       const yPos = originY - E;
-      
-      let localDos = 0;
-      let totalLLCount = Math.ceil((maxEnergyVal + 60) / (B * energyScale));
-      
-      for (let nVal = 0; nVal < totalLLCount; nVal++) {
-        // FIXED: Center subbands exactly on unperturbed Landau level base line energy
-        const levelCenterE = (nVal + 0.5) * B * energyScale;
-        const arg = Math.pow(E - levelCenterE, 2) / (2 * sampleGamma * sampleGamma);
-        if (arg < 10) {
-          localDos += (B * 24) * Math.exp(-arg) / (sampleGamma * Math.sqrt(2 * Math.PI));
-        }
+      let dos = 0;
+      for (let n = 0; n < nMax; n++) {
+        const lE = (n+0.5)*B*energyScale;
+        const arg = (E-lE)**2 / (2*gamma**2);
+        if (arg < 10) dos += (B*24) * Math.exp(-arg) / (gamma * Math.sqrt(2*Math.PI));
       }
+      const ampX = dos * 5.5;
+      if (ampX < 0.5) continue;
 
-      const amplitudeX = localDos * 5.5;
-      if (amplitudeX > 0.5) {
-        const isOccupied = E <= EFermi;
-        
-        let isExtendedCoreRange = false;
-        for (let nVal = 0; nVal < totalLLCount; nVal++) {
-          const levelCenterE = (nVal + 0.5) * B * energyScale;
-          if (Math.abs(E - levelCenterE) < 4.5) isExtendedCoreRange = true;
-        }
+      let isExtended = false;
+      for (let n = 0; n < nMax; n++) {
+        if (Math.abs(E - (n+0.5)*B*energyScale) < 4.5) { isExtended = true; break; }
+      }
+      const occ = E <= EFermi;
 
-        if (isOccupied) {
-          mCtx.fillStyle = isExtendedCoreRange ? '#6ad0ff' : 'rgba(106, 208, 255, 0.45)';
-          mCtx.fillRect(dosX0 + 1, yPos - de, amplitudeX, de + 0.5);
-          mCtx.strokeStyle = '#6ad0ff';
-          mCtx.beginPath(); mCtx.moveTo(dosX0 + 1 + amplitudeX, yPos - de); mCtx.lineTo(dosX0 + 1 + amplitudeX, yPos); mCtx.stroke();
-        } else {
-          mCtx.strokeStyle = isExtendedCoreRange ? 'rgba(106, 208, 255, 0.6)' : 'rgba(106, 208, 255, 0.18)';
-          mCtx.beginPath(); mCtx.moveTo(dosX0 + 1, yPos - de/2); mCtx.lineTo(dosX0 + 1 + amplitudeX, yPos - de/2); mCtx.stroke();
-        }
+      if (occ) {
+        mCtx.fillStyle = isExtended ? C.dosOccFull : C.dosOccDim;
+        mCtx.fillRect(dosX0+1, yPos-de, ampX, de+0.5);
+        mCtx.strokeStyle = C.dosStroke;
+        mCtx.beginPath(); mCtx.moveTo(dosX0+1+ampX, yPos-de); mCtx.lineTo(dosX0+1+ampX, yPos); mCtx.stroke();
+      } else {
+        mCtx.strokeStyle = isExtended ? C.dosEmptyFull : C.dosEmptyDim;
+        mCtx.beginPath(); mCtx.moveTo(dosX0+1, yPos-de/2); mCtx.lineTo(dosX0+1+ampX, yPos-de/2); mCtx.stroke();
       }
     }
   }
 
-  // --- 2. Render Real-Space Top View Panel ---
-  tCtx.fillStyle = '#0a0e1a';
+  // ── top-view canvas ────────────────────────────────────────
+  tCtx.fillStyle = C.bg;
   tCtx.fillRect(0, 0, TW, TH);
 
-  const mapW = viewW; 
-  const mapH = TH - 60;
-  const mapX0 = 40;   
-  const mapY0 = 30;
+  const mapW = viewW, mapH = TH-60, mapX0 = 40, mapY0 = 30;
+  const tcX = mapX0 + (impCX - 40), tcY = mapY0 + mapH/2;
 
-  tCtx.strokeStyle = '#1f2942';
-  tCtx.lineWidth = 1;
+  tCtx.strokeStyle = C.mapBorder; tCtx.lineWidth = 1;
   tCtx.strokeRect(mapX0, mapY0, mapW, mapH);
 
-  const tcX = mapX0 + (impurityCenterX - 40); 
-  const tcY = mapY0 + mapH / 2;
-
   if (B > 0) {
-    const sampleResX = 4;
-    const sampleResY = 4;
-    
-    for (let screenX = mapX0; screenX < mapX0 + mapW; screenX += sampleResX) {
-      const logicalX = 40 + (screenX - mapX0);
-
-      for (let screenY = mapY0; screenY < mapY0 + mapH; screenY += sampleResY) {
-        const localPotentialHeight = get2DImpurityProfile(logicalX, screenY, tcY);
-        
-        let hasStatesAtFermi = false;
-        let N = 0;
-        
+    const res = 4;
+    for (let sx = mapX0; sx < mapX0+mapW; sx += res) {
+      const lx = 40 + (sx - mapX0);
+      for (let sy = mapY0; sy < mapY0+mapH; sy += res) {
+        const pot = impurity2D(lx, sy, tcY);
+        let hit = false;
+        let n = 0;
         while (true) {
-          const baseE = (N + 0.5) * B * energyScale;
-          if (baseE > maxEnergyVal + 20) break;
-          
-          const localStateEnergy = baseE + localPotentialHeight;
-          if (Math.abs(localStateEnergy - EFermi) < 3.5) {
-            hasStatesAtFermi = true;
-            break;
-          }
-          N++;
+          const baseE = (n+0.5)*B*energyScale;
+          if (baseE > maxEnergyVal+20) break;
+          if (Math.abs(baseE + pot - EFermi) < 3.5) { hit = true; break; }
+          n++;
         }
-
-        if (hasStatesAtFermi) {
-          tCtx.fillStyle = 'rgba(106, 208, 255, 0.95)'; 
-          tCtx.fillRect(screenX, screenY, sampleResX, sampleResY);
-        } else {
-          tCtx.fillStyle = 'rgba(31, 41, 66, 0.2)';    
-          tCtx.fillRect(screenX, screenY, sampleResX, sampleResY);
-        }
+        tCtx.fillStyle = hit ? C.mapActive : C.mapInactive;
+        tCtx.fillRect(sx, sy, res, res);
       }
     }
   }
 
   if (V0 > 0) {
-    tCtx.fillStyle = '#ff6448';
-    tCtx.beginPath(); tCtx.arc(tcX, tcY, 3, 0, 2 * Math.PI); tCtx.fill();
+    tCtx.fillStyle = C.impurity;
+    tCtx.beginPath(); tCtx.arc(tcX, tcY, 4, 0, 2*Math.PI); tCtx.fill();
   }
-
-  tCtx.fillStyle = '#8893a8';
-  tCtx.font = '11px sans-serif';
 }
 
-const bSlider = document.getElementById('b-slider');
-const bValue = document.getElementById('b-value');
-const efSlider = document.getElementById('ef-slider');
-const efValue = document.getElementById('ef-value');
-const v0Slider = document.getElementById('v0-slider');
-const v0Value = document.getElementById('v0-value');
-
-bSlider.addEventListener('input', (e) => {
+document.getElementById('b-slider').addEventListener('input', function(e) {
   B = parseFloat(e.target.value);
-  bValue.textContent = B.toFixed(2);
+  document.getElementById('b-value').textContent = B.toFixed(2);
   render();
 });
-
-efSlider.addEventListener('input', (e) => {
+document.getElementById('ef-slider').addEventListener('input', function(e) {
   EFermi = parseFloat(e.target.value);
-  efValue.textContent = EFermi.toFixed(1);
+  document.getElementById('ef-value').textContent = EFermi.toFixed(1);
   render();
 });
-
-v0Slider.addEventListener('input', (e) => {
+document.getElementById('v0-slider').addEventListener('input', function(e) {
   V0 = parseFloat(e.target.value);
-  v0Value.textContent = V0.toFixed(1);
+  document.getElementById('v0-value').textContent = V0.toFixed(1);
   render();
 });
-
-window.addEventListener('resize', () => {
-  setupCanvas();
-  render();
-});
+window.addEventListener('resize', () => { setupCanvas(); render(); });
 
 render();
 </script>
