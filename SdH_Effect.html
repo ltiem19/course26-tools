@@ -4,166 +4,88 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0a0e1a">
-<title>Landau Quantization & Density of States</title>
+<meta name="theme-color" content="#f1f5f9">
+<title>Landau Quantization & SdH Effect</title>
 <style>
-:root {
-  --bg: #0a0e1a;
-  --panel: #131929;
-  --border: #1f2942;
-  --text: #e8ecf4;
-  --muted: #8893a8;
-  --accent: #6ad0ff;
-  --accent-dim: #3a7ba0;
-}
 *, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+  box-sizing: border-box; margin: 0; padding: 0;
   -webkit-tap-highlight-color: transparent;
 }
 html, body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: #f1f5f9; color: #1e293b;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   overscroll-behavior: none;
 }
-body {
-  padding: 12px;
-  min-height: 100vh;
-  min-height: 100dvh;
-}
+body { padding: 12px; min-height: 100vh; min-height: 100dvh; }
 .container {
-  max-width: 1100px;
-  margin: 0 auto;
-  display: grid;
-  gap: 12px;
+  max-width: 1100px; margin: 0 auto;
+  display: grid; gap: 12px;
 }
 @media (min-width: 820px) {
-  .container { grid-template-columns: 1fr 280px; align-items: start; }
+  .container { grid-template-columns: 1fr 260px; align-items: start; }
 }
-.left-column {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-}
+.left-column { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .canvas-wrap {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-  position: relative;
+  background: #ffffff; border: 1px solid #cbd5e1;
+  border-radius: 10px; padding: 10px; position: relative;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
 }
 canvas {
-  display: block;
-  width: 100%;
-  height: auto;
-  background: #0a0e1a;
-  border-radius: 4px;
-  touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
+  display: block; width: 100%; height: auto;
+  border-radius: 6px; touch-action: none;
+  -webkit-user-select: none; user-select: none;
 }
 .legend {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  font-size: 11px;
-  color: var(--muted);
-  background: rgba(10, 14, 26, 0.72);
-  padding: 6px 9px;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  pointer-events: none;
+  position: absolute; top: 14px; right: 14px;
+  font-size: 11px; color: #475569;
+  background: rgba(255,255,255,0.93);
+  padding: 6px 10px; border-radius: 6px;
+  border: 1px solid #cbd5e1; pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07);
 }
 .controls {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  background: #ffffff; border: 1px solid #cbd5e1;
+  border-radius: 10px; padding: 16px;
+  display: flex; flex-direction: column; gap: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
 }
-.title {
-  font-size: 14px;
-  font-weight: 600;
-}
-.subtitle {
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 3px;
-  line-height: 1.4;
-}
-.control-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.checkbox-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--text);
-  cursor: pointer;
-  user-select: none;
-  padding: 4px 0;
-}
-.checkbox-row input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-.hidden {
-  display: none !important;
-}
-.label-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  font-size: 12px;
-}
-.label-name { color: var(--muted); }
+.ctrl-title { font-size: 14px; font-weight: 700; color: #1e293b; }
+.ctrl-sub   { font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.5; }
+.control-group { display: flex; flex-direction: column; gap: 6px; }
+.label-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; }
+.label-name  { color: #475569; font-weight: 500; }
 .label-value {
-  color: var(--accent);
-  font-family: 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 13px;
+  color: #2563eb; font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 13px; font-weight: 700;
+  background: #eff6ff; padding: 1px 7px; border-radius: 4px;
 }
 input[type="range"] {
-  width: 100%;
-  -webkit-appearance: none;
-  appearance: none;
-  height: 6px;
-  background: #2a3550;
-  border-radius: 3px;
-  outline: none;
-  touch-action: manipulation;
+  width: 100%; -webkit-appearance: none; appearance: none;
+  height: 5px; background: #e2e8f0; border-radius: 3px;
+  outline: none; touch-action: manipulation;
 }
 input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 22px;
-  height: 22px;
-  background: var(--accent);
-  border-radius: 50%;
-  cursor: pointer;
-  box-shadow: 0 0 8px rgba(106, 208, 255, 0.5);
-  border: none;
+  -webkit-appearance: none; appearance: none;
+  width: 22px; height: 22px; background: #2563eb;
+  border-radius: 50%; cursor: pointer;
+  box-shadow: 0 0 0 3px #fff, 0 0 0 5px #bfdbfe; border: none;
 }
 input[type="range"]::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
-  background: var(--accent);
-  border-radius: 50%;
-  cursor: pointer;
-  border: none;
-  box-shadow: 0 0 8px rgba(106, 208, 255, 0.5);
+  width: 22px; height: 22px; background: #2563eb;
+  border-radius: 50%; cursor: pointer;
+  border: 2px solid #fff; box-shadow: 0 0 0 3px #bfdbfe;
 }
+.checkbox-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 500; color: #1e293b;
+  cursor: pointer; user-select: none; padding: 4px 0;
+}
+.checkbox-row input[type="checkbox"] {
+  width: 16px; height: 16px; accent-color: #2563eb; cursor: pointer;
+}
+.hidden { display: none !important; }
 </style>
 </head>
 <body>
@@ -171,17 +93,17 @@ input[type="range"]::-moz-range-thumb {
   <div class="left-column">
     <div class="canvas-wrap">
       <canvas id="display-canvas"></canvas>
-      <div class="legend">E(kₓ,kᵧ) Quantization & DOS</div>
+      <div class="legend">E(kₓ,kᵧ) Quantization &amp; DOS</div>
     </div>
     <div class="canvas-wrap">
       <canvas id="sdh-canvas"></canvas>
-      <div class="legend">Shubnikov-de Haas Magnetoresistance Oscillations</div>
+      <div class="legend">Shubnikov–de Haas Magnetoresistance</div>
     </div>
   </div>
   <div class="controls">
     <div>
-      <div class="title">Landau Quantization & DOS</div>
-      <div class="subtitle">Observe the continuous 2D paraboloid dispersion reorganizing into highly degenerate, discrete Landau levels with increasing magnetic field.</div>
+      <div class="ctrl-title">Landau Quantization &amp; SdH</div>
+      <div class="ctrl-sub">Continuous 2D paraboloid reorganizes into discrete Landau levels. The SdH panel tracks R_xx oscillations as levels sweep through E_F.</div>
     </div>
     <div class="control-group">
       <div class="label-row">
@@ -203,469 +125,320 @@ input[type="range"]::-moz-range-thumb {
     </div>
   </div>
 </div>
+
 <script>
-const canvas = document.getElementById('display-canvas');
-const ctx = canvas.getContext('2d');
-
+const canvas    = document.getElementById('display-canvas');
+const ctx       = canvas.getContext('2d');
 const sdhCanvas = document.getElementById('sdh-canvas');
-const sCtx = sdhCanvas.getContext('2d');
+const sCtx      = sdhCanvas.getContext('2d');
 
-const W = 900;
-const H = 450;
-const SW = 900;
-const SH = 240; // Stretched y-dimension from 200 to 240 to create more headroom
+const W = 900, H = 450, SW = 900, SH = 240;
+
+// ── light palette ─────────────────────────────────────────────
+const C = {
+  bg:          '#f8fafc',
+  axes:        '#94a3b8',
+  grid:        '#e2e8f0',
+  text:        '#1e293b',
+  muted:       '#64748b',
+  paraboloid:  'rgba(220,38,38,',
+  landau:      '#dc2626',
+  landauDim:   'rgba(220,38,38,0.22)',
+  fermiDisk:   'rgba(37,99,235,',
+  fermiLabel:  '#1d4ed8',
+  fermiDash:   'rgba(37,99,235,0.40)',
+  dosOccFull:  'rgba(37,99,235,0.75)',
+  dosOccDim:   'rgba(37,99,235,0.22)',
+  dosStroke:   '#2563eb',
+  dosEmptyDim: 'rgba(37,99,235,0.28)',
+  sdhLine:     '#2563eb',
+  tracker:     'rgba(220,38,38,0.65)',
+  trackerDot:  '#dc2626',
+  bracket:     '#64748b',
+  spacing:     '#1e293b',
+};
 
 function setupCanvas() {
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.floor(W * dpr);
-  canvas.height = Math.floor(H * dpr);
+  canvas.width    = Math.floor(W  * dpr); canvas.height    = Math.floor(H  * dpr);
   canvas.style.aspectRatio = W + ' / ' + H;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.scale(dpr, dpr);
-
-  sdhCanvas.width = Math.floor(SW * dpr);
-  sdhCanvas.height = Math.floor(SH * dpr);
+  ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr, dpr);
+  sdhCanvas.width = Math.floor(SW * dpr); sdhCanvas.height = Math.floor(SH * dpr);
   sdhCanvas.style.aspectRatio = SW + ' / ' + SH;
-  sCtx.setTransform(1, 0, 0, 1, 0, 0);
-  sCtx.scale(dpr, dpr);
+  sCtx.setTransform(1,0,0,1,0,0); sCtx.scale(dpr, dpr);
 }
 setupCanvas();
 
-let B = 0;
-let useDisorder = false;
-let Gamma = 10; 
-
-const gridSteps = 26;
-const maxEnergyVal = 210;
-const EFermi = 115;
-
-const kMax = 140;
-const cCoeff = maxEnergyVal / (kMax * kMax);
-const energyScale = 22;
-
+let B = 0, useDisorder = false, Gamma = 10;
+const gridSteps = 26, maxEnergyVal = 210, EFermi = 115;
+const kMax = 140, cCoeff = maxEnergyVal/(kMax*kMax), energyScale = 22;
 const maxDosW = 240;
 
-function getDosAtEnergy(E, targetGamma, currentB) {
-  if (currentB === 0) return maxDosW * 0.35 * 0.5;
-  let localDos = 0;
-  const totalLLCount = Math.ceil((maxEnergyVal + 60) / (currentB * energyScale));
-  const baseConstantDosWidth = maxDosW * 0.35;
-  const llPeakWidth = baseConstantDosWidth + (currentB * 16);
-  const minGammaCutoff = 2.0;
-  
-  const normalizationFactor = llPeakWidth * (currentB * energyScale) * (minGammaCutoff / 2.0) * 0.5;
-
-  for (let N = 0; N < totalLLCount; N++) {
-    const levelEnergy = (N + 0.5) * currentB * energyScale;
-    const deltaE = E - levelEnergy;
-    const arg = (deltaE * deltaE) / (2 * targetGamma * targetGamma);
-    if (arg < 12) {
-      localDos += normalizationFactor * Math.exp(-arg) / (targetGamma * Math.sqrt(2 * Math.PI));
-    }
+function getDos(E, gamma, b) {
+  if (b === 0) return maxDosW * 0.35 * 0.5;
+  let dos = 0;
+  const nMax = Math.ceil((maxEnergyVal+60)/(b*energyScale));
+  const norm = (maxDosW*0.35 + b*16) * (b*energyScale) * (2.0/2.0) * 0.5;
+  for (let N = 0; N < nMax; N++) {
+    const lE = (N+0.5)*b*energyScale;
+    const arg = (E-lE)**2 / (2*gamma**2);
+    if (arg < 12) dos += norm * Math.exp(-arg) / (gamma*Math.sqrt(2*Math.PI));
   }
-  return localDos;
+  return dos;
 }
 
+// ── dispersion + DOS canvas ───────────────────────────────────
 function render() {
-  ctx.fillStyle = '#0a0e1a';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = C.bg; ctx.fillRect(0,0,W,H);
 
-  const X0 = 240;
-  const Y0 = H - 60;
-
-  const dosX0 = 580;
-  const dosY0 = H - 60;
+  const X0 = 240, Y0 = H-60;
+  const dosX0 = 580, dosY0 = H-60;
 
   function project(kx, ky, E) {
-    const isoX = kx - ky * 0.6;
-    const isoY = -E + ky * 0.3;
-    return { x: X0 + isoX, y: Y0 + isoY };
+    return { x: X0 + kx - ky*0.6, y: Y0 - E + ky*0.3 };
   }
 
+  // dispersion
   if (B === 0) {
     ctx.lineWidth = 1;
     for (let i = 0; i <= gridSteps; i++) {
-      const kx = -kMax + (2 * kMax * i) / gridSteps;
-      ctx.beginPath();
-      let first = true;
+      const kx = -kMax + (2*kMax*i)/gridSteps;
+      ctx.beginPath(); let first = true;
       for (let j = 0; j <= gridSteps; j++) {
-        const ky = -kMax + (2 * kMax * j) / gridSteps;
-        const E = cCoeff * (kx * kx + ky * ky);
+        const ky = -kMax + (2*kMax*j)/gridSteps;
+        const E = cCoeff*(kx*kx+ky*ky);
         if (E <= maxEnergyVal) {
-          const pt = project(kx, ky, E);
-          if (first) { ctx.moveTo(pt.x, pt.y); first = false; }
-          else { ctx.lineTo(pt.x, pt.y); }
+          const pt = project(kx,ky,E);
+          first ? ctx.moveTo(pt.x,pt.y) : ctx.lineTo(pt.x,pt.y); first=false;
         }
       }
-      ctx.strokeStyle = 'rgba(255, 51, 51, 0.28)';
-      ctx.stroke();
+      ctx.strokeStyle = C.paraboloid+'0.30)'; ctx.stroke();
     }
-
     for (let j = 0; j <= gridSteps; j++) {
-      const ky = -kMax + (2 * kMax * j) / gridSteps;
-      ctx.beginPath();
-      let first = true;
+      const ky = -kMax + (2*kMax*j)/gridSteps;
+      ctx.beginPath(); let first = true;
       for (let i = 0; i <= gridSteps; i++) {
-        const kx = -kMax + (2 * kMax * i) / gridSteps;
-        const E = cCoeff * (kx * kx + ky * ky);
+        const kx = -kMax + (2*kMax*i)/gridSteps;
+        const E = cCoeff*(kx*kx+ky*ky);
         if (E <= maxEnergyVal) {
-          const pt = project(kx, ky, E);
-          if (first) { ctx.moveTo(pt.x, pt.y); first = false; }
-          else { ctx.lineTo(pt.x, pt.y); }
+          const pt = project(kx,ky,E);
+          first ? ctx.moveTo(pt.x,pt.y) : ctx.lineTo(pt.x,pt.y); first=false;
         }
       }
-      ctx.strokeStyle = 'rgba(255, 51, 51, 0.28)';
-      ctx.stroke();
+      ctx.strokeStyle = C.paraboloid+'0.30)'; ctx.stroke();
     }
   } else {
     let N = 0;
     while (true) {
-      const energyFactor = (N + 0.5) * B;
-      const levelEnergy = energyFactor * energyScale;
-      if (levelEnergy > maxEnergyVal + 20) break;
-
-      const currentRadiusK = Math.sqrt(levelEnergy / cCoeff);
+      const lE = (N+0.5)*B*energyScale;
+      if (lE > maxEnergyVal+20) break;
+      const rk = Math.sqrt(lE/cCoeff);
       ctx.beginPath();
-      const ringSegments = 72;
-      for (let s = 0; s <= ringSegments; s++) {
-        const theta = (s * 2 * Math.PI) / ringSegments;
-        const kx = currentRadiusK * Math.cos(theta);
-        const ky = currentRadiusK * Math.sin(theta);
-        const pt = project(kx, ky, levelEnergy);
-        if (s === 0) ctx.moveTo(pt.x, pt.y);
-        else ctx.lineTo(pt.x, pt.y);
+      for (let s = 0; s <= 72; s++) {
+        const theta = s*2*Math.PI/72;
+        const pt = project(rk*Math.cos(theta), rk*Math.sin(theta), lE);
+        s===0 ? ctx.moveTo(pt.x,pt.y) : ctx.lineTo(pt.x,pt.y);
       }
-
-      if (levelEnergy <= EFermi) {
-        ctx.strokeStyle = '#ff3333';
-        ctx.lineWidth = 3.5;
-      } else {
-        ctx.strokeStyle = 'rgba(255, 51, 51, 0.22)';
-        ctx.lineWidth = 2;
-      }
+      ctx.strokeStyle = lE<=EFermi ? C.landau : C.landauDim;
+      ctx.lineWidth   = lE<=EFermi ? 3 : 1.8;
       ctx.stroke();
-
-      if (B >= 1.2 && levelEnergy <= maxEnergyVal) {
-        const labelPt = project(-currentRadiusK, 0, levelEnergy);
-        ctx.fillStyle = '#8893a8';
-        ctx.font = '12px sans-serif';
-        ctx.fillText(`N = ${N}`, labelPt.x - 42, labelPt.y + 4);
+      if (B >= 1.2 && lE <= maxEnergyVal) {
+        const lp = project(-rk,0,lE);
+        ctx.fillStyle = C.muted; ctx.font='12px sans-serif';
+        ctx.fillText(`N = ${N}`, lp.x-42, lp.y+4);
       }
       N++;
     }
-
     if (B >= 1.2) {
-      const e0 = (0.5 * B) * energyScale;
-      const e1 = (1.5 * B) * energyScale;
+      const e0=0.5*B*energyScale, e1=1.5*B*energyScale;
       if (e1 <= maxEnergyVal) {
-        const r1 = Math.sqrt(e1 / cCoeff);
-        const bPt0 = project(r1, 0, e0);
-        const bPt1 = project(r1, 0, e1);
-        const bracketX = Math.max(bPt0.x, bPt1.x) + 20;
-
-        ctx.strokeStyle = '#8893a8';
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.moveTo(bracketX - 4, bPt0.y);
-        ctx.lineTo(bracketX, bPt0.y);
-        ctx.lineTo(bracketX, bPt1.y);
-        ctx.lineTo(bracketX - 4, bPt1.y);
-        ctx.stroke();
-
-        ctx.fillStyle = '#e8ecf4';
-        ctx.font = '13px sans-serif';
-        ctx.fillText('Δε = ħω_c', bracketX + 10, (bPt0.y + bPt1.y) / 2 + 5);
+        const r1=Math.sqrt(e1/cCoeff);
+        const p0=project(r1,0,e0), p1=project(r1,0,e1);
+        const bx=Math.max(p0.x,p1.x)+18;
+        ctx.strokeStyle=C.bracket; ctx.lineWidth=1.2;
+        ctx.beginPath(); ctx.moveTo(bx-4,p0.y); ctx.lineTo(bx,p0.y); ctx.lineTo(bx,p1.y); ctx.lineTo(bx-4,p1.y); ctx.stroke();
+        ctx.fillStyle=C.spacing; ctx.font='13px sans-serif';
+        ctx.fillText('Δε = ħω_c', bx+8, (p0.y+p1.y)/2+5);
       }
     }
   }
 
-  const rFermiK = Math.sqrt(EFermi / cCoeff);
-  ctx.fillStyle = 'rgba(106, 208, 255, 0.12)';
-  ctx.strokeStyle = 'rgba(106, 208, 255, 0.4)';
-  ctx.lineWidth = 1;
+  // Fermi disk
+  const rF = Math.sqrt(EFermi/cCoeff);
+  ctx.fillStyle   = C.fermiDisk+'0.10)';
+  ctx.strokeStyle = C.fermiDisk+'0.50)';
+  ctx.lineWidth=1.5;
   ctx.beginPath();
-  const planeSegments = 64;
-  for (let s = 0; s <= planeSegments; s++) {
-    const theta = (s * 2 * Math.PI) / planeSegments;
-    const kx = rFermiK * Math.cos(theta);
-    const ky = rFermiK * Math.sin(theta);
-    const pt = project(kx, ky, EFermi);
-    if (s === 0) ctx.moveTo(pt.x, pt.y);
-    else ctx.lineTo(pt.x, pt.y);
+  for (let s=0;s<=64;s++) {
+    const theta=s*2*Math.PI/64;
+    const pt=project(rF*Math.cos(theta),rF*Math.sin(theta),EFermi);
+    s===0 ? ctx.moveTo(pt.x,pt.y) : ctx.lineTo(pt.x,pt.y);
   }
-  ctx.fill();
-  ctx.stroke();
+  ctx.fill(); ctx.stroke();
 
-  ctx.strokeStyle = 'rgba(232, 236, 244, 0.25)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 4]);
+  // E_F dashed connector
+  ctx.strokeStyle=C.fermiDash; ctx.lineWidth=1;
+  ctx.setLineDash([4,4]);
+  const bot=project(0,0,0);
+  ctx.beginPath(); ctx.moveTo(bot.x, bot.y-EFermi); ctx.lineTo(dosX0, dosY0-EFermi);
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // dispersion axes
+  ctx.strokeStyle=C.axes; ctx.lineWidth=1.5;
+  ctx.fillStyle=C.text; ctx.font='italic 14px sans-serif';
+  const axTop=project(0,0,maxEnergyVal+30), axBot=project(0,0,0);
+  const kxE=project(kMax+25,0,0), kyE=project(0,kMax+25,0);
+  ctx.beginPath(); ctx.moveTo(axBot.x,axBot.y); ctx.lineTo(axTop.x,axTop.y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(axTop.x-4,axTop.y+10); ctx.lineTo(axTop.x,axTop.y); ctx.lineTo(axTop.x+4,axTop.y+10); ctx.stroke();
+  ctx.fillText('E', axTop.x-15, axTop.y+4);
+  ctx.beginPath(); ctx.moveTo(axBot.x,axBot.y); ctx.lineTo(kxE.x,kxE.y); ctx.stroke();
+  ctx.fillText('kₓ', kxE.x+8, kxE.y+4);
+  ctx.beginPath(); ctx.moveTo(axBot.x,axBot.y); ctx.lineTo(kyE.x,kyE.y); ctx.stroke();
+  ctx.fillText('kᵧ', kyE.x-16, kyE.y+12);
+
+  // DOS axes + labels
+  ctx.strokeStyle=C.axes; ctx.lineWidth=1.5;
   ctx.beginPath();
-  ctx.moveTo(X0, Y0 - EFermi);
-  ctx.lineTo(dosX0, dosY0 - EFermi);
+  ctx.moveTo(dosX0,dosY0); ctx.lineTo(dosX0+maxDosW+20,dosY0);
+  ctx.moveTo(dosX0,dosY0); ctx.lineTo(dosX0,dosY0-maxEnergyVal-30);
   ctx.stroke();
-  ctx.setLineDash([]);
+  ctx.fillStyle=C.text; ctx.font='13px sans-serif';
+  ctx.fillText('Density of states D(E)', dosX0+20, dosY0+22);
+  ctx.fillText('E', dosX0-14, dosY0-maxEnergyVal-22);
+  ctx.fillStyle=C.fermiLabel;
+  ctx.fillText('E_F', dosX0-28, dosY0-EFermi+4);
 
-  ctx.strokeStyle = '#3a4868';
-  ctx.lineWidth = 1.5;
-  ctx.fillStyle = '#e8ecf4';
-  ctx.font = 'italic 14px sans-serif';
-
-  const axisE_top = project(0, 0, maxEnergyVal + 30);
-  const axisE_bot = project(0, 0, 0);
-  ctx.beginPath();
-  ctx.moveTo(axisE_bot.x, axisE_bot.y);
-  ctx.lineTo(axisE_top.x, axisE_top.y);
-  ctx.stroke();
-  ctx.fillText('E', axisE_top.x - 15, axisE_top.y + 4);
-
-  const axisKx_end = project(kMax + 25, 0, 0);
-  ctx.beginPath();
-  ctx.moveTo(axisE_bot.x, axisE_bot.y);
-  ctx.lineTo(axisKx_end.x, axisKx_end.y);
-  ctx.stroke();
-  ctx.fillText('kₓ', axisKx_end.x + 8, axisKx_end.y + 4);
-
-  const axisKy_end = project(0, kMax + 25, 0);
-  ctx.beginPath();
-  ctx.moveTo(axisE_bot.x, axisE_bot.y);
-  ctx.lineTo(axisKy_end.x, axisKy_end.y);
-  ctx.stroke();
-  ctx.fillText('kᵧ', axisKy_end.x - 16, axisKy_end.y + 12);
-
-  ctx.strokeStyle = '#3a4868';
-  ctx.lineWidth = 1.5;
-  
-  ctx.beginPath();
-  ctx.moveTo(dosX0, dosY0);
-  ctx.lineTo(dosX0 + maxDosW + 20, dosY0);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(dosX0, dosY0);
-  ctx.lineTo(dosX0, dosY0 - maxEnergyVal - 30);
-  ctx.stroke();
-
-  ctx.fillStyle = '#e8ecf4';
-  ctx.font = '13px sans-serif';
-  ctx.fillText('Density of states D(E)', dosX0 + 35, dosY0 + 22);
-  ctx.fillText('E', dosX0 - 15, dosY0 - maxEnergyVal - 22);
-
-  ctx.fillStyle = '#6ad0ff';
-  ctx.fillText('E_F', dosX0 - 26, dosY0 - EFermi + 4);
-
-  const baseConstantDosWidth = maxDosW * 0.35 * 0.5;
+  const baseW = maxDosW*0.35*0.5;
 
   if (B === 0) {
-    ctx.fillStyle = 'rgba(106, 208, 255, 0.65)';
-    ctx.strokeStyle = '#6ad0ff';
-    ctx.lineWidth = 2;
-    ctx.fillRect(dosX0 + 1, dosY0 - EFermi, baseConstantDosWidth, EFermi);
-    ctx.strokeRect(dosX0 + 1, dosY0 - maxEnergyVal, baseConstantDosWidth, maxEnergyVal);
+    ctx.fillStyle=C.dosOccDim; ctx.strokeStyle=C.dosStroke; ctx.lineWidth=2;
+    ctx.fillRect(dosX0+1, dosY0-EFermi, baseW, EFermi);
+    ctx.strokeRect(dosX0+1, dosY0-maxEnergyVal, baseW, maxEnergyVal);
   } else if (!useDisorder) {
-    const levelHeightThickness = 6; 
-    const discretePeakWidth = getDosAtEnergy(0.5 * B * energyScale, 2.0, B);
-
-    let N = 0;
+    const barH=6, barW=getDos(0.5*B*energyScale,2.0,B);
+    let N=0;
     while (true) {
-      const energyFactor = (N + 0.5) * B;
-      const levelEnergy = energyFactor * energyScale;
-      if (levelEnergy > maxEnergyVal + 10) break;
-
-      const yLevelPos = dosY0 - levelEnergy;
-
-      if (levelEnergy <= EFermi) {
-        ctx.fillStyle = 'rgba(106, 208, 255, 0.85)';
-        ctx.strokeStyle = '#6ad0ff';
-        ctx.lineWidth = 1.5;
-        ctx.fillRect(dosX0 + 1, yLevelPos - levelHeightThickness/2, discretePeakWidth, levelHeightThickness);
-        ctx.strokeRect(dosX0 + 1, yLevelPos - levelHeightThickness/2, discretePeakWidth, levelHeightThickness);
+      const lE=(N+0.5)*B*energyScale;
+      if (lE>maxEnergyVal+10) break;
+      const y=dosY0-lE;
+      if (lE<=EFermi) {
+        ctx.fillStyle=C.dosOccFull; ctx.strokeStyle=C.dosStroke; ctx.lineWidth=1.5;
+        ctx.fillRect(dosX0+1,y-barH/2,barW,barH);
+        ctx.strokeRect(dosX0+1,y-barH/2,barW,barH);
       } else {
-        ctx.strokeStyle = 'rgba(106, 208, 255, 0.35)';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(dosX0 + 1, yLevelPos - levelHeightThickness/2, discretePeakWidth, levelHeightThickness);
+        ctx.strokeStyle=C.dosEmptyDim; ctx.lineWidth=1.5;
+        ctx.strokeRect(dosX0+1,y-barH/2,barW,barH);
       }
       N++;
     }
   } else {
-    const steps = 540;
-    const de = maxEnergyVal / steps;
-    ctx.lineWidth = 1.2;
-    
-    for (let s = 0; s < steps; s++) {
-      const E = s * de;
-      const yPos = dosY0 - E;
-      
-      const amplitudeX = getDosAtEnergy(E, Gamma, B);
-
-      if (amplitudeX > 0.5) {
-        if (E <= EFermi) {
-          ctx.fillStyle = 'rgba(106, 208, 255, 0.7)';
-          ctx.fillRect(dosX0 + 1, yPos - de, amplitudeX, de + 0.3);
-          
-          ctx.strokeStyle = '#6ad0ff';
-          ctx.beginPath();
-          ctx.moveTo(dosX0 + 1 + amplitudeX, yPos - de);
-          ctx.lineTo(dosX0 + 1 + amplitudeX, yPos);
-          ctx.stroke();
-        } else {
-          ctx.strokeStyle = 'rgba(106, 208, 255, 0.3)';
-          ctx.beginPath();
-          ctx.moveTo(dosX0 + 1, yPos - de / 2);
-          ctx.lineTo(dosX0 + 1 + amplitudeX, yPos - de / 2);
-          ctx.stroke();
-        }
+    const steps=540, de=maxEnergyVal/steps;
+    ctx.lineWidth=1.2;
+    for (let s=0;s<steps;s++) {
+      const E=s*de, yPos=dosY0-E;
+      const amp=getDos(E,Gamma,B);
+      if (amp<0.5) continue;
+      if (E<=EFermi) {
+        ctx.fillStyle=C.dosOccFull;
+        ctx.fillRect(dosX0+1,yPos-de,amp,de+0.3);
+        ctx.strokeStyle=C.dosStroke;
+        ctx.beginPath(); ctx.moveTo(dosX0+1+amp,yPos-de); ctx.lineTo(dosX0+1+amp,yPos); ctx.stroke();
+      } else {
+        ctx.strokeStyle=C.dosEmptyDim;
+        ctx.beginPath(); ctx.moveTo(dosX0+1,yPos-de/2); ctx.lineTo(dosX0+1+amp,yPos-de/2); ctx.stroke();
       }
     }
   }
 }
 
+// ── SdH canvas ────────────────────────────────────────────────
 function renderSdH() {
-  sCtx.fillStyle = '#0a0e1a';
-  sCtx.fillRect(0, 0, SW, SH);
+  sCtx.fillStyle=C.bg; sCtx.fillRect(0,0,SW,SH);
 
-  const originX = 80;
-  const originY = SH - 45; // Moved down slightly to increase chart headroom
-  const graphWidth = SW - 120;
-  const graphHeight = SH - 105; // Shortened internal coordinate field to gain extra padding at top
+  const originX=80, originY=SH-45;
+  const gW=SW-120, gH=SH-105;
 
-  // --- 1. Draw Plot Grids & Axes ---
-  sCtx.strokeStyle = '#1f2942';
-  sCtx.lineWidth = 1;
-  for (let i = 1; i <= 8; i++) {
-    const gridX = originX + (i / 8) * graphWidth;
-    sCtx.beginPath();
-    sCtx.moveTo(gridX, originY);
-    sCtx.lineTo(gridX, originY - graphHeight);
-    sCtx.stroke();
-    
-    sCtx.fillStyle = '#8893a8';
-    sCtx.font = '11px sans-serif';
-    sCtx.fillText(i.toString(), gridX - 3, originY + 16);
+  // grid
+  sCtx.strokeStyle=C.grid; sCtx.lineWidth=1;
+  for (let i=1;i<=8;i++) {
+    const gx=originX+(i/8)*gW;
+    sCtx.beginPath(); sCtx.moveTo(gx,originY); sCtx.lineTo(gx,originY-gH); sCtx.stroke();
+    sCtx.fillStyle=C.muted; sCtx.font='11px sans-serif';
+    sCtx.fillText(i.toString(), gx-3, originY+16);
   }
 
-  sCtx.strokeStyle = '#3a4868';
-  sCtx.lineWidth = 1.5;
+  // axes
+  sCtx.strokeStyle=C.axes; sCtx.lineWidth=1.5;
   sCtx.beginPath();
-  sCtx.moveTo(originX, originY);
-  sCtx.lineTo(originX + graphWidth + 20, originY);
-  sCtx.moveTo(originX, originY);
-  sCtx.lineTo(originX, originY - graphHeight - 15);
+  sCtx.moveTo(originX,originY); sCtx.lineTo(originX+gW+20,originY);
+  sCtx.moveTo(originX,originY); sCtx.lineTo(originX,originY-gH-15);
   sCtx.stroke();
 
-  // Relocated title block label further upwards to prevent track line overlap
-  sCtx.fillStyle = '#e8ecf4';
-  sCtx.font = '13px sans-serif';
-  sCtx.fillText('longitudinal magneto-resistance Rₓₓ = Vₓ / Iₓ', originX + 10, 24);
-  sCtx.fillText('magnetic field B (T)', originX + graphWidth / 2 - 40, originY + 34);
+  sCtx.fillStyle=C.text; sCtx.font='13px sans-serif';
+  sCtx.fillText('longitudinal magneto-resistance Rₓₓ = Vₓ / Iₓ', originX+10, 24);
+  sCtx.fillText('magnetic field B (T)', originX+gW/2-40, originY+34);
 
-  // --- 2. Calculate and Render Lifshitz-Kosevich/DOS Oscillatory Path ---
+  // R_xx curve
   sCtx.beginPath();
-  let firstPoint = true;
-
-  for (let pixelX = 0; pixelX <= graphWidth; pixelX++) {
-    const sweepB = (pixelX / graphWidth) * 8.0;
-    const screenX = originX + pixelX;
-    
-    let Rxx = 0.15; 
-
-    if (sweepB > 0.05) {
+  let first=true;
+  for (let px=0;px<=gW;px++) {
+    const sweepB=px/gW*8.0;
+    let Rxx=0.15;
+    if (sweepB>0.05) {
       if (!useDisorder) {
-        const sampledDosAtEF = getDosAtEnergy(EFermi, 2.0, sweepB);
-        // Reduced peak factor multiplier from 0.0035 down to 0.00165 to globally scale heights down
-        Rxx += (sampledDosAtEF * 0.00165) * sweepB;
+        Rxx += getDos(EFermi,2.0,sweepB)*0.00165*sweepB;
       } else {
-        const frequency = EFermi / energyScale; 
-        const phaseOffset = Math.PI; 
-        const dampingFactor = Math.exp(-0.35 * Gamma / sweepB);
-        const oscillatoryTerm = Math.cos(2 * Math.PI * frequency / sweepB + phaseOffset);
-        
-        // Reduced oscillation scale constant from 0.12 down to 0.055 to perfectly fit inside graph boundaries
-        Rxx += 0.055 * sweepB * dampingFactor * (1.0 + oscillatoryTerm);
+        const freq=EFermi/energyScale;
+        const damp=Math.exp(-0.35*Gamma/sweepB);
+        Rxx += 0.055*sweepB*damp*(1.0+Math.cos(2*Math.PI*freq/sweepB+Math.PI));
       }
     }
-
-    const displayVal = Math.min(graphHeight + 10, Rxx * graphHeight * 2.2);
-    const screenY = originY - displayVal;
-
-    if (firstPoint) {
-      sCtx.moveTo(screenX, screenY);
-      firstPoint = false;
-    } else {
-      sCtx.lineTo(screenX, screenY);
-    }
+    const sy=originY-Math.min(gH+10,Rxx*gH*2.2);
+    first ? sCtx.moveTo(originX+px,sy) : sCtx.lineTo(originX+px,sy);
+    first=false;
   }
+  sCtx.strokeStyle=C.sdhLine; sCtx.lineWidth=2; sCtx.stroke();
 
-  sCtx.strokeStyle = '#6ad0ff';
-  sCtx.lineWidth = 2;
-  sCtx.stroke();
-
-  // --- 3. Dynamic Interactive Tracking sweep line ---
-  const dynamicTrackerX = originX + (B / 8.0) * graphWidth;
-  sCtx.strokeStyle = 'rgba(255, 51, 51, 0.65)';
-  sCtx.lineWidth = 1.5;
-  sCtx.setLineDash([3, 3]);
-  sCtx.beginPath();
-  sCtx.moveTo(dynamicTrackerX, originY);
-  sCtx.lineTo(dynamicTrackerX, originY - graphHeight - 15);
-  sCtx.stroke();
+  // tracker line + dot
+  const tx=originX+(B/8.0)*gW;
+  sCtx.strokeStyle=C.tracker; sCtx.lineWidth=1.5;
+  sCtx.setLineDash([3,3]);
+  sCtx.beginPath(); sCtx.moveTo(tx,originY); sCtx.lineTo(tx,originY-gH-15); sCtx.stroke();
   sCtx.setLineDash([]);
 
-  let currentRxx = 0.15;
-  if (B > 0.05) {
+  let curRxx=0.15;
+  if (B>0.05) {
     if (!useDisorder) {
-      currentRxx += (getDosAtEnergy(EFermi, 2.0, B) * 0.00165) * B;
+      curRxx += getDos(EFermi,2.0,B)*0.00165*B;
     } else {
-      const freq = EFermi / energyScale;
-      const damp = Math.exp(-0.35 * Gamma / B);
-      currentRxx += 0.055 * B * damp * (1.0 + Math.cos(2 * Math.PI * freq / B + Math.PI));
+      const freq=EFermi/energyScale, damp=Math.exp(-0.35*Gamma/B);
+      curRxx += 0.055*B*damp*(1.0+Math.cos(2*Math.PI*freq/B+Math.PI));
     }
   }
-  const nodeY = originY - Math.min(graphHeight + 10, currentRxx * graphHeight * 2.2);
-  sCtx.fillStyle = '#ff3333';
-  sCtx.beginPath();
-  sCtx.arc(dynamicTrackerX, nodeY, 4, 0, 2 * Math.PI);
-  sCtx.fill();
+  const ty=originY-Math.min(gH+10,curRxx*gH*2.2);
+  sCtx.fillStyle=C.trackerDot;
+  sCtx.beginPath(); sCtx.arc(tx,ty,4,0,2*Math.PI); sCtx.fill();
 }
 
-const bSlider = document.getElementById('b-slider');
-const bValue = document.getElementById('b-value');
-const disorderCheckbox = document.getElementById('disorder-checkbox');
-const disorderGroup = document.getElementById('disorder-control-group');
-const gammaSlider = document.getElementById('gamma-slider');
-const gammaValue = document.getElementById('gamma-value');
-
-bSlider.addEventListener('input', function (e) {
-  B = parseFloat(e.target.value);
-  bValue.textContent = B.toFixed(2);
-  render();
-  renderSdH();
+// ── events ────────────────────────────────────────────────────
+document.getElementById('b-slider').addEventListener('input', function(e) {
+  B=parseFloat(e.target.value);
+  document.getElementById('b-value').textContent=B.toFixed(2);
+  render(); renderSdH();
 });
-
-disorderCheckbox.addEventListener('change', function (e) {
-  useDisorder = e.target.checked;
-  if (useDisorder) {
-    disorderGroup.classList.remove('hidden');
-  } else {
-    disorderGroup.classList.add('hidden');
-  }
-  render();
-  renderSdH();
+document.getElementById('disorder-checkbox').addEventListener('change', function(e) {
+  useDisorder=e.target.checked;
+  document.getElementById('disorder-control-group').classList.toggle('hidden',!useDisorder);
+  render(); renderSdH();
 });
-
-gammaSlider.addEventListener('input', function (e) {
-  Gamma = parseFloat(e.target.value);
-  gammaValue.textContent = Gamma.toFixed(2);
-  render();
-  renderSdH();
+document.getElementById('gamma-slider').addEventListener('input', function(e) {
+  Gamma=parseFloat(e.target.value);
+  document.getElementById('gamma-value').textContent=Gamma.toFixed(2);
+  render(); renderSdH();
 });
+window.addEventListener('resize', ()=>{ setupCanvas(); render(); renderSdH(); });
 
-window.addEventListener('resize', () => {
-  setupCanvas();
-  render();
-  renderSdH();
-});
-
-render();
-renderSdH();
+render(); renderSdH();
 </script>
 </body>
 </html>
