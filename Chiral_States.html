@@ -3,115 +3,77 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Quantum Hall Edge States & Strict Interactivity</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f1f5f9">
+<title>QHE Chiral Edge States</title>
 <style>
-:root {
-  --bg: #0a0e1a;
-  --panel: #131929;
-  --border: #1f2942;
-  --text: #e8ecf4;
-  --muted: #8893a8;
-  --accent: #6ad0ff;
-  --accent-dim: #3a7ba0;
-}
 *, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+  box-sizing: border-box; margin: 0; padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 html, body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  overflow: hidden;
+  background: #f1f5f9; color: #1e293b;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  overscroll-behavior: none;
 }
-body {
-  padding: 12px;
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
+body { padding: 12px; min-height: 100vh; min-height: 100dvh; }
 .container {
-  max-width: 1050px;
-  width: 100%;
-  display: grid;
-  gap: 12px;
+  max-width: 1050px; margin: 0 auto;
+  display: grid; gap: 12px;
 }
 @media (min-width: 820px) {
-  .container { grid-template-columns: 1fr 280px; align-items: start; }
+  .container { grid-template-columns: 1fr 260px; align-items: start; }
 }
 .canvas-wrap {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px;
-  position: relative;
+  background: #ffffff; border: 1px solid #cbd5e1;
+  border-radius: 10px; padding: 6px; position: relative;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
 }
 canvas {
-  display: block;
-  width: 100%;
-  height: auto;
-  background: #0a0e1a;
-  border-radius: 4px;
-  touch-action: none;
+  display: block; width: 100%; height: auto;
+  border-radius: 6px; touch-action: none;
+  -webkit-user-select: none; user-select: none;
 }
 .legend {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  font-size: 11px;
-  color: var(--muted);
-  background: rgba(10, 14, 26, 0.9);
-  padding: 8px 10px;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+  position: absolute; top: 14px; right: 14px;
+  font-size: 11px; color: #475569;
+  background: rgba(255,255,255,0.94);
+  padding: 8px 10px; border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  display: flex; flex-direction: column; gap: 5px;
   pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 .legend .item { display: flex; align-items: center; gap: 6px; }
-.legend .line { inline-size: 12px; border-top: 2px solid; }
-.legend .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.legend .line { display: inline-block; width: 14px; border-top: 2px solid; }
+.legend .dot  { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
 .controls {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  background: #ffffff; border: 1px solid #cbd5e1;
+  border-radius: 10px; padding: 16px;
+  display: flex; flex-direction: column; gap: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
 }
-.title { font-size: 14px; font-weight: 600; }
-.subtitle { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+.ctrl-title { font-size: 14px; font-weight: 700; color: #1e293b; }
+.ctrl-sub   { font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.5; }
 .config-option {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  cursor: pointer;
-  background: #192239;
-  padding: 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  background: #f8fafc; padding: 10px 12px;
+  border-radius: 7px; border: 1px solid #cbd5e1;
+  transition: background 0.1s;
 }
-.config-option input {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--accent);
-}
+.config-option:hover { background: #e0f2fe; border-color: #93c5fd; }
+.config-option input { width: 16px; height: 16px; accent-color: #2563eb; cursor: pointer; }
 button {
-  background: #1f2942;
-  color: var(--text);
-  border: 1px solid var(--border);
-  padding: 10px 8px;
-  min-height: 44px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
+  background: #f8fafc; color: #1e293b;
+  border: 1px solid #cbd5e1; padding: 10px 8px;
+  min-height: 44px; border-radius: 7px; cursor: pointer;
+  font-size: 13px; font-family: inherit; font-weight: 500;
+  touch-action: manipulation; transition: background 0.1s;
 }
-button:active { background: #2a3a5a; border-color: var(--accent-dim); }
+button:hover, button:active { background: #e0f2fe; border-color: #93c5fd; color: #1d4ed8; }
 </style>
 </head>
 <body>
@@ -119,26 +81,23 @@ button:active { background: #2a3a5a; border-color: var(--accent-dim); }
   <div class="canvas-wrap">
     <canvas id="canvas"></canvas>
     <div class="legend">
-      <div class="item"><span class="line" style="border-color:rgba(255,255,255,0.02)"></span> Local Bulk Cyclotron Orbits</div>
-      <div id="legend-trail" class="item"><span class="line" style="border-color:#6ad0ff"></span> Fast Edge-Skipping State</div>
-      <div class="item"><span class="dot" style="background:#ffcc44"></span> Modified Boundary Wall</div>
+      <div id="legend-trail" class="item"><span class="line" style="border-color:#2563eb"></span><span>Edge-skipping state</span></div>
+      <div class="item"><span class="dot" style="background:#f59e0b"></span><span>Boundary wall</span></div>
     </div>
   </div>
   <div class="controls">
     <div>
-      <div class="title">Strict Boundary Interactivity</div>
-      <div class="subtitle">
-        • Click <strong>directly ON the yellow edge</strong> to deform it inward.<br>
-        • Click anywhere in the <strong>dark bulk interior</strong> to place the electron.
+      <div class="ctrl-title">QHE Chiral Edge States</div>
+      <div class="ctrl-sub">
+        • Click <strong>on the yellow edge</strong> to deform it inward.<br>
+        • Click in the <strong>bulk interior</strong> to place the electron.
       </div>
     </div>
-    
     <label class="config-option">
       <input type="checkbox" id="picture-toggle">
       <span>Quantum Edge Channel Picture</span>
     </label>
-
-    <button id="reset-btn">Reset Boundaries & Electron</button>
+    <button id="reset-btn">Reset Boundaries &amp; Electron</button>
   </div>
 </div>
 
@@ -146,18 +105,24 @@ button:active { background: #2a3a5a; border-color: var(--accent-dim); }
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-const W = 700;
-const H = 500;
-const defaultPad = 16;
+const W = 700, H = 500, defaultPad = 16;
+const B_field = 11.0, speedScale = 600;
+const cyclotronRadius = speedScale / B_field;
 
-const B = 11.0;
-const speedScale = 600;
-const cyclotronRadius = speedScale / B;
+// ── light palette ─────────────────────────────────────────────
+const C = {
+  bg:          '#f8fafc',
+  wall:        '#f59e0b',    // amber — high contrast on white
+  wallBg:      'rgba(241,245,249,0.6)',
+  trail:       '37,99,235',  // rgb components for rgba()
+  electron:    '#1e293b',
+  edgeChannel: '#2563eb',
+  edgeShadow:  'rgba(37,99,235,0.4)',
+};
 
-let electron = { x: W / 2, y: defaultPad + 4, vx: -1, vy: 0 };
-let trail = [];
+let electron = { x: W/2, y: defaultPad+4, vx: -1, vy: 0 };
+let trail = [], isQuantumPicture = false, dashOffset = 0;
 const trailMaxLen = 140;
-let isQuantumPicture = false;
 
 const gridScale = 8;
 const cols = Math.ceil(W / gridScale);
@@ -166,10 +131,10 @@ let wallGrid = new Float32Array(cols * rows);
 
 function setupCanvas() {
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.floor(W * dpr);
+  canvas.width  = Math.floor(W * dpr);
   canvas.height = Math.floor(H * dpr);
   canvas.style.aspectRatio = W + ' / ' + H;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.setTransform(1,0,0,1,0,0);
   ctx.scale(dpr, dpr);
 }
 setupCanvas();
@@ -177,286 +142,195 @@ setupCanvas();
 function resetGrid() {
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
-      const px = x * gridScale;
-      const py = y * gridScale;
-      if (px < defaultPad || px > W - defaultPad || py < defaultPad || py > H - defaultPad) {
-        wallGrid[y * cols + x] = 1.0; 
-      } else {
-        wallGrid[y * cols + x] = 0.0; 
-      }
+      const px = x*gridScale, py = y*gridScale;
+      wallGrid[y*cols+x] = (px < defaultPad || px > W-defaultPad || py < defaultPad || py > H-defaultPad) ? 1.0 : 0.0;
     }
   }
 }
 
-function sampleGridField(px, py) {
-  const gx = Math.floor(px / gridScale);
-  const gy = Math.floor(py / gridScale);
+function sampleGrid(px, py) {
+  const gx = Math.floor(px/gridScale), gy = Math.floor(py/gridScale);
   if (gx < 0 || gx >= cols || gy < 0 || gy >= rows) return 1.0;
-  return wallGrid[gy * cols + gx];
+  return wallGrid[gy*cols+gx];
 }
 
-function getGridNormal(px, py) {
-  const delta = 4;
-  const fX1 = sampleGridField(px - delta, py);
-  const fX2 = sampleGridField(px + delta, py);
-  const fY1 = sampleGridField(px, py - delta);
-  const fY2 = sampleGridField(px, py + delta);
-  
-  let nx = fX1 - fX2;
-  let ny = fY1 - fY2;
-  const len = Math.hypot(nx, ny);
-  if (len === 0) return { nx: 0, ny: -1 };
-  return { nx: nx / len, ny: ny / len };
+function gridNormal(px, py) {
+  const d = 4;
+  let nx = sampleGrid(px-d,py) - sampleGrid(px+d,py);
+  let ny = sampleGrid(px,py-d) - sampleGrid(px,py+d);
+  const len = Math.hypot(nx,ny);
+  return len === 0 ? {nx:0,ny:-1} : {nx:nx/len, ny:ny/len};
 }
 
-function handleCanvasInteraction(clientX, clientY) {
+function handleInteraction(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
   const mx = (clientX - rect.left) * (W / rect.width);
-  const my = (clientY - rect.top) * (H / rect.height);
-
-  if (sampleGridField(mx, my) > 0.5) {
+  const my = (clientY - rect.top)  * (H / rect.height);
+  if (sampleGrid(mx, my) > 0.5) {
     const r = 65;
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
-        const px = x * gridScale;
-        const py = y * gridScale;
-        if (Math.hypot(px - mx, py - my) < r) {
-          wallGrid[y * cols + x] = 1.0; 
-        }
+        if (Math.hypot(x*gridScale-mx, y*gridScale-my) < r)
+          wallGrid[y*cols+x] = 1.0;
       }
     }
-    if (sampleGridField(electron.x, electron.y) > 0.5) {
-      let norm = getGridNormal(electron.x, electron.y);
-      while (sampleGridField(electron.x, electron.y) > 0.5) {
-        electron.x += norm.nx * 2;
-        electron.y += norm.ny * 2;
+    if (sampleGrid(electron.x, electron.y) > 0.5) {
+      const n = gridNormal(electron.x, electron.y);
+      while (sampleGrid(electron.x, electron.y) > 0.5) {
+        electron.x += n.nx*2; electron.y += n.ny*2;
       }
     }
   } else {
-    electron.x = mx;
-    electron.y = my;
-    const angle = Math.random() * 2 * Math.PI;
-    electron.vx = Math.cos(angle);
-    electron.vy = Math.sin(angle);
+    electron.x = mx; electron.y = my;
+    const a = Math.random()*2*Math.PI;
+    electron.vx = Math.cos(a); electron.vy = Math.sin(a);
     trail = [];
   }
 }
 
 function resetElectron() {
-  electron.x = W / 2;
-  electron.y = defaultPad + 4;
-  electron.vx = -1;
-  electron.vy = 0;
+  electron = { x: W/2, y: defaultPad+4, vx: -1, vy: 0 };
   trail = [];
 }
 
-const substeps = 8;
-const dt = (1 / 60) / substeps;
+const substeps = 8, dt = (1/60)/substeps;
 
 function step() {
-  const dtheta = B * dt;
+  const dtheta = B_field * dt;
   const c = Math.cos(dtheta), s = Math.sin(dtheta);
-  const nvx = c * electron.vx - s * electron.vy;
-  const nvy = s * electron.vx + c * electron.vy;
-  electron.vx = nvx;
-  electron.vy = nvy;
-
+  const nvx =  c*electron.vx - s*electron.vy;
+  const nvy =  s*electron.vx + c*electron.vy;
+  electron.vx = nvx; electron.vy = nvy;
   electron.x += electron.vx * speedScale * dt;
   electron.y += electron.vy * speedScale * dt;
 
-  if (sampleGridField(electron.x, electron.y) > 0.5) {
-    let norm = getGridNormal(electron.x, electron.y);
-    
-    let protectionCounter = 0;
-    while (sampleGridField(electron.x, electron.y) > 0.5 && protectionCounter < 15) {
-      electron.x += norm.nx * 2;
-      electron.y += norm.ny * 2;
-      protectionCounter++;
+  if (sampleGrid(electron.x, electron.y) > 0.5) {
+    const n = gridNormal(electron.x, electron.y);
+    let guard = 0;
+    while (sampleGrid(electron.x, electron.y) > 0.5 && guard++ < 15) {
+      electron.x += n.nx*2; electron.y += n.ny*2;
     }
-
-    const dot = electron.vx * norm.nx + electron.vy * norm.ny;
+    const dot = electron.vx*n.nx + electron.vy*n.ny;
     if (dot < 0) {
-      electron.vx = electron.vx - 2 * dot * norm.nx;
-      electron.vy = electron.vy - 2 * dot * norm.ny;
+      electron.vx -= 2*dot*n.nx;
+      electron.vy -= 2*dot*n.ny;
     }
   }
-
   trail.push({ x: electron.x, y: electron.y });
   while (trail.length > trailMaxLen) trail.shift();
 }
 
-/**
- * Robust Field Contour Path Tracer
- * Traces the continuous line segment chain directly between free space and walls, 
- * pushing the channel inward by an absolute spatial distance offset.
- */
-function drawQuantumEdgeChannel(ctx, dashOffset) {
-  ctx.strokeStyle = '#6ad0ff';
-  ctx.lineWidth = 3.5;
-  ctx.setLineDash([10, 10]);
-  ctx.lineDashOffset = dashOffset;
-  ctx.shadowBlur = 6;
-  ctx.shadowColor = '#6ad0ff';
+function drawEdgeChannel(dashOff) {
+  ctx.strokeStyle = C.edgeChannel;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([10,10]);
+  ctx.lineDashOffset = dashOff;
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = C.edgeShadow;
 
-  // Fixed scalar offset distance from the yellow wall surface
-  const spatialOffset = 12; 
-
-  // Direct trace path loops around the outer bounding box topology
+  const off = 12;
   ctx.beginPath();
-  
-  let loopStarted = false;
-  
-  // We trace clockwise around the internal perimeter geometry
-  // 1. Top edge (Left to Right)
-  for (let x = defaultPad; x <= W - defaultPad; x += 4) {
-    let targetY = defaultPad;
-    while (targetY < H / 2 && sampleGridField(x, targetY) > 0.5) {
-      targetY += 2;
-    }
-    const norm = getGridNormal(x, targetY);
-    const px = x + norm.nx * spatialOffset;
-    const py = targetY + norm.ny * spatialOffset;
-    if (!loopStarted) { ctx.moveTo(px, py); loopStarted = true; } 
-    else { ctx.lineTo(px, py); }
+  let started = false;
+
+  const pt = (x, y) => {
+    const n = gridNormal(x, y);
+    const px = x + n.nx*off, py = y + n.ny*off;
+    started ? ctx.lineTo(px, py) : (ctx.moveTo(px, py), started = true);
+  };
+
+  for (let x = defaultPad; x <= W-defaultPad; x += 4) {
+    let ty = defaultPad;
+    while (ty < H/2 && sampleGrid(x,ty) > 0.5) ty += 2;
+    pt(x, ty);
+  }
+  for (let y = defaultPad; y <= H-defaultPad; y += 4) {
+    let tx = W-defaultPad;
+    while (tx > W/2 && sampleGrid(tx,y) > 0.5) tx -= 2;
+    pt(tx, y);
+  }
+  for (let x = W-defaultPad; x >= defaultPad; x -= 4) {
+    let ty = H-defaultPad;
+    while (ty > H/2 && sampleGrid(x,ty) > 0.5) ty -= 2;
+    pt(x, ty);
+  }
+  for (let y = H-defaultPad; y >= defaultPad; y -= 4) {
+    let tx = defaultPad;
+    while (tx < W/2 && sampleGrid(tx,y) > 0.5) tx += 2;
+    pt(tx, y);
   }
 
-  // 2. Right edge (Top to Bottom)
-  for (let y = defaultPad; y <= H - defaultPad; y += 4) {
-    let targetX = W - defaultPad;
-    while (targetX > W / 2 && sampleGridField(targetX, y) > 0.5) {
-      targetX -= 2;
-    }
-    const norm = getGridNormal(targetX, y);
-    ctx.lineTo(targetX + norm.nx * spatialOffset, y + norm.ny * spatialOffset);
-  }
-
-  // 3. Bottom edge (Right to Left)
-  for (let x = W - defaultPad; x >= defaultPad; x -= 4) {
-    let targetY = H - defaultPad;
-    while (targetY > H / 2 && sampleGridField(x, targetY) > 0.5) {
-      targetY -= 2;
-    }
-    const norm = getGridNormal(x, targetY);
-    ctx.lineTo(x + norm.nx * spatialOffset, targetY + norm.ny * spatialOffset);
-  }
-
-  // 4. Left edge (Bottom to Top)
-  for (let y = H - defaultPad; y >= defaultPad; y -= 4) {
-    let targetX = defaultPad;
-    while (targetX < W / 2 && sampleGridField(targetX, y) > 0.5) {
-      targetX += 2;
-    }
-    const norm = getGridNormal(targetX, y);
-    ctx.lineTo(targetX + norm.nx * spatialOffset, y + norm.ny * spatialOffset);
-  }
-
-  ctx.closePath();
-  ctx.stroke();
-
-  ctx.setLineDash([]);
-  ctx.shadowBlur = 0;
+  ctx.closePath(); ctx.stroke();
+  ctx.setLineDash([]); ctx.shadowBlur = 0;
 }
 
-let dashOffset = 0;
-
 function render() {
-  ctx.fillStyle = '#0a0e1a';
+  ctx.fillStyle = C.bg;
   ctx.fillRect(0, 0, W, H);
 
-  // Render Background Bulk Orbits Reference Grid
-  if (!isQuantumPicture) {
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
-    ctx.lineWidth = 1;
-    for (let x = 35; x < W - 35; x += 45) {
-      for (let y = 35; y < H - 35; y += 45) {
-        if (sampleGridField(x, y) < 0.5 && sampleGridField(x + cyclotronRadius, y) < 0.5 && sampleGridField(x, y + cyclotronRadius) < 0.5) {
-          ctx.beginPath();
-          ctx.arc(x, y, cyclotronRadius, 0, 2 * Math.PI);
-          ctx.stroke();
-        }
-      }
-    }
-  }
 
-  // Draw Matrix Fields
-  for (let y = 1; y < rows - 1; y++) {
-    for (let x = 1; x < cols - 1; x++) {
-      if (wallGrid[y * cols + x] > 0.5) {
-        const right = wallGrid[y * cols + (x + 1)];
-        const left = wallGrid[y * cols + (x - 1)];
-        const down = wallGrid[(y + 1) * cols + x];
-        const up = wallGrid[(y - 1) * cols + x];
-        
-        if (right < 0.5 || left < 0.5 || down < 0.5 || up < 0.5) {
-          ctx.fillStyle = '#ffcc44';
-          ctx.fillRect(x * gridScale, y * gridScale, gridScale, gridScale);
+
+  // wall cells
+  for (let y = 1; y < rows-1; y++) {
+    for (let x = 1; x < cols-1; x++) {
+      if (wallGrid[y*cols+x] > 0.5) {
+        const r = wallGrid[y*cols+(x+1)], l = wallGrid[y*cols+(x-1)];
+        const d = wallGrid[(y+1)*cols+x], u = wallGrid[(y-1)*cols+x];
+        if (r < 0.5 || l < 0.5 || d < 0.5 || u < 0.5) {
+          ctx.fillStyle = C.wall;
         } else {
-          ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
-          ctx.fillRect(x * gridScale, y * gridScale, gridScale, gridScale);
+          ctx.fillStyle = C.wallBg;
         }
+        ctx.fillRect(x*gridScale, y*gridScale, gridScale, gridScale);
       }
     }
   }
 
   if (isQuantumPicture) {
-    // Execute robust continuous vector contour trace
-    drawQuantumEdgeChannel(ctx, dashOffset);
-    dashOffset -= 1.8; 
+    drawEdgeChannel(dashOffset);
+    dashOffset -= 1.8;
   } else {
-    // Classical Skipping Orbits Traces
+    // trail
+    ctx.lineWidth = 2.5; ctx.lineCap = 'round';
     const L = trail.length;
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
     for (let i = 1; i < L; i++) {
+      const alpha = 0.08 + (i/L)*0.92;
+      ctx.strokeStyle = `rgba(${C.trail},${alpha.toFixed(2)})`;
       ctx.beginPath();
-      ctx.moveTo(trail[i - 1].x, trail[i - 1].y);
-      ctx.lineTo(trail[i].x, trail[i].y);
-      ctx.strokeStyle = `rgba(106, 208, 255, ${0.1 + (i / L) * 0.95})`;
+      ctx.moveTo(trail[i-1].x, trail[i-1].y);
+      ctx.lineTo(trail[i].x,   trail[i].y);
       ctx.stroke();
     }
-
-    // Active skipping electron point core
+    // electron
+    ctx.fillStyle = C.edgeChannel;
+    ctx.beginPath(); ctx.arc(electron.x, electron.y, 5, 0, 2*Math.PI); ctx.fill();
     ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(electron.x, electron.y, 4, 0, 2 * Math.PI);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(electron.x, electron.y, 2, 0, 2*Math.PI); ctx.fill();
   }
 }
 
 function loop() {
-  if (!isQuantumPicture) {
-    for (let i = 0; i < substeps; i++) step();
-  }
+  if (!isQuantumPicture) for (let i = 0; i < substeps; i++) step();
   render();
   requestAnimationFrame(loop);
 }
 
-canvas.addEventListener('pointerdown', (e) => {
-  e.preventDefault();
-  handleCanvasInteraction(e.clientX, e.clientY);
-});
+canvas.addEventListener('pointerdown', e => { e.preventDefault(); handleInteraction(e.clientX, e.clientY); });
 
-document.getElementById('picture-toggle').addEventListener('change', (e) => {
+document.getElementById('picture-toggle').addEventListener('change', function(e) {
   isQuantumPicture = e.target.checked;
-  const trailLegend = document.getElementById('legend-trail');
+  const leg = document.getElementById('legend-trail');
   if (isQuantumPicture) {
-    trailLegend.innerHTML = '<span class="line" style="border-style:dashed; border-color:#6ad0ff"></span> Quantum Chiral Edge Channel';
+    leg.innerHTML = '<span class="line" style="border-style:dashed;border-color:#2563eb"></span><span>Quantum chiral edge channel</span>';
   } else {
-    trailLegend.innerHTML = '<span class="line" style="border-color:#6ad0ff"></span> Fast Edge-Skipping State';
+    leg.innerHTML = '<span class="line" style="border-color:#2563eb"></span><span>Edge-skipping state</span>';
     resetElectron();
   }
 });
 
-document.getElementById('reset-btn').addEventListener('click', () => {
-  resetGrid();
-  resetElectron();
-});
-
+document.getElementById('reset-btn').addEventListener('click', () => { resetGrid(); resetElectron(); });
 window.addEventListener('resize', setupCanvas);
 
-resetGrid();
-resetElectron();
-loop();
+resetGrid(); resetElectron(); loop();
 </script>
 </body>
 </html>
