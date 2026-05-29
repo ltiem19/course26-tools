@@ -7,39 +7,39 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.24.1/plotly.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0f172a; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; min-height: 100vh; }
+  body { background: #f1f5f9; color: #1e293b; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; min-height: 100vh; }
   .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
-  header { border-bottom: 1px solid #334155; padding-bottom: 12px; margin-bottom: 16px; }
-  header h1 { font-size: clamp(16px, 4vw, 22px); font-weight: 700; color: #38bdf8; letter-spacing: 0.03em; }
-  header p { font-size: 12px; color: #64748b; margin-top: 4px; }
+  header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 16px; }
+  header h1 { font-size: clamp(16px, 4vw, 22px); font-weight: 700; color: #1d4ed8; letter-spacing: 0.02em; }
+  header p  { font-size: 12px; color: #64748b; margin-top: 4px; }
   .main { display: grid; grid-template-columns: 1fr; gap: 16px; }
   @media (min-width: 900px) { .main { grid-template-columns: 260px 1fr; } }
-  .panel { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px; }
-  .panel h2 { font-size: 14px; font-weight: 600; color: #cbd5e1; border-bottom: 1px solid #334155; padding-bottom: 8px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
-  .ctrl { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
-  .ctrl-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; }
-  .ctrl-row label { color: #94a3b8; }
-  .ctrl-row .val { color: #38bdf8; font-family: monospace; font-weight: 700; font-size: 13px; }
-  input[type=range] { width: 100%; height: 6px; -webkit-appearance: none; appearance: none; background: #334155; border-radius: 4px; outline: none; cursor: pointer; }
-  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #38bdf8; cursor: pointer; }
-  input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #38bdf8; cursor: pointer; border: none; }
-  select { background: #334155; border: 1px solid #475569; border-radius: 6px; padding: 6px 8px; font-size: 13px; font-family: monospace; color: #e2e8f0; width: 100%; outline: none; cursor: pointer; }
-  .sub { font-size: 11px; color: #475569; font-family: monospace; margin-top: 2px; }
-  .plot-wrap { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 8px; }
+  .panel { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+  .panel h2 { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 14px; }
+  .ctrl { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .ctrl-row { display: flex; justify-content: space-between; align-items: baseline; }
+  .ctrl-row label { font-size: 13px; color: #475569; font-weight: 500; }
+  .ctrl-row .val { font-family: monospace; font-weight: 700; font-size: 13px; color: #2563eb; background: #eff6ff; padding: 1px 6px; border-radius: 4px; }
+  input[type=range] { width: 100%; height: 5px; -webkit-appearance: none; appearance: none; background: #e2e8f0; border-radius: 4px; outline: none; cursor: pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #2563eb; cursor: pointer; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #bfdbfe; }
+  input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #2563eb; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 0 2px #bfdbfe; }
+  select { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: monospace; color: #1e293b; width: 100%; outline: none; cursor: pointer; }
+  select:focus { border-color: #2563eb; }
+  .sub { font-size: 11px; color: #94a3b8; font-family: monospace; margin-top: 1px; }
+  .plot-wrap { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
   #plot { width: 100%; height: clamp(300px, 50vw, 520px); }
-  footer { margin-top: 16px; background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 14px 16px; }
-  footer h3 { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
-  .eq { font-size: 12px; color: #64748b; font-family: monospace; line-height: 1.8; }
-  .eq span { color: #7dd3fc; }
-  .divider { border-top: 1px solid #334155; margin: 10px 0; }
-  .select-row { margin-bottom: 0; }
+  .divider { border-top: 1px solid #e2e8f0; margin: 12px 0; }
+  footer { margin-top: 16px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+  footer h3 { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+  .eq { font-size: 12px; color: #475569; font-family: monospace; line-height: 2.0; }
+  .eq span { color: #1d4ed8; font-weight: 600; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1>Shubnikov–de Haas (SdH) Simulator</h1>
-    <p>Lifshitz–Kosevich quantum transport model · cross-browser</p>
+    <p>Lifshitz–Kosevich quantum transport model</p>
   </header>
   <div class="main">
     <div class="panel">
@@ -80,8 +80,8 @@
 
       <div class="divider"></div>
 
-      <div class="ctrl select-row">
-        <label style="font-size:13px;color:#94a3b8;display:block;margin-bottom:6px;">Max field (B<sub>max</sub>)</label>
+      <div class="ctrl">
+        <label style="font-size:13px;color:#475569;font-weight:500;display:block;margin-bottom:6px;">Max field (B<sub>max</sub>)</label>
         <select id="maxb">
           <option value="2">2 Tesla</option>
           <option value="5" selected>5 Tesla</option>
@@ -99,10 +99,10 @@
     <h3>LK Framework — Damping Factors</h3>
     <div class="eq">
       <span>ωcτ</span> = eBτ / (m* m₀)<br>
-      <span>R_D</span> = exp(−π / ωcτ)  [Dingle factor]<br>
+      <span>R_D</span> = exp(−π / ωcτ)   [Dingle factor]<br>
       <span>λ_T</span> = (2π² k_B m* m₀ T) / (ℏ eB)  ≈  14.693 · m* · T / B<br>
-      <span>R_T</span> = λ_T / sinh(λ_T)  [thermal factor]<br>
-      <span>Δσ</span> ∝ R_T · R_D · cos(2π · n·π·ℏ / eB)
+      <span>R_T</span> = λ_T / sinh(λ_T)   [thermal factor]<br>
+      <span>Δσ</span> ∝ R_T · R_D · cos(2π · nπℏ / eB)
     </div>
   </footer>
 </div>
@@ -113,31 +113,30 @@
   const hbar = h / (2 * pi);
   const e    = 1.60217663e-19;
   const m0   = 9.1093837e-31;
-  const TC   = 14.69317; // 2π²k_B m₀ / (ℏ e)
+  const TC   = 14.69317;
 
   const $ = id => document.getElementById(id);
 
   function fmt_tau(fs) {
-    if (fs >= 1000) return (fs / 1000).toFixed(2) + ' ps';
-    return fs.toFixed(0) + ' fs';
+    return fs >= 1000 ? (fs/1000).toFixed(2)+' ps' : fs.toFixed(0)+' fs';
   }
   function fmt_exp(v) {
-    const e_ = Math.floor(Math.log10(Math.abs(v)));
-    const m  = (v / Math.pow(10, e_)).toFixed(2);
-    return `τ = ${m}×10${e_ >= 0 ? '⁺' : '⁻'}${String(Math.abs(e_)).split('').map(d=>'⁰¹²³⁴⁵⁶⁷⁸⁹'[+d]).join('')} s`;
+    const exp = Math.floor(Math.log10(Math.abs(v)));
+    const man = (v / Math.pow(10, exp)).toFixed(2);
+    const sup = n => String(Math.abs(n)).split('').map(d=>'⁰¹²³⁴⁵⁶⁷⁸⁹'[+d]).join('');
+    return `τ = ${man}×10${exp<0?'⁻':''}${sup(exp)} s`;
   }
 
   function compute() {
-    const meff  = parseFloat($('meff').value);
-    const T     = parseFloat($('temp').value);
-    const tau_fs= parseFloat($('tau').value);
-    const tau   = tau_fs * 1e-15;
-    const n     = parseFloat($('dens').value) * 1e15;
-    const maxB  = parseFloat($('maxb').value);
+    const meff   = parseFloat($('meff').value);
+    const T      = parseFloat($('temp').value);
+    const tau_fs = parseFloat($('tau').value);
+    const tau    = tau_fs * 1e-15;
+    const n      = parseFloat($('dens').value) * 1e15;
+    const maxB   = parseFloat($('maxb').value);
 
-    // update labels
     $('v_meff').textContent    = meff.toFixed(3);
-    $('v_temp').textContent    = T.toFixed(1) + ' K';
+    $('v_temp').textContent    = T.toFixed(1)+' K';
     $('v_tau').textContent     = fmt_tau(tau_fs);
     $('v_tau_raw').textContent = fmt_exp(tau);
     $('v_dens').innerHTML      = `${parseFloat($('dens').value).toFixed(2)} ×10¹⁵ m⁻²`;
@@ -156,37 +155,48 @@
     return { x: Bv, y: yv };
   }
 
-  let plotInitialized = false;
+  let inited = false;
 
   function render() {
     const d = compute();
     const trace = {
       x: d.x, y: d.y,
       type: 'scatter', mode: 'lines',
-      line: { color: '#38bdf8', width: 1.8 },
-      name: 'Δσ', hovertemplate: 'B = %{x:.3f} T<br>Δσ = %{y:.4f}<extra></extra>'
+      line: { color: '#2563eb', width: 2 },
+      name: 'Δσ',
+      hovertemplate: 'B = %{x:.3f} T<br>Δσ = %{y:.4f}<extra></extra>'
     };
     const layout = {
-      paper_bgcolor: '#1e293b', plot_bgcolor: '#1e293b',
-      font: { color: '#e2e8f0', size: 12 },
-      title: { text: 'Δσ vs B (LK model)', font: { size: 14, color: '#e2e8f0' }, x: 0.05 },
-      xaxis: { title: 'B (T)', gridcolor: '#334155', zerolinecolor: '#475569', tickfont: { size: 11 } },
-      yaxis: { title: 'Δσ (arb. u.)', gridcolor: '#334155', zerolinecolor: '#475569', tickfont: { size: 11 }, range: [-1.05, 1.05] },
+      paper_bgcolor: '#ffffff',
+      plot_bgcolor:  '#f8fafc',
+      font: { color: '#1e293b', size: 12 },
+      title: { text: 'Δσ vs B (LK model)', font: { size: 14, color: '#1e293b' }, x: 0.05 },
+      xaxis: {
+        title: 'B (T)',
+        gridcolor: '#e2e8f0', zerolinecolor: '#94a3b8',
+        tickfont: { size: 11, color: '#475569' },
+        titlefont: { color: '#475569' },
+        linecolor: '#cbd5e1', mirror: true
+      },
+      yaxis: {
+        title: 'Δσ (arb. u.)',
+        gridcolor: '#e2e8f0', zerolinecolor: '#94a3b8',
+        tickfont: { size: 11, color: '#475569' },
+        titlefont: { color: '#475569' },
+        linecolor: '#cbd5e1', mirror: true,
+        range: [-1.05, 1.05]
+      },
       margin: { t: 42, b: 48, l: 54, r: 16 },
       hovermode: 'x unified'
     };
     const cfg = { responsive: true, displayModeBar: false };
-    if (!plotInitialized) {
-      Plotly.newPlot('plot', [trace], layout, cfg);
-      plotInitialized = true;
-    } else {
-      Plotly.react('plot', [trace], layout, cfg);
-    }
+    if (!inited) { Plotly.newPlot('plot', [trace], layout, cfg); inited = true; }
+    else          { Plotly.react ('plot', [trace], layout, cfg); }
   }
 
   ['meff','temp','tau','dens','maxb'].forEach(id => {
-    $(''+id).addEventListener('input',  render);
-    $(''+id).addEventListener('change', render);
+    $(id).addEventListener('input',  render);
+    $(id).addEventListener('change', render);
   });
 
   render();
