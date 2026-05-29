@@ -4,179 +4,96 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0a0e1a">
-<title>Cyclotron + disorder</title>
+<meta name="theme-color" content="#f1f5f9">
+<title>Cyclotron + Landau Quantization</title>
 <style>
-:root {
-  --bg: #0a0e1a;
-  --panel: #131929;
-  --border: #1f2942;
-  --text: #e8ecf4;
-  --muted: #8893a8;
-  --accent: #6ad0ff;
-  --accent-dim: #3a7ba0;
-}
 *, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+  box-sizing: border-box; margin: 0; padding: 0;
   -webkit-tap-highlight-color: transparent;
 }
 html, body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: #f1f5f9;
+  color: #1e293b;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   overscroll-behavior: none;
 }
-body {
-  padding: 12px;
-  min-height: 100vh;
-  min-height: 100dvh;
-}
+body { padding: 12px; min-height: 100vh; min-height: 100dvh; }
 .container {
-  max-width: 1100px;
-  margin: 0 auto;
-  display: grid;
-  gap: 12px;
+  max-width: 1100px; margin: 0 auto;
+  display: grid; gap: 12px;
 }
 @media (min-width: 820px) {
-  .container { grid-template-columns: 1fr 280px; align-items: start; }
+  .container { grid-template-columns: 1fr 260px; align-items: start; }
 }
-.left-column {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-}
+.left-column { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .canvas-wrap {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px;
-  position: relative;
+  background: #ffffff; border: 1px solid #cbd5e1;
+  border-radius: 10px; padding: 6px; position: relative;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
 }
 canvas {
-  display: block;
-  width: 100%;
-  height: auto;
-  background: #0a0e1a;
-  border-radius: 4px;
-  touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
+  display: block; width: 100%; height: auto;
+  border-radius: 6px; touch-action: none;
+  -webkit-user-select: none; user-select: none;
 }
 .legend {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  font-size: 11px;
-  color: var(--muted);
-  background: rgba(10, 14, 26, 0.72);
-  padding: 6px 9px;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  position: absolute; top: 14px; right: 14px;
+  font-size: 11px; color: #475569;
+  background: rgba(255,255,255,0.92);
+  padding: 6px 9px; border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  display: flex; flex-direction: column; gap: 3px;
   pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 .legend .dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 6px;
-  vertical-align: middle;
+  display: inline-block; width: 8px; height: 8px;
+  border-radius: 50%; margin-right: 6px; vertical-align: middle;
 }
 .controls {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  background: #ffffff; border: 1px solid #cbd5e1;
+  border-radius: 10px; padding: 16px;
+  display: flex; flex-direction: column; gap: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
 }
-.title {
-  font-size: 14px;
-  font-weight: 600;
-}
-.subtitle {
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 3px;
-  line-height: 1.4;
-}
-.control-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.label-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  font-size: 12px;
-}
-.label-name { color: var(--muted); }
+.ctrl-title { font-size: 14px; font-weight: 700; color: #1e293b; }
+.ctrl-subtitle { font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.5; }
+.control-group { display: flex; flex-direction: column; gap: 6px; }
+.label-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; }
+.label-name { color: #475569; font-weight: 500; }
 .label-value {
-  color: var(--accent);
-  font-family: 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 13px;
+  color: #2563eb; font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 13px; font-weight: 700;
+  background: #eff6ff; padding: 1px 7px; border-radius: 4px;
 }
 input[type="range"] {
-  width: 100%;
-  -webkit-appearance: none;
-  appearance: none;
-  height: 6px;
-  background: #2a3550;
-  border-radius: 3px;
-  outline: none;
+  width: 100%; -webkit-appearance: none; appearance: none;
+  height: 5px; background: #e2e8f0; border-radius: 3px; outline: none;
   touch-action: manipulation;
 }
 input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 22px;
-  height: 22px;
-  background: var(--accent);
-  border-radius: 50%;
-  cursor: pointer;
-  box-shadow: 0 0 8px rgba(106, 208, 255, 0.5);
+  -webkit-appearance: none; appearance: none;
+  width: 22px; height: 22px; background: #2563eb;
+  border-radius: 50%; cursor: pointer;
+  box-shadow: 0 0 0 3px #fff, 0 0 0 5px #bfdbfe;
   border: none;
 }
 input[type="range"]::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
-  background: var(--accent);
-  border-radius: 50%;
-  cursor: pointer;
-  border: none;
-  box-shadow: 0 0 8px rgba(106, 208, 255, 0.5);
+  width: 22px; height: 22px; background: #2563eb;
+  border-radius: 50%; cursor: pointer; border: 2px solid #fff;
+  box-shadow: 0 0 0 3px #bfdbfe;
 }
 button {
-  background: #1f2942;
-  color: var(--text);
-  border: 1px solid var(--border);
-  padding: 10px 8px;
-  min-height: 44px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  font-family: inherit;
-  flex: 1;
-  touch-action: manipulation;
+  background: #f8fafc; color: #1e293b;
+  border: 1px solid #cbd5e1; padding: 10px 8px;
+  min-height: 44px; border-radius: 7px; cursor: pointer;
+  font-size: 13px; font-family: inherit; font-weight: 500;
+  flex: 1; touch-action: manipulation; transition: background 0.1s;
 }
-button:active { background: #2a3a5a; border-color: var(--accent-dim); }
-@media (hover: hover) {
-  button:hover { background: #2a3a5a; border-color: var(--accent-dim); }
-}
-.button-row {
-  display: flex;
-  gap: 8px;
-}
+button:active, button:hover { background: #e0f2fe; border-color: #93c5fd; color: #1d4ed8; }
+.button-row { display: flex; gap: 8px; }
 </style>
 </head>
 <body>
@@ -185,21 +102,19 @@ button:active { background: #2a3a5a; border-color: var(--accent-dim); }
     <div class="canvas-wrap">
       <canvas id="canvas"></canvas>
       <div class="legend">
-        <div><span class="dot" style="background:#7cdcff"></span>electron</div>
+        <div><span class="dot" style="background:#2563eb"></span>electron</div>
         <div>⊙ B out of page</div>
       </div>
     </div>
     <div class="canvas-wrap">
       <canvas id="energy-canvas"></canvas>
-      <div class="legend">
-        <div>E(kₓ,kᵧ) Quantization & Top View</div>
-      </div>
+      <div class="legend">E(kₓ,kᵧ) Quantization &amp; Top View</div>
     </div>
   </div>
   <div class="controls">
     <div>
-      <div class="title">Cyclotron + disorder</div>
-      <div class="subtitle">Tap canvas to place the electron. Hard walls → skipping orbits at the edges.</div>
+      <div class="ctrl-title">Cyclotron + Landau Quantization</div>
+      <div class="ctrl-subtitle">Tap canvas to place the electron. Hard walls → skipping orbits at edges.</div>
     </div>
     <div class="control-group">
       <div class="label-row">
@@ -215,424 +130,342 @@ button:active { background: #2a3a5a; border-color: var(--accent-dim); }
     </div>
   </div>
 </div>
+
 <script>
+// ── canvas setup ──────────────────────────────────────────────
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
-
 const energyCanvas = document.getElementById('energy-canvas');
 const eCtx = energyCanvas.getContext('2d');
 
-const W = 700;
-const H = 500;
-const EW = 700;
-const EH = 450;
+const W = 700, H = 500, EW = 700, EH = 450;
 const wallPad = 6;
+
+// color palette (light)
+const C = {
+  bg:       '#f8fafc',
+  grid:     '#e2e8f0',
+  wall:     '#94a3b8',
+  fieldDot: 'rgba(37,99,235,',   // needs alpha appended
+  trail:    'rgba(37,99,235,',
+  electron: '#2563eb',
+  eGlow:    'rgba(37,99,235,',
+  axes:     '#64748b',
+  text:     '#1e293b',
+  muted:    '#64748b',
+  fermi:    'rgba(37,99,235,',
+  landau:   '#dc2626',
+  landauDim:'rgba(220,38,38,',
+  paraboloid:'rgba(220,38,38,',
+};
 
 function setupCanvas() {
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.floor(W * dpr);
-  canvas.height = Math.floor(H * dpr);
+  canvas.width  = Math.floor(W  * dpr);
+  canvas.height = Math.floor(H  * dpr);
   canvas.style.aspectRatio = W + ' / ' + H;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.setTransform(1,0,0,1,0,0);
   ctx.scale(dpr, dpr);
 
-  energyCanvas.width = Math.floor(EW * dpr);
+  energyCanvas.width  = Math.floor(EW * dpr);
   energyCanvas.height = Math.floor(EH * dpr);
   energyCanvas.style.aspectRatio = EW + ' / ' + EH;
-  eCtx.setTransform(1, 0, 0, 1, 0, 0);
+  eCtx.setTransform(1,0,0,1,0,0);
   eCtx.scale(dpr, dpr);
 }
 setupCanvas();
 
-let B = 0;
-let electron = null;
-let trail = [];
-let trailMaxLen = 700;
-let trailMode = 'long';
-let isPaused = false;
+// ── state ─────────────────────────────────────────────────────
+let B = 0, electron = null, trail = [];
+let trailMode = 'long', isPaused = false;
 
-const speedScale = 150;
-const baseDt = 1/60;
-const substeps = 4;
-const dt = baseDt / substeps;
+const speedScale = 150, baseDt = 1/60, substeps = 4, dt = baseDt / substeps;
+const gridSteps = 26, maxEnergyVal = 210, EFermi = 115, energyScale = 22;
+const kMax = 160, cCoeff = maxEnergyVal / (kMax * kMax);
 
-const gridSteps = 26;
-const maxEnergyVal = 210;
-const EFermi = 115;
-
+// ── helpers ───────────────────────────────────────────────────
 function placeElectron(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
-  const sx = W / rect.width;
-  const sy = H / rect.height;
-  let x = (clientX - rect.left) * sx;
-  let y = (clientY - rect.top) * sy;
-  x = Math.max(wallPad + 3, Math.min(W - wallPad - 3, x));
-  y = Math.max(wallPad + 3, Math.min(H - wallPad - 3, y));
-  electron = { x, y, vx: 0, vy: 0 };
+  const sx = W / rect.width, sy = H / rect.height;
+  let x = Math.max(wallPad+3, Math.min(W-wallPad-3, (clientX - rect.left) * sx));
+  let y = Math.max(wallPad+3, Math.min(H-wallPad-3, (clientY - rect.top)  * sy));
   const angle = Math.random() * 2 * Math.PI;
-  electron.vx = Math.cos(angle);
-  electron.vy = Math.sin(angle);
+  electron = { x, y, vx: Math.cos(angle), vy: Math.sin(angle) };
   trail = [];
 }
 
-function reset() {
-  electron = null;
-  trail = [];
-}
+function reset() { electron = null; trail = []; }
 
 function step() {
-  if (electron === null) return;
-
+  if (!electron) return;
   const dtheta = B * dt;
   if (dtheta !== 0) {
-    const c = Math.cos(dtheta);
-    const s = Math.sin(dtheta);
-    const nvx = c * electron.vx - s * electron.vy;
-    const nvy = s * electron.vx + c * electron.vy;
-    electron.vx = nvx;
-    electron.vy = nvy;
+    const c = Math.cos(dtheta), s = Math.sin(dtheta);
+    const nvx =  c * electron.vx - s * electron.vy;
+    const nvy =  s * electron.vx + c * electron.vy;
+    electron.vx = nvx; electron.vy = nvy;
   }
-
   electron.x += electron.vx * speedScale * dt;
   electron.y += electron.vy * speedScale * dt;
-
   const xMin = wallPad, xMax = W - wallPad;
   const yMin = wallPad, yMax = H - wallPad;
-  if (electron.x < xMin) { electron.x = 2 * xMin - electron.x; electron.vx = -electron.vx; }
-  else if (electron.x > xMax) { electron.x = 2 * xMax - electron.x; electron.vx = -electron.vx; }
-  if (electron.y < yMin) { electron.y = 2 * yMin - electron.y; electron.vy = -electron.vy; }
-  else if (electron.y > yMax) { electron.y = 2 * yMax - electron.y; electron.vy = -electron.vy; }
-
+  if (electron.x < xMin) { electron.x = 2*xMin - electron.x; electron.vx = -electron.vx; }
+  else if (electron.x > xMax) { electron.x = 2*xMax - electron.x; electron.vx = -electron.vx; }
+  if (electron.y < yMin) { electron.y = 2*yMin - electron.y; electron.vy = -electron.vy; }
+  else if (electron.y > yMax) { electron.y = 2*yMax - electron.y; electron.vy = -electron.vy; }
   trail.push({ x: electron.x, y: electron.y });
-  const cap = trailMode === 'long' ? trailMaxLen : 120;
+  const cap = trailMode === 'long' ? 700 : 120;
   while (trail.length > cap) trail.shift();
 }
 
+// ── render: cyclotron canvas ──────────────────────────────────
 function render() {
-  ctx.fillStyle = '#0a0e1a';
+  ctx.fillStyle = C.bg;
   ctx.fillRect(0, 0, W, H);
 
-  ctx.strokeStyle = '#141c2e';
-  ctx.lineWidth = 0.5;
-  for (let i = 50; i < W; i += 50) {
-    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke();
-  }
-  for (let i = 50; i < H; i += 50) {
-    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke();
-  }
+  // grid
+  ctx.strokeStyle = C.grid; ctx.lineWidth = 0.8;
+  for (let i = 50; i < W; i += 50) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,H); ctx.stroke(); }
+  for (let j = 50; j < H; j += 50) { ctx.beginPath(); ctx.moveTo(0,j); ctx.lineTo(W,j); ctx.stroke(); }
 
-  ctx.strokeStyle = '#3a4868';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(wallPad, wallPad, W - 2 * wallPad, H - 2 * wallPad);
+  // wall
+  ctx.strokeStyle = C.wall; ctx.lineWidth = 2;
+  ctx.strokeRect(wallPad, wallPad, W - 2*wallPad, H - 2*wallPad);
 
-  const fieldAlpha = Math.min(0.35, 0.06 + B * 0.04);
-  ctx.strokeStyle = 'rgba(120, 170, 230, ' + fieldAlpha + ')';
-  ctx.fillStyle = 'rgba(120, 170, 230, ' + fieldAlpha + ')';
+  // B field dots
+  const fa = Math.min(0.5, 0.08 + B * 0.05);
+  ctx.strokeStyle = C.fieldDot + fa + ')';
+  ctx.fillStyle   = C.fieldDot + fa + ')';
   ctx.lineWidth = 1;
-  for (let i = 60; i < W - 30; i += 100) {
-    for (let j = 60; j < H - 30; j += 100) {
-      ctx.beginPath(); ctx.arc(i, j, 6, 0, 2 * Math.PI); ctx.stroke();
-      ctx.beginPath(); ctx.arc(i, j, 1.5, 0, 2 * Math.PI); ctx.fill();
+  for (let i = 60; i < W-30; i += 100) {
+    for (let j = 60; j < H-30; j += 100) {
+      ctx.beginPath(); ctx.arc(i, j, 6, 0, 2*Math.PI); ctx.stroke();
+      ctx.beginPath(); ctx.arc(i, j, 1.5, 0, 2*Math.PI); ctx.fill();
     }
   }
 
-  if (electron === null) {
-    ctx.fillStyle = 'rgba(106, 208, 255, 0.7)';
-    ctx.font = '16px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Tap to place the electron and initiate simulation', W / 2, H / 2);
+  if (!electron) {
+    ctx.fillStyle = C.fieldDot + '0.6)';
+    ctx.font = '16px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Tap to place the electron', W/2, H/2);
     ctx.textAlign = 'left';
     return;
   }
 
-  ctx.lineWidth = 1.8;
-  ctx.lineCap = 'round';
+  // trail
+  ctx.lineWidth = 1.8; ctx.lineCap = 'round';
   const L = trail.length;
   for (let i = 1; i < L; i++) {
-    const p0 = trail[i - 1];
-    const p1 = trail[i];
-    const alpha = (i / L) * 0.85;
-    ctx.strokeStyle = 'rgba(124, 220, 255, ' + alpha + ')';
+    const alpha = (i / L) * 0.75;
+    ctx.strokeStyle = C.trail + alpha + ')';
     ctx.beginPath();
-    ctx.moveTo(p0.x, p0.y);
-    ctx.lineTo(p1.x, p1.y);
+    ctx.moveTo(trail[i-1].x, trail[i-1].y);
+    ctx.lineTo(trail[i].x,   trail[i].y);
     ctx.stroke();
   }
 
+  // glow
   const gsize = 16;
   const eg = ctx.createRadialGradient(electron.x, electron.y, 0, electron.x, electron.y, gsize);
-  eg.addColorStop(0, 'rgba(200, 245, 255, 1)');
-  eg.addColorStop(0.35, 'rgba(124, 220, 255, 0.55)');
-  eg.addColorStop(1, 'rgba(80, 150, 255, 0)');
+  eg.addColorStop(0,   C.eGlow + '0.35)');
+  eg.addColorStop(0.5, C.eGlow + '0.15)');
+  eg.addColorStop(1,   C.eGlow + '0)');
   ctx.fillStyle = eg;
-  ctx.beginPath();
-  ctx.arc(electron.x, electron.y, gsize, 0, 2 * Math.PI);
-  ctx.fill();
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.arc(electron.x, electron.y, 3.5, 0, 2 * Math.PI);
-  ctx.fill();
+  ctx.beginPath(); ctx.arc(electron.x, electron.y, gsize, 0, 2*Math.PI); ctx.fill();
 
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
-  ctx.lineWidth = 1.5;
+  // electron dot
+  ctx.fillStyle = C.electron;
+  ctx.beginPath(); ctx.arc(electron.x, electron.y, 5, 0, 2*Math.PI); ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.arc(electron.x, electron.y, 2, 0, 2*Math.PI); ctx.fill();
+
+  // velocity arrow
+  ctx.strokeStyle = '#334155'; ctx.lineWidth = 1.5;
   const aLen = 14;
   const tipX = electron.x + electron.vx * aLen;
   const tipY = electron.y + electron.vy * aLen;
-  ctx.beginPath();
-  ctx.moveTo(electron.x, electron.y);
-  ctx.lineTo(tipX, tipY);
-  ctx.stroke();
-  const headAng = Math.atan2(electron.vy, electron.vx);
-  const hs = 4;
+  ctx.beginPath(); ctx.moveTo(electron.x, electron.y); ctx.lineTo(tipX, tipY); ctx.stroke();
+  const ha = Math.atan2(electron.vy, electron.vx), hs = 4;
   ctx.beginPath();
   ctx.moveTo(tipX, tipY);
-  ctx.lineTo(tipX - hs * Math.cos(headAng - 0.4), tipY - hs * Math.sin(headAng - 0.4));
+  ctx.lineTo(tipX - hs*Math.cos(ha-0.4), tipY - hs*Math.sin(ha-0.4));
   ctx.moveTo(tipX, tipY);
-  ctx.lineTo(tipX - hs * Math.cos(headAng + 0.4), tipY - hs * Math.sin(headAng + 0.4));
+  ctx.lineTo(tipX - hs*Math.cos(ha+0.4), tipY - hs*Math.sin(ha+0.4));
   ctx.stroke();
 }
 
+// ── render: energy canvas ─────────────────────────────────────
 function renderEnergy() {
-  eCtx.fillStyle = '#0a0e1a';
+  eCtx.fillStyle = C.bg;
   eCtx.fillRect(0, 0, EW, EH);
 
-  const X0 = EW / 2 - 90;
-  const Y0 = EH - 80;
+  const X0 = EW/2 - 90, Y0 = EH - 80;
 
   function project(kx, ky, E) {
-    const isoX = kx - ky * 0.7;
-    const isoY = -E + ky * 0.35;
-    return { x: X0 + isoX, y: Y0 + isoY };
+    return { x: X0 + kx - ky*0.7, y: Y0 - E + ky*0.35 };
   }
 
-  const kMax = 160;
-  const cCoeff = maxEnergyVal / (kMax * kMax);
-  const energyScale = 22;
-
   if (B === 0) {
+    // continuous paraboloid
     eCtx.lineWidth = 1;
     for (let i = 0; i <= gridSteps; i++) {
-      const kx = -kMax + (2 * kMax * i) / gridSteps;
-      eCtx.beginPath();
-      let first = true;
+      const kx = -kMax + (2*kMax*i)/gridSteps;
+      eCtx.beginPath(); let first = true;
       for (let j = 0; j <= gridSteps; j++) {
-        const ky = -kMax + (2 * kMax * j) / gridSteps;
-        const E = cCoeff * (kx * kx + ky * ky);
+        const ky = -kMax + (2*kMax*j)/gridSteps;
+        const E = cCoeff*(kx*kx + ky*ky);
         if (E <= maxEnergyVal) {
           const pt = project(kx, ky, E);
-          if (first) { eCtx.moveTo(pt.x, pt.y); first = false; }
-          else { eCtx.lineTo(pt.x, pt.y); }
+          first ? eCtx.moveTo(pt.x, pt.y) : eCtx.lineTo(pt.x, pt.y);
+          first = false;
         }
       }
-      eCtx.strokeStyle = 'rgba(255, 51, 51, 0.28)';
-      eCtx.stroke();
+      eCtx.strokeStyle = C.paraboloid + '0.30)'; eCtx.stroke();
     }
     for (let j = 0; j <= gridSteps; j++) {
-      const ky = -kMax + (2 * kMax * j) / gridSteps;
-      eCtx.beginPath();
-      let first = true;
+      const ky = -kMax + (2*kMax*j)/gridSteps;
+      eCtx.beginPath(); let first = true;
       for (let i = 0; i <= gridSteps; i++) {
-        const kx = -kMax + (2 * kMax * i) / gridSteps;
-        const E = cCoeff * (kx * kx + ky * ky);
+        const kx = -kMax + (2*kMax*i)/gridSteps;
+        const E = cCoeff*(kx*kx + ky*ky);
         if (E <= maxEnergyVal) {
           const pt = project(kx, ky, E);
-          if (first) { eCtx.moveTo(pt.x, pt.y); first = false; }
-          else { eCtx.lineTo(pt.x, pt.y); }
+          first ? eCtx.moveTo(pt.x, pt.y) : eCtx.lineTo(pt.x, pt.y);
+          first = false;
         }
       }
-      eCtx.strokeStyle = 'rgba(255, 51, 51, 0.28)';
-      eCtx.stroke();
+      eCtx.strokeStyle = C.paraboloid + '0.30)'; eCtx.stroke();
     }
   } else {
-    eCtx.strokeStyle = '#ff3333';
-    eCtx.lineWidth = 3.5;
+    // Landau levels
+    eCtx.strokeStyle = C.landau; eCtx.lineWidth = 3;
     let N = 0;
     while (true) {
-      const energyFactor = (N + 0.5) * B;
-      const levelEnergy = energyFactor * energyScale;
-      if (levelEnergy > maxEnergyVal + 20) break;
-      const currentRadiusK = Math.sqrt(levelEnergy / cCoeff);
+      const levelE = (N + 0.5) * B * energyScale;
+      if (levelE > maxEnergyVal + 20) break;
+      const rk = Math.sqrt(levelE / cCoeff);
       eCtx.beginPath();
-      const ringSegments = 72;
-      for (let s = 0; s <= ringSegments; s++) {
-        const theta = (s * 2 * Math.PI) / ringSegments;
-        const kx = currentRadiusK * Math.cos(theta);
-        const ky = currentRadiusK * Math.sin(theta);
-        const pt = project(kx, ky, levelEnergy);
-        if (s === 0) eCtx.moveTo(pt.x, pt.y);
-        else eCtx.lineTo(pt.x, pt.y);
+      for (let s = 0; s <= 72; s++) {
+        const theta = s * 2*Math.PI / 72;
+        const pt = project(rk*Math.cos(theta), rk*Math.sin(theta), levelE);
+        s === 0 ? eCtx.moveTo(pt.x, pt.y) : eCtx.lineTo(pt.x, pt.y);
       }
       eCtx.stroke();
       if (B >= 1.0) {
-        const labelPt = project(-currentRadiusK, 0, levelEnergy);
-        eCtx.fillStyle = '#8893a8';
-        eCtx.font = '13px sans-serif';
-        eCtx.fillText(`N = ${N}`, labelPt.x - 45, labelPt.y + 4);
+        const lp = project(-rk, 0, levelE);
+        eCtx.fillStyle = C.muted; eCtx.font = '13px sans-serif';
+        eCtx.fillText(`N = ${N}`, lp.x - 48, lp.y + 4);
       }
       N++;
     }
+    // spacing bracket
     if (B >= 1.0) {
-      const e0 = (0.5 * B) * energyScale;
-      const e1 = (1.5 * B) * energyScale;
+      const e0 = 0.5 * B * energyScale, e1 = 1.5 * B * energyScale;
       if (e1 <= maxEnergyVal) {
         const r1 = Math.sqrt(e1 / cCoeff);
-        const bPt0 = project(r1, 0, e0);
-        const bPt1 = project(r1, 0, e1);
-        const bracketX = Math.max(bPt0.x, bPt1.x) + 20;
-        eCtx.strokeStyle = '#8893a8';
-        eCtx.lineWidth = 1.2;
+        const p0 = project(r1, 0, e0), p1 = project(r1, 0, e1);
+        const bx = Math.max(p0.x, p1.x) + 18;
+        eCtx.strokeStyle = C.muted; eCtx.lineWidth = 1.2;
         eCtx.beginPath();
-        eCtx.moveTo(bracketX - 4, bPt0.y);
-        eCtx.lineTo(bracketX, bPt0.y);
-        eCtx.lineTo(bracketX, bPt1.y);
-        eCtx.lineTo(bracketX - 4, bPt1.y);
+        eCtx.moveTo(bx-4, p0.y); eCtx.lineTo(bx, p0.y);
+        eCtx.lineTo(bx, p1.y);   eCtx.lineTo(bx-4, p1.y);
         eCtx.stroke();
-        eCtx.fillStyle = '#e8ecf4';
-        eCtx.font = '14px sans-serif';
-        eCtx.fillText('Δε_{ΔN=1} = ħ (eB / m*)', bracketX + 12, (bPt0.y + bPt1.y) / 2 + 5);
+        eCtx.fillStyle = C.text; eCtx.font = '13px sans-serif';
+        eCtx.fillText('Δε = ħ(eB/m*)', bx + 10, (p0.y + p1.y)/2 + 5);
       }
     }
   }
 
-  const rFermiK = Math.sqrt(EFermi / cCoeff);
-  eCtx.fillStyle = 'rgba(106, 208, 255, 0.14)';
-  eCtx.strokeStyle = 'rgba(106, 208, 255, 0.5)';
-  eCtx.lineWidth = 1;
-  eCtx.beginPath();
-  const planeSegments = 72;
-  for (let s = 0; s <= planeSegments; s++) {
-    const theta = (s * 2 * Math.PI) / planeSegments;
-    const kx = rFermiK * Math.cos(theta);
-    const ky = rFermiK * Math.sin(theta);
-    const pt = project(kx, ky, EFermi);
-    if (s === 0) eCtx.moveTo(pt.x, pt.y);
-    else eCtx.lineTo(pt.x, pt.y);
-  }
-  eCtx.fill();
-  eCtx.stroke();
-
-  const edgeLabelPt = project(rFermiK, 0, EFermi);
-  eCtx.fillStyle = '#6ad0ff';
-  eCtx.font = '12px sans-serif';
-  eCtx.fillText('E_F (Fermi Level)', edgeLabelPt.x + 8, edgeLabelPt.y + 4);
-
-  eCtx.strokeStyle = '#3a4868';
+  // Fermi level disk
+  const rF = Math.sqrt(EFermi / cCoeff);
+  eCtx.fillStyle   = C.fermi + '0.10)';
+  eCtx.strokeStyle = C.fermi + '0.55)';
   eCtx.lineWidth = 1.5;
-  eCtx.fillStyle = '#e8ecf4';
-  eCtx.font = 'italic 15px sans-serif';
+  eCtx.beginPath();
+  for (let s = 0; s <= 72; s++) {
+    const theta = s * 2*Math.PI / 72;
+    const pt = project(rF*Math.cos(theta), rF*Math.sin(theta), EFermi);
+    s === 0 ? eCtx.moveTo(pt.x, pt.y) : eCtx.lineTo(pt.x, pt.y);
+  }
+  eCtx.fill(); eCtx.stroke();
+  const ep = project(rF, 0, EFermi);
+  eCtx.fillStyle = '#1d4ed8'; eCtx.font = '12px sans-serif';
+  eCtx.fillText('E_F', ep.x + 8, ep.y + 4);
 
-  const axisE_top = project(0, 0, maxEnergyVal + 30);
-  const axisE_bot = project(0, 0, 0);
-  eCtx.beginPath();
-  eCtx.moveTo(axisE_bot.x, axisE_bot.y);
-  eCtx.lineTo(axisE_top.x, axisE_top.y);
-  eCtx.stroke();
-  eCtx.beginPath();
-  eCtx.moveTo(axisE_top.x - 4, axisE_top.y + 10);
-  eCtx.lineTo(axisE_top.x, axisE_top.y);
-  eCtx.lineTo(axisE_top.x + 4, axisE_top.y + 10);
-  eCtx.stroke();
-  eCtx.fillText('E', axisE_top.x - 18, axisE_top.y + 6);
-
-  const axisKx_end = project(kMax + 30, 0, 0);
-  eCtx.beginPath();
-  eCtx.moveTo(axisE_bot.x, axisE_bot.y);
-  eCtx.lineTo(axisKx_end.x, axisKx_end.y);
-  eCtx.stroke();
-  eCtx.fillText('kₓ', axisKx_end.x + 8, axisKx_end.y + 4);
-
-  const axisKy_end = project(0, kMax + 35, 0);
-  eCtx.beginPath();
-  eCtx.moveTo(axisE_bot.x, axisE_bot.y);
-  eCtx.lineTo(axisKy_end.x, axisKy_end.y);
-  eCtx.stroke();
-  eCtx.fillText('kᵧ', axisKy_end.x - 18, axisKy_end.y + 12);
+  // axes
+  eCtx.strokeStyle = C.axes; eCtx.lineWidth = 1.5;
+  eCtx.fillStyle = C.text; eCtx.font = 'italic 14px sans-serif';
+  const bot = project(0,0,0), top = project(0,0,maxEnergyVal+30);
+  const kxe = project(kMax+30,0,0), kye = project(0,kMax+35,0);
+  eCtx.beginPath(); eCtx.moveTo(bot.x,bot.y); eCtx.lineTo(top.x,top.y); eCtx.stroke();
+  eCtx.beginPath(); eCtx.moveTo(top.x-4,top.y+10); eCtx.lineTo(top.x,top.y); eCtx.lineTo(top.x+4,top.y+10); eCtx.stroke();
+  eCtx.fillText('E', top.x-18, top.y+6);
+  eCtx.beginPath(); eCtx.moveTo(bot.x,bot.y); eCtx.lineTo(kxe.x,kxe.y); eCtx.stroke();
+  eCtx.fillText('kₓ', kxe.x+8, kxe.y+4);
+  eCtx.beginPath(); eCtx.moveTo(bot.x,bot.y); eCtx.lineTo(kye.x,kye.y); eCtx.stroke();
+  eCtx.fillText('kᵧ', kye.x-18, kye.y+12);
 
   if (B === 0) {
-    eCtx.fillStyle = '#8893a8';
-    eCtx.font = '14px sans-serif';
-    eCtx.fillText('B = 0: Continuous Paraboloid State Spectrum', X0 - 110, Y0 + 45);
+    eCtx.fillStyle = C.muted; eCtx.font = '13px sans-serif';
+    eCtx.fillText('B = 0: continuous paraboloid E(k)', X0 - 100, Y0 + 45);
   }
 
-  const viewW = 150;
-  const viewH = 150;
-  const viewX0 = EW - viewW - 25;
-  const viewY0 = 30;
+  // ── top-view inset ──
+  const vW = 150, vH = 150, vX = EW - vW - 25, vY = 30;
+  const cx = vX + vW/2, cy = vY + vH/2;
+  const sc = 0.38;
 
-  eCtx.fillStyle = 'rgba(19, 25, 41, 0.65)';
-  eCtx.strokeStyle = '#1f2942';
-  eCtx.lineWidth = 1;
-  eCtx.fillRect(viewX0, viewY0, viewW, viewH);
-  eCtx.strokeRect(viewX0, viewY0, viewW, viewH);
+  eCtx.fillStyle = 'rgba(248,250,252,0.92)';
+  eCtx.strokeStyle = '#cbd5e1'; eCtx.lineWidth = 1;
+  eCtx.fillRect(vX, vY, vW, vH); eCtx.strokeRect(vX, vY, vW, vH);
 
-  const cx = viewX0 + viewW / 2;
-  const cy = viewY0 + viewH / 2;
-  const topViewKScale = 0.38;
-
-  eCtx.strokeStyle = 'rgba(58, 72, 104, 0.5)';
-  eCtx.lineWidth = 1;
+  eCtx.strokeStyle = C.grid; eCtx.lineWidth = 1;
   eCtx.beginPath();
-  eCtx.moveTo(viewX0 + 8, cy); eCtx.lineTo(viewX0 + viewW - 8, cy);
-  eCtx.moveTo(cx, viewY0 + 8); eCtx.lineTo(cx, viewY0 + viewH - 8);
+  eCtx.moveTo(vX+8, cy); eCtx.lineTo(vX+vW-8, cy);
+  eCtx.moveTo(cx, vY+8); eCtx.lineTo(cx, vY+vH-8);
   eCtx.stroke();
 
-  eCtx.fillStyle = '#8893a8';
-  eCtx.font = '11px sans-serif';
-  eCtx.fillText('kₓ', viewX0 + viewW - 15, cy + 13);
-  eCtx.fillText('kᵧ', cx - 14, viewY0 + 15);
+  eCtx.fillStyle = C.muted; eCtx.font = '11px sans-serif';
+  eCtx.fillText('kₓ', vX+vW-14, cy+13);
+  eCtx.fillText('kᵧ', cx-13, vY+14);
 
-  const rFermiScreen = rFermiK * topViewKScale;
-  eCtx.strokeStyle = '#6ad0ff';
-  eCtx.lineWidth = 1.5;
-  eCtx.setLineDash([4, 3]);
-  eCtx.beginPath();
-  eCtx.arc(cx, cy, rFermiScreen, 0, 2 * Math.PI);
-  eCtx.stroke();
+  const rFs = rF * sc;
+  eCtx.strokeStyle = C.fermi + '0.6)'; eCtx.lineWidth = 1.5;
+  eCtx.setLineDash([4,3]);
+  eCtx.beginPath(); eCtx.arc(cx, cy, rFs, 0, 2*Math.PI); eCtx.stroke();
   eCtx.setLineDash([]);
-
-  eCtx.fillStyle = '#6ad0ff';
-  eCtx.font = '10px sans-serif';
-  eCtx.fillText('E_F', cx + rFermiScreen * Math.cos(-0.5) + 3, cy + rFermiScreen * Math.sin(-0.5));
+  eCtx.fillStyle = '#1d4ed8'; eCtx.font = '10px sans-serif';
+  eCtx.fillText('E_F', cx + rFs*Math.cos(-0.5) + 3, cy + rFs*Math.sin(-0.5));
 
   if (B === 0) {
-    eCtx.fillStyle = 'rgba(255, 51, 51, 0.12)';
-    eCtx.beginPath();
-    eCtx.arc(cx, cy, rFermiScreen, 0, 2 * Math.PI);
-    eCtx.fill();
+    eCtx.fillStyle = C.paraboloid + '0.12)';
+    eCtx.beginPath(); eCtx.arc(cx, cy, rFs, 0, 2*Math.PI); eCtx.fill();
   } else {
-    let N = 0;
     eCtx.lineWidth = 2.5;
+    let N = 0;
     while (true) {
-      const energyFactor = (N + 0.5) * B;
-      const levelEnergy = energyFactor * energyScale;
-      if (levelEnergy > maxEnergyVal) break;
-      const currentRadiusK = Math.sqrt(levelEnergy / cCoeff);
-      const radiusScreen = currentRadiusK * topViewKScale;
-      eCtx.strokeStyle = levelEnergy <= EFermi ? '#ff3333' : 'rgba(255, 51, 51, 0.2)';
-      eCtx.beginPath();
-      eCtx.arc(cx, cy, radiusScreen, 0, 2 * Math.PI);
-      eCtx.stroke();
+      const lE = (N + 0.5) * B * energyScale;
+      if (lE > maxEnergyVal) break;
+      const rs = Math.sqrt(lE / cCoeff) * sc;
+      eCtx.strokeStyle = lE <= EFermi ? C.landau : C.landauDim + '0.22)';
+      eCtx.beginPath(); eCtx.arc(cx, cy, rs, 0, 2*Math.PI); eCtx.stroke();
       N++;
     }
   }
 }
 
-function updateLabels() {
-  document.getElementById('b-value').textContent = B.toFixed(2);
-}
-
+// ── loop ──────────────────────────────────────────────────────
 function loop() {
-  if (!isPaused) {
-    for (let i = 0; i < substeps; i++) step();
-  }
+  if (!isPaused) for (let i = 0; i < substeps; i++) step();
   render();
   renderEnergy();
   requestAnimationFrame(loop);
 }
 
+// ── events ────────────────────────────────────────────────────
 document.getElementById('b-slider').addEventListener('input', function(e) {
   B = parseFloat(e.target.value);
-  updateLabels();
+  document.getElementById('b-value').textContent = B.toFixed(2);
 });
 document.getElementById('pause-btn').addEventListener('click', function(e) {
   isPaused = !isPaused;
@@ -643,15 +476,9 @@ document.getElementById('trail-btn').addEventListener('click', function(e) {
   trailMode = trailMode === 'long' ? 'short' : 'long';
   e.currentTarget.textContent = 'Trail: ' + trailMode;
 });
-
-canvas.addEventListener('pointerdown', function(e) {
-  e.preventDefault();
-  placeElectron(e.clientX, e.clientY);
-});
-
+canvas.addEventListener('pointerdown', function(e) { e.preventDefault(); placeElectron(e.clientX, e.clientY); });
 window.addEventListener('resize', setupCanvas);
 
-updateLabels();
 loop();
 </script>
 </body>
