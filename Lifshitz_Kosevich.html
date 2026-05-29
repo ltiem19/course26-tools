@@ -1,201 +1,195 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SdH Oscillations Simulator</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SdH Oscillations Simulator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.24.1/plotly.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f172a; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; min-height: 100vh; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  header { border-bottom: 1px solid #334155; padding-bottom: 12px; margin-bottom: 16px; }
+  header h1 { font-size: clamp(16px, 4vw, 22px); font-weight: 700; color: #38bdf8; letter-spacing: 0.03em; }
+  header p { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .main { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  @media (min-width: 900px) { .main { grid-template-columns: 260px 1fr; } }
+  .panel { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px; }
+  .panel h2 { font-size: 14px; font-weight: 600; color: #cbd5e1; border-bottom: 1px solid #334155; padding-bottom: 8px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .ctrl { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+  .ctrl-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; }
+  .ctrl-row label { color: #94a3b8; }
+  .ctrl-row .val { color: #38bdf8; font-family: monospace; font-weight: 700; font-size: 13px; }
+  input[type=range] { width: 100%; height: 6px; -webkit-appearance: none; appearance: none; background: #334155; border-radius: 4px; outline: none; cursor: pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #38bdf8; cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #38bdf8; cursor: pointer; border: none; }
+  select { background: #334155; border: 1px solid #475569; border-radius: 6px; padding: 6px 8px; font-size: 13px; font-family: monospace; color: #e2e8f0; width: 100%; outline: none; cursor: pointer; }
+  .sub { font-size: 11px; color: #475569; font-family: monospace; margin-top: 2px; }
+  .plot-wrap { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 8px; }
+  #plot { width: 100%; height: clamp(300px, 50vw, 520px); }
+  footer { margin-top: 16px; background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 14px 16px; }
+  footer h3 { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .eq { font-size: 12px; color: #64748b; font-family: monospace; line-height: 1.8; }
+  .eq span { color: #7dd3fc; }
+  .divider { border-top: 1px solid #334155; margin: 10px 0; }
+  .select-row { margin-bottom: 0; }
+</style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
+<body>
+<div class="wrap">
+  <header>
+    <h1>Shubnikov–de Haas (SdH) Simulator</h1>
+    <p>Lifshitz–Kosevich quantum transport model · cross-browser</p>
+  </header>
+  <div class="main">
+    <div class="panel">
+      <h2>Parameters</h2>
 
-    <div class="w-full max-w-7xl mx-auto p-4 md:p-6">
-        <header class="border-b border-slate-700 pb-4 mb-4 md:mb-6">
-            <h1 class="text-xl md:text-2xl font-bold tracking-wide text-blue-400">Shubnikov-de Haas (SdH) Simulator</h1>
-            <p class="text-xs md:text-sm text-slate-400 mt-1">Corrected quantum transport model with mobile-optimized layout</p>
-        </header>
-
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
-            
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4 bg-slate-800 p-4 md:p-5 rounded-xl border border-slate-700 h-fit order-2 lg:order-1">
-                <div class="sm:col-span-2 lg:col-span-1 border-b border-slate-700 pb-1 mb-1">
-                    <h2 class="text-base md:text-lg font-semibold text-slate-200">Simulation Triggers</h2>
-                </div>
-                
-                <div class="flex flex-col gap-1">
-                    <div class="flex justify-between text-xs md:text-sm">
-                        <label for="m_eff" class="font-medium text-slate-300">Effective Mass ($m^*/m_0$):</label>
-                        <span id="m_eff_val" class="text-blue-400 font-mono font-bold">0.050</span>
-                    </div>
-                    <input type="range" id="m_eff" min="0.010" max="0.300" step="0.005" value="0.050" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500 py-3 md:py-0">
-                </div>
-
-                <div class="flex flex-col gap-1">
-                    <div class="flex justify-between text-xs md:text-sm">
-                        <label for="temp" class="font-medium text-slate-300">Temperature ($T$):</label>
-                        <span id="temp_val" class="text-blue-400 font-mono font-bold">4.2 K</span>
-                    </div>
-                    <input type="range" id="temp" min="0.1" max="30.0" step="0.1" value="4.2" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500 py-3 md:py-0">
-                </div>
-
-                <div class="flex flex-col gap-1">
-                    <div class="flex justify-between text-xs md:text-sm">
-                        <label for="disorder" class="font-medium text-slate-300">Quantum Lifetime ($\tau$):</label>
-                        <span id="disorder_val" class="text-blue-400 font-mono font-bold">500 fs</span>
-                    </div>
-                    <input type="range" id="disorder" min="50" max="5000" step="50" value="500" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500 py-3 md:py-0">
-                    <span id="tau_raw" class="text-[10px] md:text-xs text-slate-500 font-mono">τ = 5.00e-13 s</span>
-                </div>
-
-                <div class="flex flex-col gap-1">
-                    <div class="flex justify-between text-xs md:text-sm">
-                        <label for="density" class="font-medium text-slate-300">Density ($n$):</label>
-                        <span id="density_val" class="text-blue-400 font-mono font-bold">2.00 &times; 10^{15} m⁻²</span>
-                    </div>
-                    <input type="range" id="density" min="0.2" max="6.0" step="0.1" value="2.0" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500 py-3 md:py-0">
-                </div>
-
-                <div class="flex flex-col gap-1 sm:col-span-2 lg:col-span-1 pt-2 border-t border-slate-700/50">
-                    <label for="max_b" class="text-xs md:text-sm font-medium text-slate-300">Max Field ($B_{\text{max}}$):</label>
-                    <select id="max_b" class="bg-slate-700 border border-slate-600 rounded p-2 text-xs md:text-sm font-mono text-slate-200 focus:outline-none focus:border-blue-500 w-full">
-                        <option value="2">2 Tesla</option>
-                        <option value="5" selected>5 Tesla</option>
-                        <option value="10">10 Tesla</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="lg:col-span-3 bg-slate-800 p-2 md:p-4 rounded-xl border border-slate-700 flex flex-col order-1 lg:order-2">
-                <div id="plot" class="w-full h-[380px] sm:h-[450px] md:h-[550px]"></div>
-            </div>
+      <div class="ctrl">
+        <div class="ctrl-row">
+          <label>Effective mass (m*/m₀)</label>
+          <span class="val" id="v_meff">0.050</span>
         </div>
-        
-        <footer class="mt-4 md:mt-6 bg-slate-800/40 border border-slate-700/60 rounded-xl p-4 text-[11px] md:text-xs text-slate-400 font-mono leading-relaxed">
-            <h3 class="text-slate-300 font-semibold mb-1 uppercase tracking-wider text-[10px]">Framework Scaling Metrics</h3>
-            <p>&bull; Cyclotron Frequency Broadening Parameter: $\omega_c \tau = \frac{e B \tau}{m^* m_0}$</p>
-            <p>&bull; Dingle Damping Expression: $R_D = \exp\left(-\frac{\pi}{\omega_c \tau}\right)$</p>
-            <p>&bull; Thermal Modulation Metric: $R_T = \frac{\lambda_T}{\sinh(\lambda_T)}$, where $\lambda_T = \frac{2\pi^2 k_B m^* m_0 T}{\hbar e B} \approx \frac{14.693 \cdot m^* \cdot T}{B}$</p>
-        </footer>
+        <input type="range" id="meff" min="0.010" max="0.300" step="0.005" value="0.050">
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-row">
+          <label>Temperature (T)</label>
+          <span class="val" id="v_temp">4.2 K</span>
+        </div>
+        <input type="range" id="temp" min="0.1" max="30.0" step="0.1" value="4.2">
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-row">
+          <label>Quantum lifetime (τ)</label>
+          <span class="val" id="v_tau">500 fs</span>
+        </div>
+        <input type="range" id="tau" min="50" max="5000" step="50" value="500">
+        <div class="sub" id="v_tau_raw">τ = 5.00×10⁻¹³ s</div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-row">
+          <label>Carrier density (n)</label>
+          <span class="val" id="v_dens">2.00 ×10¹⁵ m⁻²</span>
+        </div>
+        <input type="range" id="dens" min="0.2" max="6.0" step="0.1" value="2.0">
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="ctrl select-row">
+        <label style="font-size:13px;color:#94a3b8;display:block;margin-bottom:6px;">Max field (B<sub>max</sub>)</label>
+        <select id="maxb">
+          <option value="2">2 Tesla</option>
+          <option value="5" selected>5 Tesla</option>
+          <option value="10">10 Tesla</option>
+        </select>
+      </div>
     </div>
 
-    <script>
-        // Core CODATA Constants
-        const h = 6.62607015e-34;
-        const pi = Math.PI;
-        const hbar = h / (2 * pi);
-        const e = 1.60217663e-19;
-        const m0 = 9.1093837e-31;
-        const thermal_coeff = 14.69317; // Precise evaluation of (2 * pi^2 * k_B * m_0) / (hbar * e)
+    <div class="plot-wrap">
+      <div id="plot"></div>
+    </div>
+  </div>
 
-        // UI Selectors
-        const elMEff = document.getElementById('m_eff');
-        const elTemp = document.getElementById('temp');
-        const elDisorder = document.getElementById('disorder');
-        const elDensity = document.getElementById('density');
-        const elMaxB = document.getElementById('max_b');
+  <footer>
+    <h3>LK Framework — Damping Factors</h3>
+    <div class="eq">
+      <span>ωcτ</span> = eBτ / (m* m₀)<br>
+      <span>R_D</span> = exp(−π / ωcτ)  [Dingle factor]<br>
+      <span>λ_T</span> = (2π² k_B m* m₀ T) / (ℏ eB)  ≈  14.693 · m* · T / B<br>
+      <span>R_T</span> = λ_T / sinh(λ_T)  [thermal factor]<br>
+      <span>Δσ</span> ∝ R_T · R_D · cos(2π · n·π·ℏ / eB)
+    </div>
+  </footer>
+</div>
 
-        const valMEff = document.getElementById('m_eff_val');
-        const valTemp = document.getElementById('temp_val');
-        const valDisorder = document.getElementById('disorder_val');
-        const valDensity = document.getElementById('density_val');
-        const valTauRaw = document.getElementById('tau_raw');
+<script>
+  const h    = 6.62607015e-34;
+  const pi   = Math.PI;
+  const hbar = h / (2 * pi);
+  const e    = 1.60217663e-19;
+  const m0   = 9.1093837e-31;
+  const TC   = 14.69317; // 2π²k_B m₀ / (ℏ e)
 
-        function evaluateQuantumOscillations() {
-            const m_eff = parseFloat(elMEff.value);
-            const T = parseFloat(elTemp.value);
-            const tau_fs = parseFloat(elDisorder.value); 
-            const tau = tau_fs * 1e-15; 
-            const n = parseFloat(elDensity.value) * 1e15; 
-            const max_B = parseFloat(elMaxB.value);
+  const $ = id => document.getElementById(id);
 
-            // Update Metric Interfaces
-            valMEff.textContent = m_eff.toFixed(3);
-            valTemp.textContent = T.toFixed(1) + ' K';
-            if (tau_fs >= 1000) {
-                valDisorder.textContent = (tau_fs / 1000).toFixed(2) + ' ps';
-            } else {
-                valDisorder.textContent = tau_fs.toFixed(0) + ' fs';
-            }
-            valTauRaw.textContent = `τ = ${tau.toExponential(2)} s`;
-            valDensity.innerHTML = `${parseFloat(elDensity.value).toFixed(2)} &times; 10<sup>15</sup> m<sup>-2</sup>`;
+  function fmt_tau(fs) {
+    if (fs >= 1000) return (fs / 1000).toFixed(2) + ' ps';
+    return fs.toFixed(0) + ' fs';
+  }
+  function fmt_exp(v) {
+    const e_ = Math.floor(Math.log10(Math.abs(v)));
+    const m  = (v / Math.pow(10, e_)).toFixed(2);
+    return `τ = ${m}×10${e_ >= 0 ? '⁺' : '⁻'}${String(Math.abs(e_)).split('').map(d=>'⁰¹²³⁴⁵⁶⁷⁸⁹'[+d]).join('')} s`;
+  }
 
-            let B_vector = [];
-            let delta_sigma_vector = [];
-            const step = max_B / 1000;
+  function compute() {
+    const meff  = parseFloat($('meff').value);
+    const T     = parseFloat($('temp').value);
+    const tau_fs= parseFloat($('tau').value);
+    const tau   = tau_fs * 1e-15;
+    const n     = parseFloat($('dens').value) * 1e15;
+    const maxB  = parseFloat($('maxb').value);
 
-            for (let B = 0.002; B <= max_B; B += step) {
-                let omega_c = (e * B) / (m_eff * m0);
-                let lambdaT = (thermal_coeff * m_eff * T) / B;
-                
-                let RT = 1.0;
-                if (lambdaT > 1e-4) {
-                    RT = lambdaT / Math.sinh(lambdaT);
-                }
-                
-                let RD = Math.exp(-pi / (omega_c * tau));
-                let cos_term = Math.cos(2 * pi * ((n * pi * hbar) / (e * B)));
-                
-                B_vector.push(B);
-                delta_sigma_vector.push(RT * RD * cos_term);
-            }
+    // update labels
+    $('v_meff').textContent    = meff.toFixed(3);
+    $('v_temp').textContent    = T.toFixed(1) + ' K';
+    $('v_tau').textContent     = fmt_tau(tau_fs);
+    $('v_tau_raw').textContent = fmt_exp(tau);
+    $('v_dens').innerHTML      = `${parseFloat($('dens').value).toFixed(2)} ×10¹⁵ m⁻²`;
 
-            return { x: B_vector, y: delta_sigma_vector };
-        }
+    const Bv = [], yv = [];
+    const step = maxB / 1000;
+    for (let B = 0.002; B <= maxB + 1e-9; B += step) {
+      const wc  = (e * B) / (meff * m0);
+      const lT  = (TC * meff * T) / B;
+      const RT  = lT > 1e-4 ? lT / Math.sinh(lT) : 1.0;
+      const RD  = Math.exp(-pi / (wc * tau));
+      const phi = 2 * pi * (n * pi * hbar) / (e * B);
+      Bv.push(B);
+      yv.push(RT * RD * Math.cos(phi));
+    }
+    return { x: Bv, y: yv };
+  }
 
-        function renderPlot() {
-            const dataset = evaluateQuantumOscillations();
-            
-            const trace = {
-                x: dataset.x,
-                y: dataset.y,
-                type: 'scatter',
-                mode: 'lines',
-                line: { color: '#38bdf8', width: 2 },
-                name: 'Δσ'
-            };
+  let plotInitialized = false;
 
-            const layout = {
-                paper_bgcolor: '#1e293b',
-                plot_bgcolor: '#1e293b',
-                title: {
-                    text: 'Conductivity Quantum Modulations (Δσ vs B)',
-                    font: { color: '#e2e8f0', size: window.innerWidth < 640 ? 12 : 15 }
-                },
-                xaxis: {
-                    title: 'Magnetic Field B (T)',
-                    gridcolor: '#334155',
-                    zerolinecolor: '#475569',
-                    tickfont: { color: '#94a3b8', size: 10 },
-                    titlefont: { color: '#cbd5e1', size: 11 }
-                },
-                yaxis: {
-                    title: 'Amplitude Δσ',
-                    gridcolor: '#334155',
-                    zerolinecolor: '#475569',
-                    tickfont: { color: '#94a3b8', size: 10 },
-                    titlefont: { color: '#cbd5e1', size: 11 },
-                    range: [-1.05, 1.05]
-                },
-                margin: { t: 40, b: 40, l: 45, r: 15 },
-                hovermode: 'closest'
-            };
+  function render() {
+    const d = compute();
+    const trace = {
+      x: d.x, y: d.y,
+      type: 'scatter', mode: 'lines',
+      line: { color: '#38bdf8', width: 1.8 },
+      name: 'Δσ', hovertemplate: 'B = %{x:.3f} T<br>Δσ = %{y:.4f}<extra></extra>'
+    };
+    const layout = {
+      paper_bgcolor: '#1e293b', plot_bgcolor: '#1e293b',
+      font: { color: '#e2e8f0', size: 12 },
+      title: { text: 'Δσ vs B (LK model)', font: { size: 14, color: '#e2e8f0' }, x: 0.05 },
+      xaxis: { title: 'B (T)', gridcolor: '#334155', zerolinecolor: '#475569', tickfont: { size: 11 } },
+      yaxis: { title: 'Δσ (arb. u.)', gridcolor: '#334155', zerolinecolor: '#475569', tickfont: { size: 11 }, range: [-1.05, 1.05] },
+      margin: { t: 42, b: 48, l: 54, r: 16 },
+      hovermode: 'x unified'
+    };
+    const cfg = { responsive: true, displayModeBar: false };
+    if (!plotInitialized) {
+      Plotly.newPlot('plot', [trace], layout, cfg);
+      plotInitialized = true;
+    } else {
+      Plotly.react('plot', [trace], layout, cfg);
+    }
+  }
 
-            const config = { 
-                responsive: true, 
-                displayModeBar: false 
-            };
+  ['meff','temp','tau','dens','maxb'].forEach(id => {
+    $(''+id).addEventListener('input',  render);
+    $(''+id).addEventListener('change', render);
+  });
 
-            Plotly.newPlot('plot', [trace], layout, config);
-        }
-
-        // Event Interception Loops
-        [elMEff, elTemp, elDisorder, elDensity, elMaxB].forEach(inputElement => {
-            inputElement.addEventListener('input', renderPlot);
-            inputElement.addEventListener('change', renderPlot);
-        });
-
-        window.addEventListener('DOMContentLoaded', renderPlot);
-        window.addEventListener('resize', renderPlot);
-    </script>
+  render();
+</script>
 </body>
 </html>
