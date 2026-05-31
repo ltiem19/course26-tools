@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>QPC Electrostatic Simulator</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8f9fa;
+      padding: 20px;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      user-select: none;
+      color: #212529;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    h2 { font-size: 22px; font-weight: 600; margin-bottom: 16px; }
+    .card {
+      background: white; border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      padding: 20px; margin-bottom: 16px;
+    }
+    .control-label {
+      font-size: 15px; font-weight: 600; margin-bottom: 12px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .status-text { font-family: monospace; font-size: 16px; color: #dc3545; }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%; height: 6px; background: #dee2e6;
+      border-radius: 3px; outline: none; margin-bottom: 8px;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px; height: 24px;
+      background: #007bff; border-radius: 50%; cursor: pointer;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 24px; height: 24px;
+      background: #007bff; border-radius: 50%; cursor: pointer;
+      border: none;
+    }
+    input[type="range"]::-ms-thumb {
+      width: 24px; height: 24px;
+      background: #007bff; border-radius: 50%; cursor: pointer;
+    }
+    input[type="range"]::-ms-track {
+      width: 100%; height: 6px;
+      background: #dee2e6; border-radius: 3px;
+      border-color: transparent; color: transparent;
+    }
+    .range-labels {
+      display: flex; justify-content: space-between;
+      font-size: 12px; color: #6c757d;
+    }
+    .canvas-wrap { width: 100%; }
+    canvas { display: block; width: 100%; height: auto; }
+    .canvas-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: #495057; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Gate-Defined Quantum Point Contact</h2>
+
+    <div class="card">
+      <div class="control-label">
+        <span>Split Gate Voltage: <span id="vdisp">0.00</span> V</span>
+        <span id="pinchState" class="status-text">Conducting</span>
+      </div>
+      <input type="range" id="slider" min="-2.0" max="0.0" step="0.01" value="0.0">
+      <div class="range-labels">
+        <span>−2.0 V (Pinch-off)</span>
+        <span>0.0 V (Open)</span>
+      </div>
+    </div>
+
+    <div class="card" style="padding-bottom: 5px;">
+      <div class="canvas-title">Physical Cross-Section (y-z plane)</div>
+      <div class="canvas-wrap"><canvas id="cCross"></canvas></div>
+    </div>
+
+    <div class="card" style="padding-bottom: 5px;">
+      <div class="canvas-title">Effective Potential U(y)</div>
+      <div class="canvas-wrap"><canvas id="cPot"></canvas></div>
+    </div>
+
+    <div class="card" style="padding-bottom: 5px;">
+      <div class="canvas-title">1D Carrier Density n(y)</div>
+      <div class="canvas-wrap"><canvas id="cDen"></canvas></div>
+    </div>
+  </div>
+
+  <script>
+    // ── Physical Parameters ──────────────────────────────────────────────────
+    const xMin = -200, xMax = 200;
+    const gateGap = 120;
+    const hGap = gateGap / 2;
+    const EF = 20;   // meV
+    const n0 = 3.0;  // 10^11 cm^-2
+
+    function getPotential(x, Vg) {
+      const absV = Math.abs(Vg);
+      const U_gate = absV * 70;
+      const U_center = (absV * absV) * 10;
+      const profile = 1 - Math.exp(-Math.pow(x / (hGap * 0.85), 4));
+      return U_center + (U_gate - U_center) * profile;
+    }
+
+    function getDensity(x, Vg) {
+      const U = getPotential(x, Vg);
+      return Math.max(0, n0 * (1 - U / EF));
+    }
+
+    // ── Canvas Setup ─────────────────────────────────────────────────────────
+    const padL = 60, padR = 20, padT = 15, padB = 25;
+    const DPR = window.devicePixelRatio || 1;
+
+    function initCanvas(id, hRatio) {
+      const canvas = document.getElementById(id);
+      const wrap = canvas.parentElement;
+      // Use offsetWidth of the wrap to get the actual CSS pixel width
+      const W = Math.max(wrap.offsetWidth - 40, 200); // min 200px safeguard
+      const H = Math.round(W * hRatio);
+      canvas.width = Math.round(W * DPR);
+      canvas.height = Math.round(H * DPR);
+      // Set CSS size explicitly so layout is stable across browsers
+      canvas.style.width  = W + 'px';
+      canvas.style.height = H + 'px';
+      const ctx = canvas.getContext('2d');
+      ctx.scale(DPR, DPR);
+      return { ctx, W, H };
+    }
+
+    function mapX(x, W) {
+      const plotW = W - padL - padR;
+      return padL + ((x - xMin) / (xMax - xMin)) * plotW;
+    }
+
+    // ── Render 1: Physical Cross-Section ─────────────────────────────────────
+    function drawCross(Vg) {
+      const { ctx, W, H } = initCanvas('cCross', 0.25);
+
+      const zGate = H * 0.25;
+      const z2DEG = H * 0.75;
+
+      ctx.clearRect(0, 0, W, H);
+
+      // GaAs substrate
+      ctx.fillStyle = '#e9ecef';
+      ctx.fillRect(padL, z2DEG, W - padL - padR, H - z2DEG);
+
+      // AlGaAs dielectric
+      ctx.fillStyle = '#f8f9fa';
+      ctx.fillRect(padL, zGate, W - padL - padR, z2DEG - zGate);
+
+      // Gates
+      ctx.fillStyle = Vg < 0 ? '#ffc107' : '#e0e0e0';
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1.5;
+
+      const xL = mapX(-hGap, W);
+      const xR = mapX( hGap, W);
+
+      ctx.fillRect(padL,   padT, xL - padL,          zGate - padT);
+      ctx.strokeRect(padL, padT, xL - padL,          zGate - padT);
+      ctx.fillRect(xR,     padT, (W - padR) - xR,    zGate - padT);
+      ctx.strokeRect(xR,   padT, (W - padR) - xR,    zGate - padT);
+
+      // Gate labels
+      ctx.fillStyle = '#000';
+      ctx.font = '12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Split Gate', padL + (xL - padL) / 2, zGate - 8);
+      ctx.fillText('Split Gate', xR + ((W - padR) - xR) / 2, zGate - 8);
+
+      // Field lines
+      if (Vg < 0) {
+        ctx.strokeStyle = 'rgba(220, 53, 69, 0.6)';
+        ctx.lineWidth = 1.5;
+        const absV = Math.abs(Vg);
+        const linesPerSide = 8;
+
+        for (var side = -1; side <= 1; side += 2) {
+          for (var i = 0; i < linesPerSide; i++) {
+            var t = Math.pow(i / (linesPerSide - 1), 1.5);
+            var x_start = side * (hGap + 5 + t * 100);
+            var shift = side * -1 * (40 * absV) * Math.exp(-(Math.abs(x_start) - hGap) / 30);
+            var x_end = x_start + shift;
+            var px1 = mapX(x_start, W);
+            var px2 = mapX(x_end, W);
+
+            ctx.beginPath();
+            ctx.moveTo(px1, zGate);
+            ctx.quadraticCurveTo(px1, zGate + (z2DEG - zGate) * 0.6, px2, z2DEG);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // 2DEG density color strip
+      const segments = 150;
+      for (var i = 0; i < segments; i++) {
+        var x_phys = xMin + (i / segments) * (xMax - xMin);
+        var dens = getDensity(x_phys, Vg);
+        var ratio = dens / n0;
+        var alpha = Math.max(0, Math.min(1, ratio));
+        ctx.fillStyle = 'rgba(0, 123, 255, ' + alpha + ')';
+        var px  = mapX(x_phys, W);
+        var pNext = mapX(xMin + ((i + 1) / segments) * (xMax - xMin), W);
+        ctx.fillRect(px, z2DEG - 3, pNext - px + 1, 6);
+      }
+
+      // 2DEG label
+      ctx.fillStyle = '#007bff';
+      ctx.textAlign = 'left';
+      ctx.fillText('2DEG Interface', padL + 10, z2DEG + 18);
+    }
+
+    // ── Render 2: Effective Potential ────────────────────────────────────────
+    function drawPot(Vg) {
+      const { ctx, W, H } = initCanvas('cPot', 0.25);
+      const plotH = H - padT - padB;
+      const yMax = 80, yMin = -10;
+
+      function mapY(u) { return padT + plotH - ((u - yMin) / (yMax - yMin)) * plotH; }
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Axes
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(padL, padT + plotH); ctx.lineTo(W - padR, padT + plotH); ctx.stroke();
+
+      // Fermi level
+      const yEF = mapY(EF);
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = '#28a745'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(padL, yEF); ctx.lineTo(W - padR, yEF); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#28a745'; ctx.font = '12px sans-serif'; ctx.textAlign = 'right';
+      ctx.fillText('E_F', padL - 8, yEF + 4);
+
+      // Axis labels
+      ctx.fillStyle = '#212529'; ctx.textAlign = 'right';
+      ctx.fillText('0',  padL - 8, mapY(0) + 4);
+      ctx.fillText('50', padL - 8, mapY(50) + 4);
+      ctx.save();
+      ctx.translate(15, padT + plotH / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = 'center';
+      ctx.fillText('U(y) [meV]', 0, 0);
+      ctx.restore();
+
+      // Potential curve
+      ctx.strokeStyle = '#dc3545'; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (var i = 0; i <= 200; i++) {
+        var x = xMin + (i / 200) * (xMax - xMin);
+        var px = mapX(x, W);
+        var py = mapY(getPotential(x, Vg));
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+
+    // ── Render 3: Carrier Density ─────────────────────────────────────────────
+    function drawDen(Vg) {
+      const { ctx, W, H } = initCanvas('cDen', 0.25);
+      const plotH = H - padT - padB;
+      const yMax = 3.5, yMin = 0;
+
+      function mapY(n) { return padT + plotH - ((n - yMin) / (yMax - yMin)) * plotH; }
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Axes
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(padL, padT + plotH); ctx.lineTo(W - padR, padT + plotH); ctx.stroke();
+
+      // Y-axis labels
+      ctx.fillStyle = '#212529'; ctx.font = '12px sans-serif'; ctx.textAlign = 'right';
+      ctx.fillText('0', padL - 8, mapY(0));
+      ctx.fillText('3', padL - 8, mapY(3) + 4);
+      ctx.save();
+      ctx.translate(15, padT + plotH / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = 'center';
+      ctx.fillText('n(y) [10\u00B9\u00B9 cm\u207B\u00B2]', 0, 0);
+      ctx.restore();
+
+      // X-axis ticks and labels
+      ctx.fillStyle = '#212529'; ctx.textAlign = 'center';
+      [-150, 0, 150].forEach(function(pos) {
+        var px = mapX(pos, W);
+        ctx.beginPath(); ctx.moveTo(px, padT + plotH); ctx.lineTo(px, padT + plotH + 5); ctx.stroke();
+        ctx.fillText(pos.toString(), px, padT + plotH + 18);
+      });
+      ctx.fillText('y [nm]', W / 2, padT + plotH + 32);
+
+      // Density fill + curve
+      ctx.fillStyle = 'rgba(0, 123, 255, 0.2)';
+      ctx.strokeStyle = '#007bff'; ctx.lineWidth = 2.5;
+
+      ctx.beginPath();
+      ctx.moveTo(mapX(xMin, W), mapY(0));
+      for (var i = 0; i <= 200; i++) {
+        var x = xMin + (i / 200) * (xMax - xMin);
+        ctx.lineTo(mapX(x, W), mapY(getDensity(x, Vg)));
+      }
+      ctx.lineTo(mapX(xMax, W), mapY(0));
+      ctx.closePath();
+      ctx.fill();
+
+      // Stroke without the closed base line
+      ctx.beginPath();
+      for (var i = 0; i <= 200; i++) {
+        var x = xMin + (i / 200) * (xMax - xMin);
+        var px = mapX(x, W);
+        var py = mapY(getDensity(x, Vg));
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+
+    // ── Controller ────────────────────────────────────────────────────────────
+    function updateAll() {
+      var Vg = parseFloat(document.getElementById('slider').value);
+      document.getElementById('vdisp').textContent = Vg.toFixed(2);
+
+      var centerPot = getPotential(0, Vg);
+      var statusEl = document.getElementById('pinchState');
+      if (centerPot >= EF) {
+        statusEl.textContent = 'Pinched Off';
+        statusEl.style.color = '#dc3545';
+      } else {
+        statusEl.textContent = 'Conducting';
+        statusEl.style.color = '#28a745';
+      }
+
+      drawCross(Vg);
+      drawPot(Vg);
+      drawDen(Vg);
+    }
+
+    document.getElementById('slider').addEventListener('input', updateAll);
+
+    // Debounced resize to avoid thrashing on mobile
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(updateAll, 100);
+    });
+
+    // Defer initial render until layout is complete
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', updateAll);
+    } else {
+      setTimeout(updateAll, 0);
+    }
+  </script>
+</body>
+</html>
