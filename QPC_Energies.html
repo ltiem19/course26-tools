@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>QPC Visualizer</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#fff; --bg2:#f5f5f5; --ax:#888; --txt:#222; --txtm:#999;
+  --gatef:#e8e8e8; --gate:#bbb; --chan:rgba(55,138,221,0.08);
+  --pot:#1a55aa; --bd:rgba(0,0,0,0.12);
+}
+@media (prefers-color-scheme:dark) {
+  :root {
+    --bg:#161616; --bg2:#202020; --ax:#666; --txt:#ccc; --txtm:#666;
+    --gatef:#333; --gate:#555; --chan:rgba(55,138,221,0.12);
+    --pot:#5599ee; --bd:rgba(255,255,255,0.10);
+  }
+}
+html,body { background:var(--bg); color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  min-height:100vh; -webkit-text-size-adjust:100%; }
+
+.app { max-width:800px; margin:0 auto; padding:12px 10px 32px;
+  display:flex; flex-direction:column; gap:10px; }
+
+h1 { font-size:15px; font-weight:600; }
+h1 span { font-weight:400; color:var(--txtm); font-size:12px; margin-left:6px; }
+
+.ctrl { display:flex; align-items:center; gap:8px;
+  background:var(--bg2); border:0.5px solid var(--bd);
+  border-radius:10px; padding:10px 12px; }
+.ctrl label { font-size:12px; color:var(--txtm); white-space:nowrap; }
+.ctrl input[type=range] {
+  flex:1; -webkit-appearance:none; appearance:none;
+  height:4px; border-radius:2px; background:var(--bd); outline:none; cursor:pointer; }
+.ctrl input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:22px; height:22px; border-radius:50%;
+  background:#378ADD; cursor:pointer; border:none; }
+.ctrl input[type=range]::-moz-range-thumb {
+  width:22px; height:22px; border-radius:50%; background:#378ADD; cursor:pointer; border:none; }
+.ctrl .val { font-size:11px; font-weight:600; color:var(--txt);
+  min-width:110px; text-align:right; white-space:nowrap; }
+
+.plabel { font-size:10px; color:var(--txtm); padding-left:2px; margin-bottom:3px; }
+
+canvas { display:block; border-radius:8px; border:0.5px solid var(--bd);
+  background:var(--bg); touch-action:none; }
+
+/* Panel 1: full width */
+#c1 { width:100%; }
+
+/* Row234: three canvases side by side.
+   We use a plain div with display:flex.
+   Canvas widths are set by JS (percentage of container).
+   Canvas heights are ALL set to the SAME px value by JS. */
+#row234 { display:flex; gap:0; width:100%; }
+.col234 { display:flex; flex-direction:column; }
+.col234:nth-child(1) { flex:44; min-width:0; }
+.col234:nth-child(2) { flex:33; min-width:0; }
+.col234:nth-child(3) { flex:23; min-width:0; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>QPC Visualizer <span>fixed potential · sweep E<sub>F</sub></span></h1>
+
+  <div class="ctrl">
+    <label>E<sub>F</sub></label>
+    <input type="range" id="ef_sl" min="1" max="99" value="45">
+    <div class="val" id="ef_lbl">—</div>
+  </div>
+
+  <div>
+    <div class="plabel">1 — Real space (top view)</div>
+    <canvas id="c1" height="190"></canvas>
+  </div>
+
+  <div id="row234">
+    <div class="col234">
+      <div class="plabel">2 — E(y): harmonic + |ψ|²</div>
+      <canvas id="c2"></canvas>
+    </div>
+    <div class="col234">
+      <div class="plabel">3 — E(k<sub>x</sub>)</div>
+      <canvas id="c3"></canvas>
+    </div>
+    <div class="col234">
+      <div class="plabel">4 — D(E)</div>
+      <canvas id="c4"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+const hbar=1.055e-34, meff=9.109e-31*0.067;
+const Wqpc=80e-9, wy=Math.PI*hbar/(meff*Wqpc*Wqpc);
+const NMAX=3;
+const COL=['#378ADD','#1D9E75','#EF9F27'];
+const CEF='#E24B4A';
+const PT=16, PB=28; // shared top/bottom pad in px — identical for c2,c3,c4
+
+function En(n){return hbar*wy*(n+0.5);}
+function Vharm(y){return 0.5*meff*wy*wy*y*y;}
+function hermite(n,u){
+  if(n===0)return 1; if(n===1)return 2*u;
+  if(n===2)return 4*u*u-2; return 8*u*u*u-12*u;
+}
+function psi2(n,y){
+  const l0=Math.sqrt(hbar/(meff*wy)),u=y/l0,H=hermite(n,u);
+  return H*H*Math.exp(-u*u);
+}
+const Emax=En(NMAX)*1.15;
+const EFmin=En(0)*0.3, EFmax=Emax*0.98;
+function efFromSlider(v){return EFmin+(v/100)*(EFmax-EFmin);}
+function countOcc(EF){let n=0;for(let i=0;i<NMAX;i++)if(En(i)<EF)n++;return n;}
+
+function isDark(){return window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches;}
+function clr(){
+  const d=isDark();
+  return{bg:d?'#161616':'#fff', ax:d?'#666':'#888', txt:d?'#ccc':'#222',
+    txtm:d?'#666':'#999', gate:d?'#555':'#bbb', gatef:d?'#333':'#e8e8e8',
+    chan:d?'rgba(55,138,221,0.12)':'rgba(55,138,221,0.08)', pot:d?'#5599ee':'#1a55aa'};
+}
+
+// Set canvas backing store to exact CSS pixel size * dpr
+// For c2/c3/c4 we force the SAME h in CSS pixels before calling this.
+function prep(id){
+  const el=document.getElementById(id), dpr=window.devicePixelRatio||1;
+  const cw=el.clientWidth||el.width/dpr;
+  const ch=el.clientHeight||el.height/dpr;
+  el.width=Math.round(cw*dpr); el.height=Math.round(ch*dpr);
+  const ctx=el.getContext('2d'); ctx.scale(dpr,dpr);
+  return{ctx, cw, ch};
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,r);}
+  else{ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
+    ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+    ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);
+    ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();}
+}
+
+// ── toY: built from actual CSS pixel height, shared across c2/c3/c4 ──────────
+// Called after CSS heights are forced equal.
+function buildToY(cssH){
+  const ph=cssH-PT-PB;
+  return E=>PT+ph*(1-Math.min(Math.max(E,0),Emax)/Emax);
+}
+
+// ── Panel 1 ──────────────────────────────────────────────────────────────────
+function drawReal(EF){
+  const{ctx,cw,ch}=prep('c1'), c=clr();
+  ctx.fillStyle=c.bg; ctx.fillRect(0,0,cw,ch);
+  const cx=cw/2,cy=ch/2,gh=ch*0.22,gw=cw*0.68,gx=cx-gw/2,gap=ch*0.30;
+
+  ctx.fillStyle=c.chan; ctx.fillRect(gx,cy-gap/2,gw,gap);
+  ctx.fillStyle=c.gatef; ctx.strokeStyle=c.gate; ctx.lineWidth=0.8;
+  roundRect(ctx,gx,cy-gap/2-gh,gw,gh,4); ctx.fill(); ctx.stroke();
+  roundRect(ctx,gx,cy+gap/2,gw,gh,4);    ctx.fill(); ctx.stroke();
+  ctx.fillStyle=c.txt; ctx.font='12px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('Vg',cx,cy-gap/2-gh/2+5);
+  ctx.fillText('Vg',cx,cy+gap/2+gh/2+5);
+
+  let top=-1; for(let i=0;i<NMAX;i++) if(En(i)<EF) top=i;
+  if(top>=0){
+    const col=COL[top], l0=Math.sqrt(hbar/(meff*wy)), yr=l0*4.5;
+    const nP=Math.floor(gap)+1, p2=new Float32Array(nP); let pm=0;
+    for(let j=0;j<nP;j++){const yp=((j/(nP-1))-0.5)*yr;p2[j]=psi2(top,yp);if(p2[j]>pm)pm=p2[j];}
+    const amp=gw*0.25, y0=cy-gap/2;
+    ctx.beginPath();
+    for(let j=0;j<nP;j++){const py=y0+j,v=amp*(p2[j]/pm);j===0?ctx.moveTo(cx+v,py):ctx.lineTo(cx+v,py);}
+    for(let j=nP-1;j>=0;j--) ctx.lineTo(cx-amp*(p2[j]/pm),y0+j);
+    ctx.closePath(); ctx.fillStyle=col; ctx.globalAlpha=0.28; ctx.fill(); ctx.globalAlpha=1;
+    for(const s of[1,-1]){
+      ctx.strokeStyle=col; ctx.lineWidth=1.3; ctx.beginPath();
+      for(let j=0;j<nP;j++){const py=y0+j,px=cx+s*amp*(p2[j]/pm);j===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}
+      ctx.stroke();
+    }
+    ctx.fillStyle=col; ctx.font='bold 11px sans-serif'; ctx.textAlign='left';
+    ctx.fillText('n='+(top+1)+' (topmost)',gx+gw+8,cy+4);
+  } else {
+    ctx.fillStyle=c.txtm; ctx.font='11px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('no occupied modes',cx,cy+4);
+  }
+  const axy=Math.min(cy+gap/2+gh+8,ch-10);
+  ctx.strokeStyle=c.ax; ctx.lineWidth=0.8;
+  ctx.beginPath();ctx.moveTo(gx,axy);ctx.lineTo(gx+gw,axy);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(gx+gw-6,axy-3);ctx.lineTo(gx+gw,axy);ctx.lineTo(gx+gw-6,axy+3);ctx.stroke();
+  ctx.fillStyle=c.txt; ctx.font='11px sans-serif'; ctx.textAlign='left'; ctx.fillText('x',gx+gw+3,axy+4);
+  const axx=gx-16;
+  if(axx>4){
+    ctx.strokeStyle=c.ax;
+    ctx.beginPath();ctx.moveTo(axx,cy+gap/2);ctx.lineTo(axx,cy-gap/2);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(axx-3,cy-gap/2+6);ctx.lineTo(axx,cy-gap/2);ctx.lineTo(axx+3,cy-gap/2+6);ctx.stroke();
+    ctx.fillStyle=c.txt; ctx.font='11px sans-serif'; ctx.textAlign='center'; ctx.fillText('y',axx,cy-gap/2-5);
+  }
+  const Nocc=countOcc(EF);
+  ctx.fillStyle=c.txt; ctx.font='12px sans-serif'; ctx.textAlign='right';
+  ctx.fillText('N='+Nocc+'  \u2192  G='+Nocc+'\u00B72e\u00B2/h',cw-8,ch-8);
+}
+
+// ── Panel 2 ───────────────────────────────────────────────────────────────────
+function drawHarm(EF,toY,ch){
+  const{ctx,cw}=prep('c2'), c=clr();
+  ctx.fillStyle=c.bg; ctx.fillRect(0,0,cw,ch);
+  const PL=40, PR=4, pw=cw-PL-PR;
+  const ydisp=Math.sqrt(2*Emax/(meff*wy*wy));
+  const toX=y=>PL+pw*(y/(2*ydisp)+0.5);
+
+  // parabola
+  ctx.strokeStyle=c.pot; ctx.lineWidth=2; ctx.beginPath();
+  for(let xi=0;xi<=pw*2;xi++){
+    const yp=((xi/(pw*2))-0.5)*2*ydisp, Ev=Math.min(Vharm(yp),Emax*1.001);
+    xi===0?ctx.moveTo(toX(yp),toY(Ev)):ctx.lineTo(toX(yp),toY(Ev));
+  }
+  ctx.stroke();
+
+  for(let i=0;i<NMAX;i++){
+    const Ei=En(i); if(Ei>Emax) break;
+    const col=COL[i], occ=Ei<EF, yb=toY(Ei);
+    const yt=Math.sqrt(2*Ei/(meff*wy*wy));
+    ctx.strokeStyle=col; ctx.lineWidth=occ?1.3:0.7; ctx.setLineDash(occ?[]:[3,3]);
+    ctx.beginPath(); ctx.moveTo(toX(-yt),yb); ctx.lineTo(toX(yt),yb); ctx.stroke();
+    ctx.setLineDash([]);
+
+    const Enext=i<NMAX-1?En(i+1):En(i)+(En(1)-En(0));
+    const gpx=Math.abs(toY(Enext)-toY(Ei))*0.78;
+    const nY=300; let pm=0; const pv=new Float32Array(nY);
+    for(let j=0;j<nY;j++){const yp=((j/(nY-1))-0.5)*2*ydisp;pv[j]=psi2(i,yp);if(pv[j]>pm)pm=pv[j];}
+
+    ctx.beginPath();
+    for(let j=0;j<nY;j++){const px=PL+pw*j/(nY-1),py=yb-(pv[j]/pm)*gpx;j===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}
+    ctx.lineTo(PL+pw,yb); ctx.lineTo(PL,yb); ctx.closePath();
+    ctx.fillStyle=col; ctx.globalAlpha=occ?0.28:0.08; ctx.fill(); ctx.globalAlpha=1;
+    ctx.strokeStyle=col; ctx.lineWidth=occ?1.1:0.6; ctx.beginPath();
+    for(let j=0;j<nY;j++){const px=PL+pw*j/(nY-1),py=yb-(pv[j]/pm)*gpx;j===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}
+    ctx.stroke();
+    ctx.fillStyle=col; ctx.font='9px sans-serif'; ctx.textAlign='right';
+    ctx.fillText('E'+(i+1),PL+pw-2,yb-2);
+  }
+  if(EF>0&&EF<Emax){
+    const yF=toY(EF);
+    ctx.strokeStyle=CEF; ctx.lineWidth=1.2; ctx.setLineDash([5,3]);
+    ctx.beginPath(); ctx.moveTo(PL,yF); ctx.lineTo(PL+pw,yF); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=CEF; ctx.font='9px sans-serif'; ctx.textAlign='left'; ctx.fillText('EF',PL+2,yF-3);
+  }
+  ctx.strokeStyle=c.ax; ctx.lineWidth=0.7;
+  ctx.beginPath(); ctx.moveTo(PL,PT); ctx.lineTo(PL,ch-PB); ctx.lineTo(PL+pw,ch-PB); ctx.stroke();
+  ctx.fillStyle=c.txt; ctx.font='10px sans-serif'; ctx.textAlign='center'; ctx.fillText('y',PL+pw/2,ch-2);
+  ctx.save(); ctx.translate(12,PT+(ch-PT-PB)/2); ctx.rotate(-Math.PI/2); ctx.fillText('E',0,4); ctx.restore();
+}
+
+// ── Panel 3 ───────────────────────────────────────────────────────────────────
+function drawDisp(EF,toY,ch){
+  const{ctx,cw}=prep('c3'), c=clr();
+  ctx.fillStyle=c.bg; ctx.fillRect(0,0,cw,ch);
+  const PL=6, PR=10, pw=cw-PL-PR;
+  const kmax=1.4e8;
+  const toX=k=>PL+pw*(k/kmax/2+0.5);
+
+  ctx.strokeStyle=c.ax; ctx.lineWidth=0.5; ctx.setLineDash([2,3]);
+  ctx.beginPath(); ctx.moveTo(toX(0),PT); ctx.lineTo(toX(0),ch-PB); ctx.stroke(); ctx.setLineDash([]);
+
+  for(let i=0;i<NMAX;i++){
+    const Ei=En(i); if(Ei>Emax) break;
+    const col=COL[i], occ=Ei<EF;
+    ctx.strokeStyle=col; ctx.lineWidth=occ?1.5:0.7; ctx.globalAlpha=occ?1:0.28;
+    ctx.beginPath(); let fp=true;
+    for(let ki=-kmax;ki<=kmax;ki+=kmax/150){
+      const E=Ei+hbar*hbar*ki*ki/(2*meff);
+      if(E>Emax){fp=true;continue;}
+      const px=toX(ki),py=toY(E);
+      fp?(ctx.moveTo(px,py),fp=false):ctx.lineTo(px,py);
+    }
+    ctx.stroke(); ctx.globalAlpha=1;
+    if(Ei<Emax){ctx.fillStyle=col;ctx.font='8px sans-serif';ctx.textAlign='left';ctx.fillText(''+(i+1),toX(0)+2,toY(Ei)-2);}
+  }
+  if(EF>0&&EF<Emax){
+    const yF=toY(EF);
+    ctx.strokeStyle=CEF; ctx.lineWidth=1.2; ctx.setLineDash([5,3]);
+    ctx.beginPath(); ctx.moveTo(PL,yF); ctx.lineTo(PL+pw,yF); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=CEF; ctx.font='9px sans-serif'; ctx.textAlign='right'; ctx.fillText('EF',PL+pw-2,yF-3);
+  }
+  ctx.strokeStyle=c.ax; ctx.lineWidth=0.7;
+  ctx.beginPath(); ctx.moveTo(PL,ch-PB); ctx.lineTo(PL+pw,ch-PB); ctx.stroke();
+  ctx.fillStyle=c.txt; ctx.font='10px sans-serif'; ctx.textAlign='center'; ctx.fillText('kx',PL+pw/2,ch-2);
+}
+
+// ── Panel 4 ───────────────────────────────────────────────────────────────────
+function drawDOS(EF,toY,ch){
+  const{ctx,cw}=prep('c4'), c=clr();
+  ctx.fillStyle=c.bg; ctx.fillRect(0,0,cw,ch);
+  const PL=4, PR=6, pw=cw-PL-PR;
+  const eps=En(0)*0.004, nP=2000;
+  const dos=new Float32Array(nP); let dmax=0;
+  for(let j=0;j<nP;j++){
+    const E=Emax*j/(nP-1);
+    for(let i=0;i<NMAX;i++){const Em=En(i);if(E>Em)dos[j]+=1/Math.sqrt(E-Em+eps);}
+    if(dos[j]>dmax)dmax=dos[j];
+  }
+  const dcap=dmax*0.22;
+  const toX=D=>PL+pw*Math.min(D,dcap)/dcap;
+
+  ctx.strokeStyle=c.txt; ctx.lineWidth=1.2; ctx.globalAlpha=0.65;
+  ctx.beginPath(); let ft=true;
+  for(let j=0;j<nP;j++){
+    const E=Emax*j/(nP-1), py=toY(E);
+    if(py<PT){ft=true;continue;}
+    ft?(ctx.moveTo(toX(dos[j]),py),ft=false):ctx.lineTo(toX(dos[j]),py);
+  }
+  ctx.stroke(); ctx.globalAlpha=1;
+
+  if(EF>0&&EF<Emax){
+    const yF=toY(EF);
+    ctx.strokeStyle=CEF; ctx.lineWidth=1.2; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(PL,yF); ctx.lineTo(PL+pw,yF); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=CEF; ctx.font='8px sans-serif'; ctx.textAlign='right'; ctx.fillText('EF',PL+pw-1,yF-2);
+  }
+  ctx.strokeStyle=c.ax; ctx.lineWidth=0.6;
+  ctx.beginPath(); ctx.moveTo(PL,PT); ctx.lineTo(PL,ch-PB); ctx.lineTo(PL+pw,ch-PB); ctx.stroke();
+  ctx.fillStyle=c.txt; ctx.font='9px sans-serif'; ctx.textAlign='center'; ctx.fillText('D(E)',PL+pw/2,ch-2);
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+function drawAll(){
+  const v=parseInt(document.getElementById('ef_sl').value);
+  const EF=efFromSlider(v);
+  const meV=(EF/1.602e-19*1000).toFixed(2);
+  document.getElementById('ef_lbl').textContent='EF='+meV+' meV  N='+countOcc(EF);
+
+  // Force c2, c3, c4 to identical CSS pixel height BEFORE drawing.
+  // Use the row container height, or a fixed target of 280px CSS px.
+  const TARGET_H=280; // CSS px — same for all three
+  ['c2','c3','c4'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.style.height=TARGET_H+'px';
+    el.style.width='100%';
+  });
+
+  // Now build toY from that guaranteed height
+  const toY=buildToY(TARGET_H);
+
+  drawReal(EF);
+  drawHarm(EF,toY,TARGET_H);
+  drawDisp(EF,toY,TARGET_H);
+  drawDOS(EF,toY,TARGET_H);
+}
+
+document.getElementById('ef_sl').addEventListener('input',drawAll);
+let _rt; window.addEventListener('resize',()=>{clearTimeout(_rt);_rt=setTimeout(drawAll,80);});
+if(window.matchMedia) window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',drawAll);
+requestAnimationFrame(()=>requestAnimationFrame(drawAll));
+</script>
+</body>
+</html>
