@@ -78,7 +78,7 @@ const DISP_WC = 3, DOS_WC = 0.5;              // E1=3 = 6\u00d7DOS_WC \u2192 the
 const L=42, R=348, T=18, baseY=196, pW=R-L, pH=baseY-T;
 const xOf = E => L + (E/EMAX)*pW;
 const yOf = g => baseY - g*pH*0.92;
-let dim = 2, bOn = false, BF = false;
+let dim = 3, bOn = false, BF = false;
 
 /* ---------- structure ---------- */
 function isoBox(b){
