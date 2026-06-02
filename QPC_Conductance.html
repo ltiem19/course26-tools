@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>QPC Conductance</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#fff;--bg2:#f5f5f5;--ax:#888;--txt:#222;--txtm:#999;--pot:#1a55aa;--bd:rgba(0,0,0,0.12);--acc:#378ADD}
+@media(prefers-color-scheme:dark){:root{--bg:#161616;--bg2:#202020;--ax:#666;--txt:#ccc;--txtm:#666;--pot:#5599ee;--bd:rgba(255,255,255,0.10);--acc:#5599ee}}
+html,body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;min-height:100vh;-webkit-text-size-adjust:100%}
+.app{max-width:900px;margin:0 auto;padding:12px 10px 32px;display:flex;flex-direction:column;gap:10px}
+h1{font-size:15px;font-weight:600}
+h1 span{font-weight:400;color:var(--txtm);font-size:12px;margin-left:6px}
+.sliders{display:flex;flex-direction:column;gap:6px;background:var(--bg2);border:0.5px solid var(--bd);border-radius:10px;padding:10px 14px}
+.srow{display:flex;align-items:center;gap:8px}
+.srow label{font-size:11px;color:var(--txtm);min-width:26px}
+.srow input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:4px;border-radius:2px;background:var(--bd);outline:none;cursor:pointer;min-width:0}
+.srow input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--acc);cursor:pointer;border:none}
+.srow input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--acc);cursor:pointer;border:none}
+.srow input[type=range]::-ms-thumb{width:22px;height:22px;border-radius:50%;background:var(--acc);cursor:pointer;border:none}
+.srow input[type=range]::-ms-track{background:var(--bd);border:none;color:transparent}
+.srow .val{font-size:11px;font-weight:600;color:var(--txt);min-width:90px;text-align:right;white-space:nowrap}
+.plabel{font-size:10px;color:var(--txtm);padding-left:2px;margin-bottom:3px}
+.row-top{display:flex;gap:10px;align-items:flex-start}
+.wrap-G{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
+.eq-box{flex-shrink:0;width:220px;background:var(--bg2);border:0.5px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.75;color:var(--txt)}
+.eq-box .eq-main{font-size:13px;font-weight:500}
+.eq-box .eq-note{font-size:10px;color:var(--txtm);margin-top:5px;line-height:1.6}
+.row234{display:flex;gap:0}
+.col234:nth-child(1){flex:44;min-width:0}
+.col234:nth-child(2){flex:33;min-width:0}
+.col234:nth-child(3){flex:23;min-width:0}
+.col234{display:flex;flex-direction:column;gap:3px}
+canvas{display:block;width:100%;border-radius:8px;border:0.5px solid var(--bd);background:var(--bg);touch-action:none}
+/* Mobile: stack eq-box below G on narrow screens */
+@media(max-width:600px){
+  .row-top{flex-direction:column}
+  .eq-box{width:100%}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>QPC Conductance <span>Landauer–Büttiker</span></h1>
+  <div class="sliders">
+    <div class="srow"><label>V<sub>g</sub></label><input type="range" id="sl_vg" min="1" max="99" value="45"><span class="val" id="lbl_vg">—</span></div>
+    <div class="srow"><label>T</label><input type="range" id="sl_temp" min="0" max="100" value="0"><span class="val" id="lbl_temp">0 mK</span></div>
+    <div class="srow"><label>𝒯</label><input type="range" id="sl_trans" min="0" max="100" value="100"><span class="val" id="lbl_trans">𝒯 = 1.00</span></div>
+    <div class="srow"><label>B</label><input type="range" id="sl_B" min="0" max="100" value="0"><span class="val" id="lbl_B">B = 0.00 T</span></div>
+  </div>
+  <div class="row-top">
+    <div class="wrap-G"><div class="plabel">G(V<sub>g</sub>) — conductance vs gate voltage</div><canvas id="cG" height="200"></canvas></div>
+    <div class="eq-box" id="eq_box"></div>
+  </div>
+  <div class="row234">
+    <div class="col234"><div class="plabel">2 — E(y): potential + |ψ|²</div><canvas id="c2"></canvas></div>
+    <div class="col234"><div class="plabel">3 — E(k<sub>x</sub>)</div><canvas id="c3"></canvas></div>
+    <div class="col234"><div class="plabel">4 — D(E)</div><canvas id="c4"></canvas></div>
+  </div>
+</div>
+
+<script>
+// ── constants ─────────────────────────────────────────────────────────────────
+var hbar=1.055e-34, me=9.109e-31, eV=1.602e-19, kB=1.381e-23, muB=9.274e-24;
+var meff=me*0.067, gstar=-15.0, Wqpc=80e-9;
+var wy0=Math.PI*hbar/(meff*Wqpc*Wqpc);
+var G0=2*eV*eV/(2*Math.PI*hbar);   // 2e²/h
+var G1=eV*eV/(2*Math.PI*hbar);     // e²/h per spin
+var NMAX=3;
+var COL_UP=['#378ADD','#1D9E75','#EF9F27'];
+var COL_DN=['#1a4a88','#0d6647','#b06a10'];
+var CEF='#E24B4A';
+var PT=16, PB=28, TH=260;
+var EMAX0=hbar*wy0*(NMAX+0.5)*1.3; // B=0 reference scale
+
+// ── physics ───────────────────────────────────────────────────────────────────
+function getB(v){ return v/100*3.0; }
+function tempFromSlider(v){ return (v/100)*(v/100)*2000; }
+
+function physics(B_T){
+  var wc=eV*B_T/meff, w=Math.sqrt(wy0*wy0+wc*wc);
+  var mB=meff*w*w/(wy0*wy0), EZ=0.5*Math.abs(gstar)*muB*B_T;
+  var levels=[];
+  for(var i=0;i<NMAX;i++){
+    var Eorb=hbar*w*(i+0.5);
+    levels.push({E:Eorb-EZ, i:i, spin:+1, col:COL_UP[i]});
+    levels.push({E:Eorb+EZ, i:i, spin:-1, col:COL_DN[i]});
+  }
+  levels.sort(function(a,b){return a.E-b.E;});
+  return {w:w, mB:mB, EZ:EZ, levels:levels};
+}
+
+function getEmax(B_T){
+  var p=physics(B_T);
+  return Math.max(EMAX0, p.levels[p.levels.length-1].E*1.15);
+}
+
+function gxRange(B_T){
+  if(B_T<0.05) return {xlo:hbar*wy0*0.3, xhi:EMAX0*0.95};
+  var p=physics(B_T);
+  var lvs=p.levels;
+  var span=lvs[lvs.length-1].E-lvs[0].E+hbar*p.w;
+  return {xlo:Math.max(0,lvs[0].E-span*0.3), xhi:lvs[lvs.length-1].E+span*0.4};
+}
+
+function efFromSlider(v,B_T){
+  var r=gxRange(B_T);
+  return r.xlo+(v/100)*(r.xhi-r.xlo);
+}
+
+// ── Fermi–Dirac ───────────────────────────────────────────────────────────────
+function mdfde(E,EF,T_K){
+  if(T_K<1e-3) return 0;
+  var x=(E-EF)/(kB*T_K);
+  if(x>40||x<-40) return 0;
+  var ex=Math.exp(x);
+  return ex/((1+ex)*(1+ex))/(kB*T_K);
+}
+
+// ── conductance ───────────────────────────────────────────────────────────────
+function calcG(EF,T_K,Tn,levels){
+  var kT=kB*T_K;
+  var dEsub=hbar*wy0*0.1;
+  if(levels.length>1) dEsub=Math.max(dEsub, Math.abs(levels[1].E-levels[0].E));
+  if(kT<dEsub*0.015){
+    var G=0;
+    for(var k=0;k<levels.length;k++) if(EF>levels[k].E) G+=G1*Tn;
+    return G;
+  }
+  var Elo=Math.max(0,levels[0].E-4*kT);
+  var Ehi=EF+6*kT;
+  var steps=800, dE=(Ehi-Elo)/steps, G=0;
+  for(var j=0;j<steps;j++){
+    var E=Elo+(j+0.5)*dE;
+    var kern=mdfde(E,EF,T_K);
+    if(kern<1e-20) continue;
+    var Ts=0;
+    for(var k=0;k<levels.length;k++) if(E>levels[k].E) Ts+=Tn;
+    G+=G1*Ts*kern*dE;
+  }
+  return G;
+}
+
+// ── canvas helpers ────────────────────────────────────────────────────────────
+function isDark(){ return !!(window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches); }
+function clr(){
+  var d=isDark();
+  return {
+    bg:   d?'#161616':'#fff',
+    ax:   d?'#666':'#888',
+    txt:  d?'#ccc':'#222',
+    txtm: d?'#666':'#999',
+    pot:  d?'#5599ee':'#1a55aa',
+    gridl:d?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.05)'
+  };
+}
+
+function prep(id){
+  var el=document.getElementById(id);
+  var dpr=window.devicePixelRatio||1;
+  var cw=el.clientWidth||parseInt(el.getAttribute('width')/dpr)||300;
+  var ch=el.clientHeight||parseInt(el.getAttribute('height'))||200;
+  el.width=Math.round(cw*dpr);
+  el.height=Math.round(ch*dpr);
+  var ctx=el.getContext('2d');
+  ctx.scale(dpr,dpr);
+  return {ctx:ctx, cw:cw, ch:ch};
+}
+
+function hermite(n,u){
+  if(n===0) return 1;
+  if(n===1) return 2*u;
+  if(n===2) return 4*u*u-2;
+  return 8*u*u*u-12*u;
+}
+
+function makeToY(Emax,ch){
+  var ph=ch-PT-PB;
+  return function(E){ return PT+ph*(1-Math.min(Math.max(E,0),Emax)/Emax); };
+}
+
+function thermalBand(ctx,cw,ch,EF,T_K,toY,PL,PR,Emax){
+  var kT=kB*T_K;
+  if(kT<Emax*0.002) return;
+  var yhi=toY(Math.min(Emax,EF+2*kT));
+  var ylo=toY(Math.max(0,EF-2*kT));
+  if(ylo-yhi<1) return;
+  ctx.save();
+  ctx.globalAlpha=0.15; ctx.fillStyle='#f5c300';
+  ctx.fillRect(PL,yhi,cw-PL-PR,ylo-yhi);
+  ctx.globalAlpha=0.4; ctx.strokeStyle='#f5c300'; ctx.lineWidth=0.8;
+  ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(PL,yhi); ctx.lineTo(cw-PR,yhi); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PL,ylo); ctx.lineTo(cw-PR,ylo); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+// ── Panel G ───────────────────────────────────────────────────────────────────
+function drawG(EF,T_K,Tn,B_T){
+  var p=physics(B_T);
+  var r=gxRange(B_T);
+  var xlo=r.xlo, xhi=r.xhi;
+  var s=prep('cG'), ctx=s.ctx, cw=s.cw, ch=s.ch;
+  var c=clr();
+  ctx.fillStyle=c.bg; ctx.fillRect(0,0,cw,ch);
+  var PL=48,PR=16,pT=14,pB=28,pw=cw-PL-PR,ph=ch-pT-pB;
+  var Gmax=G0*NMAX;
+  var toX=function(ef){return PL+pw*(ef-xlo)/(xhi-xlo);};
+  var toYg=function(G){return pT+ph*(1-Math.min(G,Gmax)/Gmax);};
+
+  // integer G0 grid lines
+  for(var n=0;n<=NMAX;n++){
+    var y=toYg(G0*n);
+    ctx.strokeStyle=c.gridl; ctx.lineWidth=0.8; ctx.setLineDash([3,4]);
+    ctx.beginPath(); ctx.moveTo(PL,y); ctx.lineTo(PL+pw,y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle=c.ax; ctx.font='9px sans-serif'; ctx.textAlign='right';
+    ctx.fillText(n+'\u00B7G\u2080',PL-3,y+3);
+  }
+  // half-G0 dashes at B>0
+  if(B_T>0.05){
+    ctx.lineWidth=0.4; ctx.strokeStyle=c.gridl;
+    for(var n=1;n<=NMAX*2;n++){
+      var y=toYg(G0*n/2);
+      if(y<pT||y>pT+ph) continue;
+      ctx.setLineDash([1,5]);
+      ctx.beginPath(); ctx.moveTo(PL,y); ctx.lineTo(PL+pw,y); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // G(Vg) curve
+  ctx.strokeStyle=c.pot; ctx.lineWidth=2; ctx.beginPath();
+  for(var j=0;j<=400;j++){
+    var ef=xlo+(j/400)*(xhi-xlo);
+    var G=calcG(ef,T_K,Tn,p.levels);
+    var px=PL+pw*j/400, py=toYg(G);
+    j===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+  }
+  ctx.stroke();
+
+  // EF marker
+  var xF=toX(EF), Gcur=calcG(EF,T_K,Tn,p.levels);
+  ctx.strokeStyle=CEF; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+  ctx.beginPath(); ctx.moveTo(xF,pT); ctx.lineTo(xF,pT+ph); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle=CEF;
+  ctx.beginPath(); ctx.arc(xF,toYg(Gcur),4,0,2*Math.PI); ctx.fill();
+  ctx.font='bold 10px sans-serif'; ctx.textAlign='left';
+  ctx.fillText('G = '+(Gcur/G0).toFixed(2)+'\u00B7G\u2080',PL+4,pT+12);
+
+  // axes
+  ctx.strokeStyle=c.ax; ctx.lineWidth=0.7;
+  ctx.beginPath(); ctx.moveTo(PL,pT); ctx.lineTo(PL,pT+ph); ctx.lineTo(PL+pw,pT+ph); ctx.stroke();
+  ctx.fillStyle=c.txt; ctx.font='10px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('Vg  \u2192  EF',PL+pw/2,ch-2);
+  ctx.save(); ctx.translate(12,pT+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText('G',0,4); ctx.restore();
+}
+
+// ── Equation box ──────────────────────────────────────────────────────────────
+function updateEq(T_mK,Tn,B_T){
+  var box=document.getElementById('eq_box');
+  var fT=T_mK>50, pT=Math.abs(Tn-1)>0.01, hB=B_T>0.05;
+  var EZmeV=(0.5*Math.abs(gstar)*muB*B_T/eV*1000).toFixed(2);
+  var spin=hB?'e\u00B2':'2e\u00B2';
+  var h='<div class="eq-main">';
+  if(!fT&&!pT&&!hB)
+    h+='G = <sup>2e\u00B2</sup>/<sub>h</sub> \u00B7 N</div><div class="eq-note">Perfect transmission, T \u2192 0<br>N = # occupied subbands<br>Steps of 2e\u00B2/h (spin degenerate)</div>';
+  else if(!fT&&!pT&&hB)
+    h+='G = <sup>e\u00B2</sup>/<sub>h</sub> \u00B7 M</div><div class="eq-note">B &gt; 0: spin degeneracy lifted<br>M = # occupied spin-split levels<br>Steps of e\u00B2/h<br>E<sub>Z</sub> = \u00BD|g*|\u03BC<sub>B</sub>B = '+EZmeV+' meV</div>';
+  else if(!fT&&pT)
+    h+='G = <sup>'+spin+'</sup>/<sub>h</sub> \u00B7 \u03A3 \uD835\uDCEF<sub>n</sub></div><div class="eq-note">T \u2192 0, \uD835\uDCEF = '+Tn.toFixed(2)+(hB?'<br>B = '+B_T.toFixed(2)+' T':'')+' </div>';
+  else if(fT&&!pT)
+    h+='G = <sup>'+spin+'</sup>/<sub>h</sub> \u03A3\u222BdE(\u2212\u2202f/\u2202E)</div><div class="eq-note">Thermal smearing, \uD835\uDCEF=1<br>T='+(T_mK/1000).toFixed(3)+' K'+(hB?'<br>B='+B_T.toFixed(2)+' T':'')+' </div>';
+  else
+    h+='G = <sup>'+spin+'</sup>/<sub>h</sub> \u03A3\u222BdE(\u2212\u2202f/\u2202E)\uD835\uDCEF<sub>n</sub></div><div class="eq-note">Full Landauer<br>\uD835\uDCEF='+Tn.toFixed(2)+', T='+(T_mK/1000).toFixed(3)+' K'+(hB?'<br>B='+B_T.toFixed(2)+' T':'')+' </div>';
+  box.innerHTML=h;
+}
+
+// ── Panel 2: E(y) ─────────────────────────────────────────────────────────────
+function drawHarm(EF,T_K,B_T,toY,ch,Emax){
+  var s=prep('c2'), ctx=s.ctx, cw=s.cw;
+  var c=clr();
+  ctx.fillStyle=c.bg; ctx.fillRect(0,0,cw,ch);
+  var PL=40,PR=4,pw=cw-PL-PR;
+  var p=physics(B_T), w=p.w, levels=p.levels;
+  var ydisp=Math.sqrt(2*Emax/(meff*w*w));
+  var toX=function(y){return PL+pw*(y/(2*ydisp)+0.5);};
+  var l0=Math.sqrt(hbar/(meff*w));
+
+  // parabola
+  ctx.strokeStyle=c.pot; ctx.lineWidth=2; ctx.beginPath();
+  for(var xi=0;xi<=pw*2;xi++){
+    var yp=((xi/(pw*2))-0.5)*2*ydisp;
+    var Ev=Math.min(0.5*meff*w*w*yp*yp, Emax*1.001);
+    xi===0 ? ctx.moveTo(toX(yp),toY(Ev)) : ctx.lineTo(toX(yp),toY(Ev));
+  }
+  ctx.stroke();
+
+  // levels + WFs
+  for(var i=0;i<NMAX;i++){
+    var lvs=levels.filter(function(lv){return lv.i===i;});
+    for(var li=0;li<lvs.length;li++){
+      var lv=lvs[li], Ei=lv.E;
+      if(Ei>Emax) continue;
+      var occ=Ei<EF, yb=toY(Ei), col=lv.col;
+      var yt=Math.sqrt(Math.max(0,2*Ei/(meff*w*w)));
+      ctx.strokeStyle=col; ctx.lineWidth=occ?1.2:0.6;
+      ctx.setLineDash(occ?[]:[3,3]);
+      ctx.beginPath(); ctx.moveTo(toX(-yt),yb); ctx.lineTo(toX(yt),yb); ctx.stroke();
+      ctx.setLineDash([]);
+
+      var others=levels.filter(function(l){return l!==lv&&l.E>Ei;});
+      var Enext=others.length>0?others[0].E:Ei+hbar*w;
+      var gpx=Math.abs(toY(Math.min(Enext,Emax))-toY(Ei))*0.72;
+      var nY=250, pm=0, pv=new Float32Array(nY);
+      for(var j=0;j<nY;j++){
+        var yp=((j/(nY-1))-0.5)*2*ydisp, u=yp/l0, H=hermite(i,u);
+        pv[j]=H*H*Math.exp(-u*u);
+        if(pv[j]>pm) pm=pv[j];
+      }
+      if(pm===0) continue;
+      // filled shape
+      ctx.beginPath();
+      for(var j=0;j<nY;j++){
+        var px=PL+pw*j/(nY-1), py=yb-(pv[j]/pm)*gpx;
+        j===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+      }
+      ctx.lineTo(PL+pw,yb); ctx.lineTo(PL,yb); ctx.closePath();
+      ctx.fillStyle=col; ctx.globalAlpha=occ?0.22:0.06; ctx.fill(); ctx.globalAlpha=1;
+      // outline
+      ctx.strokeStyle=col; ctx.lineWidth=occ?1.0:0.5; ctx.beginPath();
+      for(var j=0;j<nY;j++){
+        var px=PL+pw*j/(nY-1), py=yb-(pv[j]/pm)*gpx;
+        j===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+      }
+      ctx.stroke();
+      ctx.fillStyle=col; ctx.font='8px sans-serif'; ctx.textAlign='right';
+      ctx.fillText('E'+(i+1)+(lv.spin>0?'\u2191':'\u2193'),PL+pw-2,yb-2);
+    }
+  }
+  thermalBand(ctx,cw,ch,EF,T_K,toY,PL,PR,Emax);
+  if(EF>0&&EF<Emax){
+    var yF=toY(EF);
+    ctx.strokeStyle=CEF; ctx.lineWidth=1.2; ctx.setLineDash([5,3]);
+    ctx.beginPath(); ctx.moveTo(PL,yF); ctx.lineTo(PL+pw,yF); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle=CEF; ctx.font='9px sans-serif'; ctx.textAlign='left';
+    ctx.fillText('EF',PL+2,yF-3);
+  }
+  ctx.strokeStyle=c.ax; ctx.lineWidth=0.7;
+  ctx.beginPath(); ctx.moveTo(PL,PT); ctx.lineTo(PL,ch-PB); ctx.lineTo(PL+pw,ch-PB); ctx.stroke();
+  ctx.fillStyle=c.txt; ctx.font='10px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('y',PL+pw/2,ch-2);
+  ctx.save(); ctx.translate(12,PT+(ch-PT-PB)/2); ctx.rotate(-Math.PI/2); ctx.fillText('E',0,4); ctx.restore();
+}
+
+// ── Panel 3: E(kx) ────────────────────────────────────────────────────────────
+function drawDisp(EF,T_K,B_T,toY,ch,Emax){
+  var s=prep('c3'), ctx=s.ctx, cw=s.cw;
+  var c=clr();
+  ctx.fillStyle=c.bg; ctx.fillRect(0,0,cw,ch);
+  var PL=6,PR=10,pw=cw-PL-PR;
+  var p=physics(B_T), mB=p.mB, levels=p.levels;
+  var kmax=1.4e8*Math.sqrt(Emax/EMAX0);
+  var toX=function(k){return PL+pw*(k/kmax/2+0.5);};
+
+  ctx.strokeStyle=c.ax; ctx.lineWidth=0.5; ctx.setLineDash([2,3]);
+  ctx.beginPath(); ctx.moveTo(toX(0),PT); ctx.lineTo(toX(0),ch-PB); ctx.stroke();
+  ctx.setLineDash([]);
+
+  for(var li=0;li<levels.length;li++){
+    var lv=levels[li], Ei=lv.E;
+    if(Ei>Emax) continue;
+    var occ=Ei<EF, col=lv.col;
+    ctx.strokeStyle=col; ctx.lineWidth=occ?1.4:0.6; ctx.globalAlpha=occ?1:0.25;
+    ctx.beginPath(); var fp=true;
+    for(var ki=-kmax;ki<=kmax;ki+=kmax/130){
+      var E=Ei+hbar*hbar*ki*ki/(2*mB);
+      if(E>Emax){fp=true;continue;}
+      var px=toX(ki), py=toY(E);
+      fp?(ctx.moveTo(px,py),fp=false):ctx.lineTo(px,py);
+    }
+    ctx.stroke(); ctx.globalAlpha=1;
+    ctx.fillStyle=col; ctx.font='7px sans-serif'; ctx.textAlign='left';
+    ctx.fillText((lv.i+1)+(lv.spin>0?'\u2191':'\u2193'),toX(0)+2,toY(Ei)-2);
+  }
+  thermalBand(ctx,cw,ch,EF,T_K,toY,PL,PR,Emax);
+  if(EF>0&&EF<Emax){
+    var yF=toY(EF);
+    ctx.strokeStyle=CEF; ctx.lineWidth=1.2; ctx.setLineDash([5,3]);
+    ctx.beginPath(); ctx.moveTo(PL,yF); ctx.lineTo(PL+pw,yF); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle=CEF; ctx.font='9px sans-serif'; ctx.textAlign='right';
+    ctx.fillText('EF',PL+pw-2,yF-3);
+  }
+  ctx.strokeStyle=c.ax; ctx.lineWidth=0.7;
+  ctx.beginPath(); ctx.moveTo(PL,ch-PB); ctx.lineTo(PL+pw,ch-PB); ctx.stroke();
+  ctx.fillStyle=c.txt; ctx.font='10px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('kx',PL+pw/2,ch-2);
+}
+
+// ── Panel 4: DOS ─────────────────────────────────────────────────────────────
+function drawDOS(EF,T_K,B_T,toY,ch,Emax){
+  var s=prep('c4'), ctx=s.ctx, cw=s.cw;
+  var c=clr();
+  ctx.fillStyle=c.bg; ctx.fillRect(0,0,cw,ch);
+  var PL=4,PR=12,pw=cw-PL-PR;
+  var levels=physics(B_T).levels;
+  var eps=Emax*0.002, nP=600;
+  var dos=new Float32Array(nP);
+  for(var j=0;j<nP;j++){
+    var E=Emax*j/(nP-1);
+    for(var k=0;k<levels.length;k++) if(E>levels[k].E) dos[j]+=1/Math.sqrt(E-levels[k].E+eps);
+  }
+  // Use 93rd-percentile cap to handle singularities gracefully
+  var sorted=Array.prototype.slice.call(dos).sort(function(a,b){return a-b;});
+  var dcap=(sorted[Math.floor(nP*0.93)]||1)*1.5;
+  var toX=function(D){return PL+pw*Math.min(D,dcap)/dcap;};
+
+  ctx.strokeStyle=c.txt; ctx.lineWidth=1.2; ctx.globalAlpha=0.65;
+  ctx.beginPath(); var ft=true;
+  for(var j=0;j<nP;j++){
+    var E=Emax*j/(nP-1), py=toY(E);
+    if(py<PT){ft=true;continue;}
+    ft?(ctx.moveTo(toX(dos[j]),py),ft=false):ctx.lineTo(toX(dos[j]),py);
+  }
+  ctx.stroke(); ctx.globalAlpha=1;
+  thermalBand(ctx,cw,ch,EF,T_K,toY,PL,PR,Emax);
+  if(EF>0&&EF<Emax){
+    var yF=toY(EF);
+    ctx.strokeStyle=CEF; ctx.lineWidth=1.2; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(PL,yF); ctx.lineTo(PL+pw,yF); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle=CEF; ctx.font='8px sans-serif'; ctx.textAlign='right';
+    ctx.fillText('EF',PL+pw-1,yF-2);
+  }
+  ctx.strokeStyle=c.ax; ctx.lineWidth=0.6;
+  ctx.beginPath(); ctx.moveTo(PL,PT); ctx.lineTo(PL,ch-PB); ctx.lineTo(PL+pw,ch-PB); ctx.stroke();
+  ctx.fillStyle=c.txt; ctx.font='9px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('D(E)',PL+pw/2,ch-2);
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+function drawAll(e){
+  // Mutual exclusion: B vs T/Tn
+  if(e && e.target){
+    var id=e.target.id;
+    if(id==='sl_B' && parseInt(e.target.value,10)>0){
+      document.getElementById('sl_temp').value='0';
+      document.getElementById('sl_trans').value='100';
+    } else if((id==='sl_temp'||id==='sl_trans') &&
+              (parseInt(document.getElementById('sl_temp').value,10)>0 ||
+               parseInt(document.getElementById('sl_trans').value,10)<100)){
+      document.getElementById('sl_B').value='0';
+    }
+  }
+
+  var vg =parseInt(document.getElementById('sl_vg').value,10);
+  var vT =parseInt(document.getElementById('sl_temp').value,10);
+  var vTn=parseInt(document.getElementById('sl_trans').value,10);
+  var vB =parseInt(document.getElementById('sl_B').value,10);
+
+  var B_T =getB(vB);
+  var EF  =efFromSlider(vg,B_T);
+  var T_mK=tempFromSlider(vT);
+  var T_K =T_mK*1e-3;
+  var Tn  =vTn/100;
+
+  document.getElementById('lbl_vg').textContent   ='EF='+(EF/eV*1000).toFixed(2)+' meV';
+  document.getElementById('lbl_temp').textContent  =T_mK<1000?T_mK.toFixed(0)+' mK':(T_mK/1000).toFixed(2)+' K';
+  document.getElementById('lbl_trans').textContent ='\uD835\uDCEF = '+Tn.toFixed(2);
+  document.getElementById('lbl_B').textContent     ='B = '+B_T.toFixed(2)+' T';
+
+  // Force identical CSS height for panels 2/3/4
+  var ids=['c2','c3','c4'];
+  for(var i=0;i<ids.length;i++){
+    var el=document.getElementById(ids[i]);
+    el.style.height=TH+'px';
+    el.style.width='100%';
+  }
+
+  // Dynamic Emax: covers all subbands at current B
+  var Emax=getEmax(B_T);
+  var toY=makeToY(Emax,TH);
+
+  drawG(EF,T_K,Tn,B_T);
+  updateEq(T_mK,Tn,B_T);
+  drawHarm(EF,T_K,B_T,toY,TH,Emax);
+  drawDisp(EF,T_K,B_T,toY,TH,Emax);
+  drawDOS (EF,T_K,B_T,toY,TH,Emax);
+}
+
+// event listeners — use named function for proper cleanup
+var ids=['sl_vg','sl_temp','sl_trans','sl_B'];
+for(var i=0;i<ids.length;i++){
+  document.getElementById(ids[i]).addEventListener('input',drawAll);
+}
+var _rt;
+window.addEventListener('resize',function(){clearTimeout(_rt);_rt=setTimeout(drawAll,80);});
+if(window.matchMedia){
+  window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',drawAll);
+}
+// Initial draw — defer until layout is complete
+requestAnimationFrame(function(){requestAnimationFrame(drawAll);});
+</script>
+</body>
+</html>
