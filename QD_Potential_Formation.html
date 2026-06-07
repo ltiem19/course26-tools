@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lateral Quantum Dot</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: #f5f5f0;
+    color: #1a1a1a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 28px 20px 40px;
+  }
+
+  h1 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #1a5fa8;
+    margin-bottom: 6px;
+  }
+  .subtitle {
+    font-size: 0.75rem;
+    color: #888;
+    font-family: 'IBM Plex Mono', monospace;
+    margin-bottom: 20px;
+  }
+
+  #canvas-wrap {
+    background: #ffffff;
+    border: 1px solid #d0d0cc;
+    border-radius: 6px;
+    padding: 10px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  }
+  canvas { display: block; }
+
+  #controls {
+    margin-top: 18px;
+    width: 820px;
+    background: #ffffff;
+    border: 1px solid #d0d0cc;
+    border-radius: 6px;
+    padding: 16px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .ctrl-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .ctrl-label-block {
+    width: 260px;
+    flex-shrink: 0;
+  }
+  .ctrl-label-block .primary {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.82rem;
+    color: #333;
+    font-weight: 600;
+  }
+  .ctrl-label-block .secondary {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: #999;
+    margin-top: 2px;
+  }
+
+  input[type=range] {
+    flex: 1;
+    accent-color: #1a5fa8;
+    cursor: pointer;
+  }
+
+  .ctrl-val {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.88rem;
+    color: #1a5fa8;
+    width: 64px;
+    text-align: right;
+  }
+
+  .status-bar {
+    margin-top: 8px;
+    width: 820px;
+    display: flex;
+    gap: 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    color: #888;
+    align-items: center;
+  }
+  .badge {
+    padding: 4px 12px;
+    border-radius: 3px;
+    border: 1px solid #d0d0cc;
+    color: #999;
+    transition: all 0.2s;
+    background: #fff;
+  }
+  .badge.resonant {
+    border-color: #c0540a;
+    color: #c0540a;
+    background: rgba(192,84,10,0.06);
+  }
+  .badge.blocked {
+    border-color: #d0d0cc;
+    color: #bbb;
+  }
+</style>
+</head>
+<body>
+
+<h1>Lateral Quantum Dot — Transport Simulation</h1>
+<div class="subtitle">2DES reservoirs · parabolic confinement · single-electron tunneling</div>
+
+<div id="canvas-wrap">
+  <canvas id="c" width="820" height="520"></canvas>
+</div>
+
+<div id="controls">
+  <div class="ctrl-row">
+    <div class="ctrl-label-block">
+      <div class="primary">Confinement gate — wall curvature</div>
+      <div class="secondary">steeper walls → higher ∂²V/∂x² → larger ℏω → wider level spacing</div>
+    </div>
+    <input type="range" id="slHw" min="5" max="30" value="15" step="0.5">
+  </div>
+</div>
+
+
+
+<script>
+const cv  = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const W   = cv.width, H = cv.height;
+
+// Energy axis: E ∈ [0, 100] a.u., E=0 at well floor, E=Emax at rim
+const yFloor = H - 60;
+const yTop   = 60;
+const Emax   = 100;
+const scale  = (yFloor - yTop) / Emax;  // px per energy unit
+
+const cx          = W / 2;
+const wellRxBase  = 155;  // half-width px at reference hw=15
+const wellRyBase  = 28;
+const hwRef       = 15;   // reference ℏω value matching wellRxBase
+// wellRx(hw) = wellRxBase * sqrt(hwRef/hw)  — stiffer spring = narrower well
+function wellRxOfHw(hw) { return wellRxBase * Math.sqrt(hwRef / hw); }
+function wellRyOfHw(hw) { return wellRyBase * Math.sqrt(hwRef / hw); }
+
+const resLeftX1   = 30;
+const resRightX2  = 790;
+const barrierWidthBase = 72;  // px at hwRef
+// barrier width scales with hw: tighter confinement = more negative gate = wider barrier
+function barrierWidthOfHw(hw) { return barrierWidthBase * (hw / hwRef); }
+
+// These are recomputed each frame in draw() and stored here for drawBarrier/drawWell access
+let resLeft, resRight, barrierLeft, barrierRight;
+
+const COL = {
+  blue:     '#1a5fa8',
+  blueFill: 'rgba(26,95,168,0.30)',
+  blueVac:  '#f0f4fa',
+  orange:   '#c0540a',
+  dim:      '#888',
+  dimmer:   '#ccc',
+  axis:     '#aaa',
+  text:     '#1a1a1a',
+  barrier:  'rgba(0,0,0,0.04)',
+};
+
+function yOfE(E) { return yFloor - E * scale; }
+
+const slHw  = document.getElementById('slHw');
+
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  const Ef = 50;  // fixed at mid-well — no plunger gate at this stage
+  const hw = parseFloat(slHw.value);
+
+  // E_n = ℏω(n + ½), only levels below well rim
+  const levels = [];
+  for (let n = 0; ; n++) {
+    const En = hw * (n + 0.5);
+    if (En > Emax - 2) break;
+    levels.push({ n, E: En });
+  }
+
+  const resonantLevel = levels.find(l => Math.abs(l.E - Ef) < 1.5);
+  const isResonant    = !!resonantLevel;
+
+  const wellRx = wellRxOfHw(hw);
+  const wellRy = wellRyOfHw(hw);
+
+  // Barrier width coupled to confinement; reservoirs have fixed inner edges
+  const bw = barrierWidthOfHw(hw);
+  const resInnerL = 190;  // fixed inner edge of left reservoir
+  const resInnerR = 630;  // fixed inner edge of right reservoir
+  barrierLeft  = { x1: resInnerL,      x2: resInnerL + bw };
+  barrierRight = { x1: resInnerR - bw, x2: resInnerR };
+  resLeft      = { x1: resLeftX1,      x2: resInnerL };
+  resRight     = { x1: resInnerR,      x2: resRightX2 };
+
+  drawReservoir(resLeft,  Ef);
+  drawReservoir(resRight, Ef);
+  drawBarrier(barrierLeft);
+  drawBarrier(barrierRight);
+  drawWellFill(wellRx, wellRy);
+  levels.forEach(l => drawLevel(l, Ef, wellRx, wellRy));
+  drawWellOutline(wellRx, wellRy);
+  drawFermiLines(Ef);
+
+  drawLabels(levels, isResonant, resonantLevel, wellRx);
+
+
+}
+
+function drawReservoir(res, Ef) {
+  const x = res.x1, w = res.x2 - res.x1;
+  const yEf  = yOfE(Ef);
+
+  // Vacuum above EF
+  ctx.fillStyle = COL.blueVac;
+  ctx.fillRect(x, yTop, w, yEf - yTop);
+
+  // Filled 2DEG below EF
+  ctx.fillStyle = COL.blueFill;
+  ctx.fillRect(x, yEf, w, yFloor - yEf);
+
+  // Border
+  ctx.strokeStyle = '#aaa';
+  ctx.lineWidth = 1.2;
+  ctx.strokeRect(x, yTop, w, yFloor - yTop);
+}
+
+function drawBarrier(bar) {
+  const x = bar.x1, w = bar.x2 - bar.x1, h = yFloor - yTop;
+  ctx.save();
+  // Clip all drawing to the barrier rectangle
+  ctx.beginPath();
+  ctx.rect(x, yTop, w, h);
+  ctx.clip();
+  // Subtle fill
+  ctx.fillStyle = COL.barrier;
+  ctx.fillRect(x, yTop, w, h);
+  // Diagonal hatching — now safely clipped
+  ctx.strokeStyle = 'rgba(0,0,0,0.07)';
+  ctx.lineWidth = 1;
+  for (let hx = x - h; hx < x + w + h; hx += 10) {
+    ctx.beginPath();
+    ctx.moveTo(hx, yTop);
+    ctx.lineTo(hx + h, yFloor);
+    ctx.stroke();
+  }
+  ctx.restore();
+  // Dashed vertical borders (outside clip, so they draw on top)
+  ctx.setLineDash([4, 5]);
+  ctx.strokeStyle = '#bbb';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x,     yTop); ctx.lineTo(x,     yFloor);
+  ctx.moveTo(x + w, yTop); ctx.lineTo(x + w, yFloor);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawWellFill(wellRx, wellRy) {
+  const x0 = barrierLeft.x2;
+  const x1 = barrierRight.x1;
+
+  // Parabola fill (very light blue inside the well below rim)
+  ctx.beginPath();
+  ctx.moveTo(x0, yTop);
+  for (let px = x0; px <= x1; px++) {
+    const dx = px - cx;
+    const E  = Emax * (dx / wellRx) * (dx / wellRx);
+    ctx.lineTo(px, yOfE(Math.min(E, Emax)));
+  }
+  ctx.lineTo(x1, yTop);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(26,95,168,0.03)';
+  ctx.fill();
+}
+
+function drawWellOutline(wellRx, wellRy) {
+  // Outline spans the full well width including through barrier regions
+  // so the potential wall is never hidden behind barrier hatching
+  const x0 = resLeft.x2;   // left reservoir inner edge
+  const x1 = resRight.x1;  // right reservoir inner edge
+
+  ctx.beginPath();
+  let started = false;
+  for (let px = x0; px <= x1; px++) {
+    const dx = px - cx;
+    const E  = Emax * (dx / wellRx) * (dx / wellRx);
+    if (E > Emax) { started = false; continue; }
+    const py = yOfE(E);
+    if (!started) { ctx.moveTo(px, py); started = true; } else ctx.lineTo(px, py);
+  }
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Top rim ellipse (dotted)
+  ctx.beginPath();
+  ctx.ellipse(cx, yTop, wellRx, wellRy, 0, 0, 2 * Math.PI);
+  ctx.setLineDash([5, 6]);
+  ctx.strokeStyle = '#bbb';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Energy axis
+  ctx.strokeStyle = COL.axis;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(cx, yFloor + 28);
+  ctx.lineTo(cx, yTop - 32);
+  ctx.stroke();
+  ctx.fillStyle = COL.axis;
+  ctx.beginPath();
+  ctx.moveTo(cx, yTop - 36);
+  ctx.lineTo(cx - 5, yTop - 24);
+  ctx.lineTo(cx + 5, yTop - 24);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#555';
+  ctx.font = 'italic 13px serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('E', cx, yTop - 40);
+
+  // Spatial axes
+  const axBot = yFloor + 18;
+  drawSpatialAxis(cx, axBot, cx + 78, axBot, 'y');
+  drawSpatialAxis(cx, axBot, cx - 52, axBot + 42, 'x');
+}
+
+function drawSpatialAxis(x0, y0, x1, y1, label) {
+  ctx.strokeStyle = COL.axis;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
+  ctx.stroke();
+  const ang = Math.atan2(y1 - y0, x1 - x0);
+  ctx.fillStyle = COL.axis;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - 10 * Math.cos(ang - 0.35), y1 - 10 * Math.sin(ang - 0.35));
+  ctx.lineTo(x1 - 10 * Math.cos(ang + 0.35), y1 - 10 * Math.sin(ang + 0.35));
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#777';
+  ctx.font = 'italic 13px serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(label, x1 + 6, y1 + 5);
+}
+
+function drawLevel(level, Ef, wellRx, wellRy) {
+  const E   = level.E;
+  const py  = yOfE(E);
+  const rx  = wellRx * Math.sqrt(E / Emax);
+  const ry  = wellRy * Math.sqrt(E / Emax);
+  const occ = E <= Ef;
+
+  ctx.beginPath();
+  ctx.ellipse(cx, py, Math.max(rx, 4), Math.max(ry, 3), 0, 0, 2 * Math.PI);
+  ctx.fillStyle   = occ ? COL.blueFill : 'rgba(26,95,168,0.04)';
+  ctx.fill();
+  ctx.strokeStyle = occ ? COL.blue : '#bbb';
+  ctx.lineWidth   = occ ? 1.8 : 1.2;
+  ctx.stroke();
+
+  ctx.fillStyle = occ ? COL.blue : '#bbb';
+  ctx.font = '11px "IBM Plex Mono", monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(`n=${level.n}`, cx + rx + 6, py + 4);
+}
+
+function drawFermiLines(Ef) {
+  const y = yOfE(Ef);
+  ctx.strokeStyle = COL.orange;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(resLeft.x1 + 4, y);
+  ctx.lineTo(resRight.x2 - 4, y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Single EF label on the left
+  ctx.fillStyle = COL.orange;
+  ctx.font = 'italic 14px serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('E', resLeft.x1 + 5, y - 4);
+  ctx.font = '9px "IBM Plex Mono"';
+  ctx.fillText('F', resLeft.x1 + 18, y + 1);
+}
+
+function drawTunnelArrow(xFrom, xTo, E, leftToRight) {
+  const y   = yOfE(E);
+  const dir = leftToRight ? 1 : -1;
+
+  ctx.save();
+  ctx.setLineDash([3, 3]);
+  ctx.strokeStyle = COL.orange;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(xFrom, y); ctx.lineTo(xTo, y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = COL.orange;
+  ctx.beginPath();
+  ctx.moveTo(xTo, y);
+  ctx.lineTo(xTo - dir * 10, y - 5);
+  ctx.lineTo(xTo - dir * 10, y + 5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawLabels(levels, isResonant, resonantLevel, wellRx) {
+  // Left reservoir labels
+  const lrcx = (resLeft.x1 + resLeft.x2) / 2;
+  const rrcx = (resRight.x1 + resRight.x2) / 2;
+  const midy = (yTop + yFloor) / 2;
+
+  ctx.fillStyle = '#555';
+  ctx.font = '11px "IBM Plex Sans", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Constant DOS', lrcx, midy - 10);
+  ctx.fillText('of a 2DES', lrcx, midy + 6);
+  ctx.fillText('2DES', rrcx, midy);
+
+  // Barrier labels
+  ctx.fillStyle = '#aaa';
+  ctx.font = '10px "IBM Plex Mono", monospace';
+  ctx.fillText('tunnel', (barrierLeft.x1 + barrierLeft.x2) / 2, yFloor + 12);
+  ctx.fillText('barrier', (barrierLeft.x1 + barrierLeft.x2) / 2, yFloor + 24);
+  ctx.fillText('tunnel', (barrierRight.x1 + barrierRight.x2) / 2, yFloor + 12);
+  ctx.fillText('barrier', (barrierRight.x1 + barrierRight.x2) / 2, yFloor + 24);
+
+  // Dot label — anchored left of the energy axis so it doesn't overlap the arrow
+  ctx.fillStyle = '#777';
+  ctx.font = '11px "IBM Plex Sans", sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('parabolic confinement', cx - 16, yTop - 42);
+  ctx.fillText('(quantum dot)', cx - 16, yTop - 28);
+
+
+
+
+
+  ctx.textAlign = 'left';
+}
+
+slHw.addEventListener('input', draw);
+draw();
+</script>
+</body>
+</html>
