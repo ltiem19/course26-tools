@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Single Electron Transport</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: #f0f2f5;
+    color: #1a2030;
+    min-height: 100vh;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: clamp(10px, 2vw, 20px);
+    gap: 10px;
+  }
+
+  h1 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: clamp(0.6rem, 1.5vw, 0.78rem);
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #1a5fa8;
+    text-align: center;
+  }
+  .subtitle {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: clamp(0.55rem, 1.2vw, 0.68rem);
+    color: #1a2030;
+    letter-spacing: 0.08em;
+    text-align: center;
+  }
+
+  /* ── Layout ── */
+  .main-grid {
+    display: grid;
+    width: 100%;
+    max-width: 1200px;
+    gap: 10px;
+    /* Desktop: potential left, plots right */
+    grid-template-columns: minmax(280px, 420px) 1fr;
+    grid-template-areas:
+      "pot ivg"
+      "pot stab"
+      "ctrl ctrl";
+  }
+
+  @media (max-width: 680px) {
+    .main-grid {
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        "pot"
+        "ivg"
+        "stab"
+        "ctrl";
+    }
+  }
+
+  #pane-potential { grid-area: pot; }
+  #pane-ivg       { grid-area: ivg; }
+  #pane-stab      { grid-area: stab; display: none; }
+  #pane-controls  { grid-area: ctrl; }
+
+  .panel {
+    background: #fff;
+    border: 1px solid #d8dde6;
+    border-radius: 8px;
+    padding: clamp(8px, 1.5vw, 14px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #1a2030;
+    margin-bottom: 6px;
+    flex-shrink: 0;
+  }
+
+  canvas { display: block; width: 100%; height: auto; }
+
+  /* ── Controls ── */
+  #pane-controls {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: clamp(10px, 2vw, 20px);
+    align-items: flex-start;
+  }
+
+  .ctrl-group { display: flex; flex-direction: column; gap: 4px; min-width: 160px; flex: 1; }
+  .ctrl-top   { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .ctrl-name  { font-family: 'IBM Plex Mono', monospace; font-size: clamp(0.65rem, 1.5vw, 0.75rem); font-weight: 600; color: #1a2030; }
+  .ctrl-val   { font-family: 'IBM Plex Mono', monospace; font-size: clamp(0.65rem, 1.5vw, 0.75rem); color: #1a5fa8; white-space: nowrap; }
+  .ctrl-desc  { font-family: 'IBM Plex Mono', monospace; font-size: clamp(0.55rem, 1.2vw, 0.62rem); color: #1a2030; line-height: 1.3; }
+
+  input[type=range] { width: 100%; accent-color: #1a5fa8; cursor: pointer; touch-action: none; }
+
+  .toggles {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .checkbox-group {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 12px;
+    border: 1px solid #d8dde6;
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+    background: #f8f9fc;
+    white-space: nowrap;
+  }
+  .checkbox-group input  { accent-color: #c0540a; cursor: pointer; width: 14px; height: 14px; flex-shrink: 0; }
+  .checkbox-group label  { font-family: 'IBM Plex Mono', monospace; font-size: clamp(0.6rem, 1.3vw, 0.72rem); color: #1a2030; cursor: pointer; }
+
+  button#btnReset {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: clamp(0.6rem, 1.3vw, 0.72rem);
+    color: #1a2030;
+    background: #f8f9fc;
+    border: 1px solid #d8dde6;
+    border-radius: 4px;
+    padding: 7px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    width: 100%;
+  }
+  button#btnReset:hover { background: #eef0f6; border-color: #b0b8cc; }
+  button#btnReset:active { background: #e0e4ee; }
+</style>
+</head>
+<body>
+
+<h1>Single Electron Transport</h1>
+
+
+<div class="main-grid">
+
+  <div class="panel" id="pane-potential">
+    <div class="panel-label">Potential landscape</div>
+    <canvas id="cvPot"></canvas>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:0.58rem;color:#a0a8b8;margin-top:6px;line-height:1.4;">
+      Oversimplified representation — omits electron spin and Coulomb charging energy E<sub>C</sub> = e²/2C
+    </div>
+  </div>
+
+  <div class="panel" id="pane-ivg">
+    <div class="panel-label" id="ivg-label">I<sub>DS</sub> vs V<sub>G</sub> &nbsp;<span id="ivg-hint" style="color:#8090a8;font-size:0.6rem;font-family:'IBM Plex Mono',monospace">sweep V<sub>G</sub> to reveal</span></div>
+    <canvas id="cvIVG"></canvas>
+  </div>
+
+  <div class="panel" id="pane-stab">
+    <div class="panel-label">Stability diagram — dG vs (V<sub>G</sub>, V<sub>SD</sub>) · sweep sliders to reveal</div>
+    <canvas id="cvStab"></canvas>
+  </div>
+
+  <div class="panel" id="pane-controls">
+
+    <div class="ctrl-group">
+      <div class="ctrl-top">
+        <span class="ctrl-name">Plunger gate V<sub>G</sub></span>
+        <span class="ctrl-val" id="vVg">0.00</span>
+      </div>
+      <div class="ctrl-desc">shifts dot levels · α·V<sub>G</sub></div>
+      <input type="range" id="slVg" min="0" max="7" value="0" step="0.02">
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-top">
+        <span class="ctrl-name">Source–drain V<sub>SD</sub></span>
+        <span class="ctrl-val" id="vVsd">0.0</span>
+      </div>
+      <div class="ctrl-desc">bias window width = V<sub>SD</sub></div>
+      <input type="range" id="slVsd" min="0" max="1.0" value="0" step="0.2">
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-top">
+        <span class="ctrl-name">Temperature k<sub>B</sub>T</span>
+        <span class="ctrl-val" id="vTemp">0.00</span>
+      </div>
+      <div class="ctrl-desc">broadens Fermi edge · washes out blockade when k<sub>B</sub>T ~ ΔE</div>
+      <input type="range" id="slTemp" min="0" max="0.5" value="0" step="0.01">
+    </div>
+
+    <div class="toggles">
+      <div class="checkbox-group">
+        <input type="checkbox" id="chkDeriv">
+        <label for="chkDeriv">Show dI<sub>DS</sub>/dV<sub>G</sub></label>
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="chkShowStab">
+        <label for="chkShowStab">Show stability diagram</label>
+      </div>
+      <button id="btnReset">Clear stability diagram</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Physics ────────────────────────────────────────────────────────────────────
+const N_LEVELS = 9;
+const dE    = 1.1;   // > VSD_MAX so window holds at most 1 level at T=0
+const alpha = 0.5;
+
+function levelEnergies(Vg) {
+  const out = [];
+  for (let n = 0; n < N_LEVELS; n++) out.push((n + 1) * dE - alpha * Vg);
+  return out;
+}
+
+function fermi(E, kT) {
+  if (kT < 1e-6) return E < 0 ? 1 : 0;
+  return 1 / (1 + Math.exp(E / kT));
+}
+
+// Current: sum over levels of [f(E_n - mu_S) - f(E_n - mu_D)]
+// mu_S = +Vsd/2, mu_D = -Vsd/2  (symmetric bias)
+function current(Vg, Vsd, kT) {
+  if (Vsd <= 0 && kT < 1e-6) return 0;
+  const levels = levelEnergies(Vg);
+  let I = 0;
+  for (const E of levels) {
+    I += fermi(E - Vsd / 2, kT) - fermi(E + Vsd / 2, kT);
+  }
+  return Math.max(0, I);
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+const VG_MIN = 0, VG_MAX = 7, VSD_MIN = 0, VSD_MAX = 1.0;
+
+// ── Stability sweep state ─────────────────────────────────────────────────────
+const STAB_NP   = 600;
+const stabVisited = {};
+const stabLastIdx = {};
+
+function stabIdxFromVg(Vg) {
+  return Math.max(0, Math.min(STAB_NP, Math.round((Vg - VG_MIN) / (VG_MAX - VG_MIN) * STAB_NP)));
+}
+function reveal(Vg, Vsd) {
+  const key = Vsd.toFixed(1);
+  if (!stabVisited[key]) { stabVisited[key] = new Uint8Array(STAB_NP + 1); stabLastIdx[key] = null; }
+  const idx  = stabIdxFromVg(Vg);
+  const from = stabLastIdx[key] !== null ? stabLastIdx[key] : idx;
+  for (let i = Math.min(from, idx); i <= Math.max(from, idx); i++) stabVisited[key][i] = 1;
+  stabLastIdx[key] = idx;
+}
+function clearStab() {
+  Object.keys(stabVisited).forEach(k => { delete stabVisited[k]; delete stabLastIdx[k]; });
+}
+
+// ── IVG sweep state ───────────────────────────────────────────────────────────
+const IVG_NP      = 800;
+const ivgRevealed = new Uint8Array(IVG_NP + 1);
+const ivgValues   = new Float32Array(IVG_NP + 1);
+let   ivgVsdKey   = null;
+let   ivgLastIdx  = null;
+
+function ivgIdxFromVg(Vg) {
+  return Math.max(0, Math.min(IVG_NP, Math.round((Vg - VG_MIN) / (VG_MAX - VG_MIN) * IVG_NP)));
+}
+function revealIVG(Vg, Vsd, kT) {
+  const key = Vsd.toFixed(1) + '_' + kT.toFixed(2);
+  if (ivgVsdKey !== key) {
+    ivgRevealed.fill(0); ivgValues.fill(0);
+    ivgVsdKey = key; ivgLastIdx = null;
+  }
+  const idx  = ivgIdxFromVg(Vg);
+  const from = ivgLastIdx !== null ? ivgLastIdx : idx;
+  for (let i = Math.min(from, idx); i <= Math.max(from, idx); i++) {
+    ivgValues[i]   = current(VG_MIN + (i / IVG_NP) * (VG_MAX - VG_MIN), Vsd, kT);
+    ivgRevealed[i] = 1;
+  }
+  ivgLastIdx = idx;
+}
+
+// ── Canvas setup — responsive ─────────────────────────────────────────────────
+const cvPot  = document.getElementById('cvPot');
+const cvIVG  = document.getElementById('cvIVG');
+const cvStab = document.getElementById('cvStab');
+const ctxP   = cvPot.getContext('2d');
+const ctxI   = cvIVG.getContext('2d');
+const ctxS   = cvStab.getContext('2d');
+
+// Logical aspect ratios
+const POT_RATIO  = 436 / 430;
+const IVG_RATIO  = 590 / 200;
+const STAB_RATIO = 590 / 200;
+
+function resizeCanvas(cv, ratio) {
+  const w = cv.parentElement.clientWidth - 24; // 2*padding
+  const h = Math.round(w / ratio);
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  return { w, h };
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+const slVg    = document.getElementById('slVg');
+const slVsd   = document.getElementById('slVsd');
+const slTemp  = document.getElementById('slTemp');
+const chkDeriv    = document.getElementById('chkDeriv');
+const chkShowStab = document.getElementById('chkShowStab');
+const vVgEl   = document.getElementById('vVg');
+const vVsdEl  = document.getElementById('vVsd');
+const vTempEl = document.getElementById('vTemp');
+const ivgLabel = document.getElementById('ivg-label');
+const ivgHint  = document.getElementById('ivg-hint');
+const paneStab = document.getElementById('pane-stab');
+
+chkShowStab.addEventListener('change', () => {
+  paneStab.style.display = chkShowStab.checked ? 'flex' : 'none';
+  if (chkShowStab.checked) { resizeCanvas(cvStab, STAB_RATIO); drawAll(); }
+});
+document.getElementById('btnReset').addEventListener('click', () => { clearStab(); drawAll(); });
+
+// ── Colors ────────────────────────────────────────────────────────────────────
+const C = {
+  bg: '#ffffff', blue: '#1a5fa8', blueF: 'rgba(26,95,168,0.28)',
+  orange: '#c05010', green: '#1a6830', dim: '#1a2030', dimL: '#b0b8c8',
+  axis: '#1a2030', grid: '#eef0f4', barrier: 'rgba(0,0,0,0.03)',
+};
+
+// ── Draw: potential landscape ─────────────────────────────────────────────────
+function drawPotential(Vg, Vsd, kT) {
+  const W = cvPot.width, H = cvPot.height;
+  ctxP.clearRect(0, 0, W, H);
+  ctxP.fillStyle = C.bg; ctxP.fillRect(0, 0, W, H);
+
+  const sc   = W / 436;  // scale factor relative to reference layout
+  const cx   = W / 2;
+  const dotW = 90 * sc, gapW = 44 * sc, resW = 88 * sc;
+  const dotX = cx - dotW / 2, dotX2 = dotX + dotW;
+  const bL1 = dotX - gapW, bL2 = dotX;
+  const bR1 = dotX2, bR2 = dotX2 + gapW;
+  const sx1 = bL1 - resW, dx1 = bR2, dx2 = bR2 + resW;
+
+  const yTop = 40 * sc, yBot = H - 55 * sc, wellH = yBot - yTop;
+  const Emin = -3.0, Emax = 3.0;
+  function yOfE(E) { return yBot - (E - Emin) / (Emax - Emin) * wellH; }
+
+  const yEFs = yOfE(Vsd / 2), yEFd = yOfE(-Vsd / 2);
+
+  // Source
+  const sg = ctxP.createLinearGradient(0, yEFs, 0, yBot);
+  sg.addColorStop(0, 'rgba(26,95,168,0.50)'); sg.addColorStop(1, 'rgba(26,95,168,0.80)');
+  ctxP.fillStyle = sg; ctxP.fillRect(sx1, yEFs, resW, yBot - yEFs);
+  ctxP.fillStyle = 'rgba(26,95,168,0.06)'; ctxP.fillRect(sx1, yTop, resW, yEFs - yTop);
+  ctxP.strokeStyle = C.dimL; ctxP.lineWidth = 1; ctxP.strokeRect(sx1, yTop, resW, yBot - yTop);
+
+  // Drain
+  const dg2 = ctxP.createLinearGradient(0, yEFd, 0, yBot);
+  dg2.addColorStop(0, 'rgba(26,95,168,0.50)'); dg2.addColorStop(1, 'rgba(26,95,168,0.80)');
+  ctxP.fillStyle = dg2; ctxP.fillRect(dx1, yEFd, resW, yBot - yEFd);
+  ctxP.fillStyle = 'rgba(26,95,168,0.06)'; ctxP.fillRect(dx1, yTop, resW, yEFd - yTop);
+  ctxP.strokeStyle = C.dimL; ctxP.lineWidth = 1; ctxP.strokeRect(dx1, yTop, resW, yBot - yTop);
+
+  // Barriers
+  [[bL1, bL2], [bR1, bR2]].forEach(([x1, x2]) => {
+    const bh = yBot - yTop, bw = x2 - x1;
+    ctxP.save();
+    ctxP.beginPath(); ctxP.rect(x1, yTop, bw, bh); ctxP.clip();
+    ctxP.fillStyle = C.barrier; ctxP.fillRect(x1, yTop, bw, bh);
+    ctxP.strokeStyle = 'rgba(0,0,0,0.06)'; ctxP.lineWidth = 1;
+    for (let hx = x1 - bh; hx < x2 + bh; hx += 9 * sc) {
+      ctxP.beginPath(); ctxP.moveTo(hx, yTop); ctxP.lineTo(hx + bh, yBot); ctxP.stroke();
+    }
+    ctxP.restore();
+    ctxP.setLineDash([3, 4]); ctxP.strokeStyle = C.dimL; ctxP.lineWidth = 1;
+    ctxP.beginPath();
+    ctxP.moveTo(x1, yTop); ctxP.lineTo(x1, yBot);
+    ctxP.moveTo(x2, yTop); ctxP.lineTo(x2, yBot);
+    ctxP.stroke(); ctxP.setLineDash([]);
+  });
+
+  // Dot box
+  ctxP.strokeStyle = '#607080'; ctxP.lineWidth = 2;
+  ctxP.strokeRect(dotX, yTop, dotW, yBot - yTop);
+
+  // Bias window shading
+  if (Vsd > 0.02) {
+    ctxP.fillStyle = 'rgba(26,95,168,0.13)';
+    ctxP.fillRect(dotX + 1, yEFs, dotW - 2, yEFd - yEFs);
+    // Left and right border lines to frame the window clearly
+    ctxP.strokeStyle = 'rgba(26,95,168,0.25)';
+    ctxP.lineWidth = 1;
+    ctxP.beginPath();
+    ctxP.moveTo(dotX + 1, yEFs); ctxP.lineTo(dotX2 - 1, yEFs);
+    ctxP.moveTo(dotX + 1, yEFd); ctxP.lineTo(dotX2 - 1, yEFd);
+    ctxP.stroke();
+  }
+
+  // Thermal smearing indicator on EF lines
+  const levels = levelEnergies(Vg);
+  const fSize  = Math.max(8, 10 * sc);
+
+  levels.forEach((E, n) => {
+    if (E < Emin || E > Emax) return;
+    const py = yOfE(E);
+    const inWindow = Vsd > 0.01 && E > -Vsd / 2 && E < Vsd / 2;
+    const thermOcc = kT > 0.02 && Math.abs(E - Vsd / 2) < 3 * kT;
+    const occupied = E < Vsd / 2;
+
+    ctxP.strokeStyle = (inWindow || thermOcc) ? C.blue : C.dimL;
+    ctxP.lineWidth   = (inWindow || thermOcc) ? 2 : 1.2;
+    ctxP.beginPath();
+    ctxP.moveTo(dotX + 10 * sc, py); ctxP.lineTo(dotX2 - 10 * sc, py);
+    ctxP.stroke();
+
+    if (occupied) {
+      ctxP.beginPath();
+      ctxP.arc(dotX + 22 * sc, py, 5 * sc, 0, 2 * Math.PI);
+      ctxP.fillStyle = (inWindow || thermOcc) ? C.blue : C.blueF;
+      ctxP.fill();
+    }
+
+    ctxP.fillStyle = (inWindow || thermOcc) ? C.blue : C.dim;
+    ctxP.font = `${fSize}px "IBM Plex Mono"`;
+    ctxP.textAlign = 'right';
+    ctxP.fillText(`n=${n}`, dotX2 - 6 * sc, py - 3);
+  });
+
+  // Arrows
+  const active = levels.filter(E => Vsd > 0.01 && E > -Vsd / 2 && E < Vsd / 2 && E > Emin && E < Emax);
+  active.forEach(E => {
+    const py = yOfE(E);
+    drawArrow(ctxP, bL1 - resW + 3, py, bL1 - 3, py, C.blue, sc);
+    drawArrow(ctxP, bR2 + 3,        py, bR2 + resW - 3, py, C.blue, sc);
+  });
+
+  // EF source
+  ctxP.setLineDash([6, 4]); ctxP.strokeStyle = C.orange; ctxP.lineWidth = 1.5;
+  ctxP.beginPath(); ctxP.moveTo(sx1 + 3, yEFs); ctxP.lineTo(dx2 - 3, yEFs); ctxP.stroke();
+  ctxP.setLineDash([]);
+
+  // Thermal smearing band on EF
+  if (kT > 0.02) {
+    const yHi = yOfE(Vsd / 2 + 2 * kT), yLo = yOfE(Vsd / 2 - 2 * kT);
+    ctxP.fillStyle = 'rgba(192,80,16,0.18)';
+    ctxP.fillRect(sx1 + 3, yHi, resW - 6, yLo - yHi);
+    ctxP.strokeStyle = 'rgba(192,80,16,0.35)';
+    ctxP.lineWidth = 1;
+    ctxP.beginPath();
+    ctxP.moveTo(sx1 + 3, yHi); ctxP.lineTo(sx1 + resW - 3, yHi);
+    ctxP.moveTo(sx1 + 3, yLo); ctxP.lineTo(sx1 + resW - 3, yLo);
+    ctxP.stroke();
+  }
+
+  ctxP.fillStyle = C.orange;
+  ctxP.font = `italic ${fSize + 2}px serif`; ctxP.textAlign = 'right';
+  ctxP.fillText('E', sx1 - 3, yEFs + 4);
+  ctxP.font = `${fSize - 1}px "IBM Plex Mono"`; ctxP.textAlign = 'left';
+  ctxP.fillText('F,S', sx1 - 1, yEFs + 10);
+
+  if (Vsd > 0.02) {
+    ctxP.setLineDash([6, 4]); ctxP.strokeStyle = C.green; ctxP.lineWidth = 1.5;
+    ctxP.beginPath(); ctxP.moveTo(dx1, yEFd); ctxP.lineTo(dx2 - 3, yEFd); ctxP.stroke();
+    ctxP.setLineDash([]);
+    ctxP.fillStyle = C.green;
+    ctxP.font = `italic ${fSize + 2}px serif`; ctxP.textAlign = 'right';
+    ctxP.fillText('E', dx2 - 2, yEFd - 5);
+    ctxP.font = `${fSize - 1}px "IBM Plex Mono"`; ctxP.textAlign = 'right';
+    ctxP.fillText('F,D', dx2 - 2, yEFd + 4);
+  }
+
+  // Labels
+  ctxP.fillStyle = C.dim; ctxP.font = `${fSize + 1}px "IBM Plex Sans"`; ctxP.textAlign = 'center';
+  ctxP.fillText('Source', sx1 + resW / 2, yBot + 16 * sc);
+  ctxP.fillText('Drain',  dx1 + resW / 2, yBot + 16 * sc);
+  ctxP.fillText('Dot',    cx,              yBot + 16 * sc);
+  ctxP.font = `${fSize - 1}px "IBM Plex Mono"`;
+  ctxP.fillText('barrier', (bL1 + bL2) / 2, yBot + 16 * sc);
+  ctxP.fillText('barrier', (bR1 + bR2) / 2, yBot + 16 * sc);
+
+  // Energy axis
+  const axX = W - 16 * sc;
+  ctxP.strokeStyle = C.axis; ctxP.lineWidth = 1;
+  ctxP.beginPath(); ctxP.moveTo(axX, yBot + 8 * sc); ctxP.lineTo(axX, yTop - 8 * sc); ctxP.stroke();
+  ctxP.fillStyle = C.axis;
+  ctxP.beginPath(); ctxP.moveTo(axX, yTop - 12 * sc);
+  ctxP.lineTo(axX - 4 * sc, yTop - 2 * sc); ctxP.lineTo(axX + 4 * sc, yTop - 2 * sc);
+  ctxP.closePath(); ctxP.fill();
+  ctxP.fillStyle = C.dim; ctxP.font = `italic ${fSize + 2}px serif`; ctxP.textAlign = 'center';
+  ctxP.fillText('E', axX, yTop - 16 * sc);
+}
+
+function drawArrow(ctx, x0, y0, x1, y1, color, sc) {
+  const ang = Math.atan2(y1 - y0, x1 - x0);
+  ctx.strokeStyle = color; ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - 9 * sc * Math.cos(ang - 0.4), y1 - 9 * sc * Math.sin(ang - 0.4));
+  ctx.lineTo(x1 - 9 * sc * Math.cos(ang + 0.4), y1 - 9 * sc * Math.sin(ang + 0.4));
+  ctx.closePath(); ctx.fill();
+}
+
+// ── Draw: I vs Vg ─────────────────────────────────────────────────────────────
+function drawIVG(Vg, Vsd, kT, showDeriv) {
+  const W = cvIVG.width, H = cvIVG.height;
+  ctxI.clearRect(0, 0, W, H); ctxI.fillStyle = C.bg; ctxI.fillRect(0, 0, W, H);
+
+  const pad = { l: 38, r: 14, t: 12, b: 28 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+
+  // Derivative
+  const dArr = new Float32Array(IVG_NP + 1);
+  for (let i = 0; i < IVG_NP; i++) {
+    if (!ivgRevealed[i] || !ivgRevealed[i + 1]) continue;
+    const diff = ivgValues[i + 1] - ivgValues[i];
+    if (Math.abs(diff) < 0.05) continue;
+    dArr[i] = diff * IVG_NP / (VG_MAX - VG_MIN);
+    if (kT < 0.02) i++;  // skip mirror only at T=0 (sharp steps)
+  }
+
+  const iMax = 1;
+  const dMax = Math.max(0.1, ...Array.from(dArr).map(Math.abs));
+  const yZeroI = pad.t + ph * 0.88;
+  const yZeroD = pad.t + ph / 2;
+
+  // Grid
+  ctxI.strokeStyle = C.grid; ctxI.lineWidth = 1;
+  if (showDeriv) {
+    ctxI.beginPath(); ctxI.moveTo(pad.l, yZeroD); ctxI.lineTo(pad.l + pw, yZeroD); ctxI.stroke();
+  } else {
+    for (let i = 1; i <= 4; i++) {
+      const y = yZeroI - (i / 4) * ph * 0.85;
+      ctxI.beginPath(); ctxI.moveTo(pad.l, y); ctxI.lineTo(pad.l + pw, y); ctxI.stroke();
+    }
+  }
+
+  // Axes
+  ctxI.strokeStyle = C.axis; ctxI.lineWidth = 1.5;
+  ctxI.beginPath(); ctxI.moveTo(pad.l, pad.t); ctxI.lineTo(pad.l, pad.t + ph + 4); ctxI.stroke();
+  ctxI.beginPath(); ctxI.moveTo(pad.l - 3, pad.t + ph); ctxI.lineTo(pad.l + pw, pad.t + ph); ctxI.stroke();
+
+  ctxI.fillStyle = C.dim;
+  ctxI.font = 'italic 11px serif'; ctxI.textAlign = 'left';
+  ctxI.fillText('V', pad.l + pw + 2, pad.t + ph + 4);
+  ctxI.font = '7px "IBM Plex Mono"'; ctxI.fillText('G', pad.l + pw + 9, pad.t + ph + 8);
+
+  ctxI.save(); ctxI.translate(10, pad.t + ph / 2); ctxI.rotate(-Math.PI / 2);
+  ctxI.font = showDeriv ? '8px "IBM Plex Mono"' : 'italic 11px serif';
+  ctxI.textAlign = 'center'; ctxI.fillStyle = C.dim;
+  ctxI.fillText(showDeriv ? 'dI/dVG' : 'IDS', 0, 0);
+  ctxI.restore();
+
+  // Trace
+  if (!showDeriv) {
+    ctxI.strokeStyle = C.blue; ctxI.lineWidth = 1.8;
+    let inSeg = false; ctxI.beginPath();
+    for (let i = 0; i <= IVG_NP; i++) {
+      if (!ivgRevealed[i]) { inSeg = false; continue; }
+      const x = pad.l + (i / IVG_NP) * pw;
+      const y = yZeroI - (ivgValues[i] / iMax) * ph * 0.85;
+      if (!inSeg) { ctxI.moveTo(x, y); inSeg = true; } else ctxI.lineTo(x, y);
+    }
+    ctxI.stroke();
+  } else {
+    for (let i = 0; i <= IVG_NP; i++) {
+      if (!ivgRevealed[i] || Math.abs(dArr[i]) < 0.01) continue;
+      const x  = pad.l + (i / IVG_NP) * pw;
+      const dy = (dArr[i] / dMax) * ph * 0.42;
+      ctxI.strokeStyle = dArr[i] > 0 ? C.blue : C.orange;
+      ctxI.lineWidth = 2;
+      ctxI.beginPath(); ctxI.moveTo(x, yZeroD); ctxI.lineTo(x, yZeroD - dy); ctxI.stroke();
+    }
+    ctxI.fillStyle = C.dim; ctxI.font = '7px "IBM Plex Mono"'; ctxI.textAlign = 'right';
+    ctxI.fillText('0', pad.l - 3, yZeroD + 3);
+  }
+
+  // Cursor
+  const curX = pad.l + ((Vg - VG_MIN) / (VG_MAX - VG_MIN)) * pw;
+  ctxI.strokeStyle = 'rgba(192,80,16,0.4)'; ctxI.lineWidth = 1; ctxI.setLineDash([3, 3]);
+  ctxI.beginPath(); ctxI.moveTo(curX, pad.t); ctxI.lineTo(curX, pad.t + ph); ctxI.stroke();
+  ctxI.setLineDash([]);
+
+  ivgHint.style.display = showDeriv ? 'none' : '';
+  ivgLabel.childNodes[0].textContent = showDeriv
+    ? 'dIDS/dVG  '
+    : 'IDS vs VG  ';
+}
+
+// ── Draw: stability diagram ───────────────────────────────────────────────────
+function drawStab(Vg, Vsd, kT) {
+  const W = cvStab.width, H = cvStab.height;
+  ctxS.clearRect(0, 0, W, H); ctxS.fillStyle = C.bg; ctxS.fillRect(0, 0, W, H);
+
+  const pad = { l: 38, r: 14, t: 10, b: 28 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const discVsd = [0, 0.2, 0.4, 0.6, 0.8, 1.0];
+
+  function xOfVg(v)  { return pad.l + (v - VG_MIN) / (VG_MAX - VG_MIN) * pw; }
+  function yOfVsd(v) { return pad.t + (1 - (v - VSD_MIN) / (VSD_MAX - VSD_MIN)) * ph; }
+  const dotR = Math.max(3, Math.round(W / 100));
+
+  discVsd.forEach(vs => {
+    const key = vs.toFixed(1);
+    const visited = stabVisited[key]; if (!visited) return;
+    for (let i = 0; i <= STAB_NP; i++) {
+      if (!visited[i]) continue;
+      const vg = VG_MIN + (i / STAB_NP) * (VG_MAX - VG_MIN);
+      let dg;
+      if (vs < 0.05) {
+        // At VSD=0: use dI/dVSD (linear conductance) evaluated with small VSD
+        const eps = 0.02;
+        dg = (current(vg, eps, kT) - current(vg, 0, kT)) / eps;
+      } else {
+        dg = (current(vg + 0.04, vs, kT) - current(vg - 0.04, vs, kT)) / 0.08;
+      }
+      if (Math.abs(dg) < 0.05) continue;
+      ctxS.beginPath(); ctxS.arc(xOfVg(vg), yOfVsd(vs), dotR, 0, 2 * Math.PI);
+      ctxS.fillStyle = '#1a2030';
+      ctxS.globalAlpha = 0.85; ctxS.fill(); ctxS.globalAlpha = 1;
+    }
+  });
+
+  // Axes
+  ctxS.strokeStyle = C.axis; ctxS.lineWidth = 1.5;
+  ctxS.beginPath(); ctxS.moveTo(pad.l, pad.t); ctxS.lineTo(pad.l, pad.t + ph + 4); ctxS.stroke();
+  ctxS.beginPath(); ctxS.moveTo(pad.l - 3, pad.t + ph); ctxS.lineTo(pad.l + pw, pad.t + ph); ctxS.stroke();
+
+  discVsd.forEach(vs => {
+    const y = yOfVsd(vs);
+    ctxS.strokeStyle = C.grid; ctxS.lineWidth = 0.5; ctxS.setLineDash([2, 4]);
+    ctxS.beginPath(); ctxS.moveTo(pad.l, y); ctxS.lineTo(pad.l + pw, y); ctxS.stroke();
+    ctxS.setLineDash([]);
+    ctxS.fillStyle = C.dim; ctxS.font = '7px "IBM Plex Mono"'; ctxS.textAlign = 'right';
+    ctxS.fillText(vs.toFixed(1), pad.l - 3, y + 3);
+  });
+
+  ctxS.fillStyle = C.dim; ctxS.font = 'italic 11px serif'; ctxS.textAlign = 'left';
+  ctxS.fillText('V', pad.l + pw + 2, pad.t + ph + 4);
+  ctxS.font = '7px "IBM Plex Mono"'; ctxS.fillText('G', pad.l + pw + 9, pad.t + ph + 8);
+
+  ctxS.save(); ctxS.translate(10, pad.t + ph / 2); ctxS.rotate(-Math.PI / 2);
+  ctxS.font = 'italic 11px serif'; ctxS.textAlign = 'center'; ctxS.fillStyle = C.dim;
+  ctxS.fillText('V', 0, 0); ctxS.restore();
+  ctxS.font = '7px "IBM Plex Mono"'; ctxS.fillStyle = C.dim; ctxS.textAlign = 'left';
+  ctxS.fillText('SD', 14, pad.t + ph / 2 + 6);
+
+  const curX = xOfVg(Vg), curY = yOfVsd(Vsd);
+  ctxS.strokeStyle = 'rgba(192,80,16,0.4)'; ctxS.lineWidth = 1; ctxS.setLineDash([3, 3]);
+  ctxS.beginPath(); ctxS.moveTo(curX, pad.t); ctxS.lineTo(curX, pad.t + ph); ctxS.stroke();
+  ctxS.beginPath(); ctxS.moveTo(pad.l, curY); ctxS.lineTo(pad.l + pw, curY); ctxS.stroke();
+  ctxS.setLineDash([]);
+  ctxS.beginPath(); ctxS.arc(curX, curY, 4, 0, 2 * Math.PI);
+  ctxS.fillStyle = C.orange; ctxS.fill();
+}
+
+// ── Main draw ─────────────────────────────────────────────────────────────────
+function drawAll() {
+  const Vg  = parseFloat(slVg.value);
+  const Vsd = parseFloat(slVsd.value);
+  const kT  = parseFloat(slTemp.value);
+
+  vVgEl.textContent   = Vg.toFixed(2);
+  vVsdEl.textContent  = Vsd.toFixed(1);
+  vTempEl.textContent = kT.toFixed(2);
+
+  resizeCanvas(cvPot,  POT_RATIO);
+  resizeCanvas(cvIVG,  IVG_RATIO);
+  if (chkShowStab.checked) resizeCanvas(cvStab, STAB_RATIO);
+
+  revealIVG(Vg, Vsd, kT);
+  reveal(Vg, Vsd);
+
+  drawPotential(Vg, Vsd, kT);
+  drawIVG(Vg, Vsd, kT, chkDeriv.checked);
+  if (chkShowStab.checked) drawStab(Vg, Vsd, kT);
+}
+
+// ── Event listeners ───────────────────────────────────────────────────────────
+slVg.addEventListener('input', drawAll);
+
+slVsd.addEventListener('input', () => {
+  slVg.value = '0'; ivgLastIdx = null;
+  const key = parseFloat(slVsd.value).toFixed(1);
+  stabLastIdx[key] = null;
+  drawAll();
+});
+
+slTemp.addEventListener('input', () => {
+  // Temperature change invalidates current sweep — reset IVG
+  ivgVsdKey = null; ivgLastIdx = null;
+  drawAll();
+});
+
+chkDeriv.addEventListener('change', drawAll);
+
+// Responsive: redraw on resize
+const ro = new ResizeObserver(() => drawAll());
+ro.observe(document.getElementById('pane-potential'));
+ro.observe(document.getElementById('pane-ivg'));
+
+drawAll();
+</script>
+</body>
+</html>
