@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Band inversion</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  gap: 16px;
+  padding: 16px;
+}
+svg { width: 100%; max-width: 640px; touch-action: none; }
+.handle { cursor: ns-resize; }
+.handle:hover circle { stroke-width: 2.5; }
+button {
+  border: 0.5px solid #b4b2a9;
+  background: #fff;
+  color: #444;
+  font-size: 14px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+button:active { transform: scale(0.98); }
+button:hover { background: #f1efe8; }
+</style>
+</head>
+<body>
+
+<svg id="bsvg" viewBox="0 0 680 360" role="img" aria-label="Drag the right side of each band line to create a band inversion">
+  <title>Band inversion via drag</title>
+  <desc>Two horizontal band lines, upper in blue (conduction band) and lower in red (valence band). The right half of each line can be dragged vertically; when the lines cross, the colors swap to indicate band inversion.</desc>
+
+  <line x1="40" y1="180" x2="640" y2="180" stroke="#d3d1c7" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="44" y="174" font-size="12" fill="#888780">E_F</text>
+
+  <line id="upperLeft" x1="40" y1="100" x2="340" y2="100" stroke="#185FA5" stroke-width="4" stroke-linecap="round"/>
+  <line id="lowerLeft" x1="40" y1="260" x2="340" y2="260" stroke="#993C1D" stroke-width="4" stroke-linecap="round"/>
+
+  <path id="upperRight" d="M 340 100 Q 480 100 640 100" stroke="#185FA5" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path id="lowerRight" d="M 340 260 Q 480 260 640 260" stroke="#993C1D" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+  <g class="handle" id="upperHandle" tabindex="0" role="slider" aria-label="Drag upper band right side" aria-valuemin="40" aria-valuemax="320" aria-valuenow="100">
+    <circle cx="640" cy="100" r="9" fill="#fff" stroke="#185FA5" stroke-width="2"/>
+  </g>
+  <g class="handle" id="lowerHandle" tabindex="0" role="slider" aria-label="Drag lower band right side" aria-valuemin="40" aria-valuemax="320" aria-valuenow="260">
+    <circle cx="640" cy="260" r="9" fill="#fff" stroke="#993C1D" stroke-width="2"/>
+  </g>
+
+  <text x="56" y="86" font-size="13" fill="#185FA5" font-weight="500">conduction band</text>
+  <text x="56" y="278" font-size="13" fill="#993C1D" font-weight="500">valence band</text>
+
+  <text id="statusText" x="340" y="330" text-anchor="middle" font-size="13" fill="#888780">normal ordering</text>
+</svg>
+
+<button id="resetBtn" type="button">Reset</button>
+
+<script>
+(function() {
+  const svg = document.getElementById('bsvg');
+  const upperRight = document.getElementById('upperRight');
+  const lowerRight = document.getElementById('lowerRight');
+  const upperHandle = document.getElementById('upperHandle');
+  const lowerHandle = document.getElementById('lowerHandle');
+  const upperCircle = upperHandle.querySelector('circle');
+  const lowerCircle = lowerHandle.querySelector('circle');
+  const statusText = document.getElementById('statusText');
+
+  const Y_NORMAL_UPPER = 100;
+  const Y_NORMAL_LOWER = 260;
+  const Y_MIN = 60;
+  const Y_MAX = 300;
+
+  let upperY = Y_NORMAL_UPPER;
+  let lowerY = Y_NORMAL_LOWER;
+  let dragging = null;
+
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  function updatePath(pathEl, startY, endY) {
+    const midY = (startY + endY) / 2;
+    pathEl.setAttribute('d', 'M 340 ' + startY + ' Q 480 ' + midY + ' 640 ' + endY);
+  }
+
+  function render() {
+    updatePath(upperRight, Y_NORMAL_UPPER, upperY);
+    updatePath(lowerRight, Y_NORMAL_LOWER, lowerY);
+    upperCircle.setAttribute('cy', upperY);
+    lowerCircle.setAttribute('cy', lowerY);
+    upperHandle.setAttribute('aria-valuenow', Math.round(upperY));
+    lowerHandle.setAttribute('aria-valuenow', Math.round(lowerY));
+
+    const inverted = upperY > lowerY;
+
+    if (inverted) {
+      upperRight.setAttribute('stroke', '#993C1D');
+      lowerRight.setAttribute('stroke', '#185FA5');
+      upperCircle.setAttribute('stroke', '#993C1D');
+      lowerCircle.setAttribute('stroke', '#185FA5');
+      statusText.textContent = 'inverted band ordering';
+      statusText.setAttribute('fill', '#993C1D');
+    } else {
+      upperRight.setAttribute('stroke', '#185FA5');
+      lowerRight.setAttribute('stroke', '#993C1D');
+      upperCircle.setAttribute('stroke', '#185FA5');
+      lowerCircle.setAttribute('stroke', '#993C1D');
+      statusText.textContent = 'normal ordering';
+      statusText.setAttribute('fill', '#888780');
+    }
+  }
+
+  function getSvgY(clientY) {
+    const rect = svg.getBoundingClientRect();
+    const viewBoxHeight = 360;
+    return ((clientY - rect.top) / rect.height) * viewBoxHeight;
+  }
+
+  function startDrag(which) {
+    return function(e) {
+      e.preventDefault();
+      dragging = which;
+    };
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const y = clamp(getSvgY(clientY), Y_MIN, Y_MAX);
+    if (dragging === 'upper') upperY = y;
+    else lowerY = y;
+    render();
+  }
+
+  function onUp() { dragging = null; }
+
+  upperHandle.addEventListener('mousedown', startDrag('upper'));
+  lowerHandle.addEventListener('mousedown', startDrag('lower'));
+  upperHandle.addEventListener('touchstart', startDrag('upper'), { passive: false });
+  lowerHandle.addEventListener('touchstart', startDrag('lower'), { passive: false });
+
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('touchmove', onMove, { passive: false });
+  window.addEventListener('mouseup', onUp);
+  window.addEventListener('touchend', onUp);
+
+  upperHandle.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowUp') { upperY = clamp(upperY - 10, Y_MIN, Y_MAX); render(); }
+    if (e.key === 'ArrowDown') { upperY = clamp(upperY + 10, Y_MIN, Y_MAX); render(); }
+  });
+  lowerHandle.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowUp') { lowerY = clamp(lowerY - 10, Y_MIN, Y_MAX); render(); }
+    if (e.key === 'ArrowDown') { lowerY = clamp(lowerY + 10, Y_MIN, Y_MAX); render(); }
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', function() {
+    upperY = Y_NORMAL_UPPER;
+    lowerY = Y_NORMAL_LOWER;
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
