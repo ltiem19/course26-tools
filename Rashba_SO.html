@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rashba B_eff</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 12px; }
+canvas { display: block; touch-action: none; cursor: crosshair; }
+#controls { font-family: sans-serif; font-size: 13px; color: #555; display: flex; align-items: center; gap: 8px; user-select: none; max-width: 560px; padding: 0 12px; text-align: left; }
+#controls input { width: 18px; height: 18px; cursor: pointer; accent-color: #444; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="controls">
+  <input type="checkbox" id="showSigma" checked>
+  <label for="showSigma">Show spin (σ) &nbsp;— direction = quantization axis; |σ| fixed = ±ℏ/2</label>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let W, H, cx, cy, scale, R_outer, R_inner;
+
+function resize() {
+  const size = Math.min(window.innerWidth, window.innerHeight, 600);
+  canvas.width = size;
+  canvas.height = size;
+  W = H = size;
+  cx = cy = size / 2;
+  scale = size * 0.24;
+  R_outer = size * 0.30;
+  R_inner = size * 0.17;
+  draw(lastPt);
+}
+
+function arrow(x1, y1, x2, y2, color, width, headSize) {
+  const dx = x2-x1, dy = y2-y1, len = Math.sqrt(dx*dx+dy*dy);
+  if (len < 2) return;
+  const ux = dx/len, uy = dy/len;
+  const hx = x2 - ux*headSize, hy = y2 - uy*headSize;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+  ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(hx - uy*headSize*0.45, hy + ux*headSize*0.45);
+  ctx.lineTo(hx + uy*headSize*0.45, hy - ux*headSize*0.45);
+  ctx.closePath();
+  ctx.fillStyle = color; ctx.fill();
+}
+
+let lastPt = null;
+
+function draw(pt) {
+  const showSigma = document.getElementById('showSigma').checked;
+  ctx.clearRect(0, 0, W, H);
+
+  const axisCol  = '#b4b2a9';
+  const outerCol = '#c0522a';
+  const innerCol = '#2a6fa8';
+  const kvecCol  = '#444441';
+  const beffCol  = '#1aaa78';
+  const spinUpCol   = '#c0522a';   // same as outer circle
+  const spinDownCol = '#2a6fa8';   // same as inner circle
+  const mutedCol = '#888780';
+  const labelSz  = Math.round(W * 0.038);
+  const headSz   = Math.max(8, W * 0.016);
+
+  // axes
+  ctx.strokeStyle = axisCol; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(W*0.08, cy); ctx.lineTo(W*0.92, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, H*0.05); ctx.lineTo(cx, H*0.95); ctx.stroke();
+
+  ctx.fillStyle = mutedCol; ctx.font = labelSz + 'px sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('kₓ', W*0.92+4, cy);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText('k_y', cx, H*0.05-2);
+
+  // Fermi circles
+  ctx.beginPath(); ctx.arc(cx, cy, R_outer, 0, 2*Math.PI);
+  ctx.strokeStyle = outerCol; ctx.lineWidth = 2; ctx.stroke();
+
+  ctx.beginPath(); ctx.arc(cx, cy, R_inner, 0, 2*Math.PI);
+  ctx.strokeStyle = innerCol; ctx.lineWidth = 2; ctx.stroke();
+
+  // circle labels
+  ctx.font = Math.round(labelSz*0.85) + 'px sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = outerCol; ctx.textAlign = 'left';
+  ctx.fillText('k₊  (↑)', cx + R_outer + 6, cy - labelSz*0.8);
+  ctx.fillStyle = innerCol;
+  ctx.fillText('k₋  (↓)', cx + R_inner + 6, cy + labelSz*0.8);
+
+  // center dot
+  ctx.fillStyle = mutedCol;
+  ctx.beginPath(); ctx.arc(cx, cy, 3, 0, 2*Math.PI); ctx.fill();
+
+  if (!pt) return;
+
+  const kx =  (pt.x - cx) / scale;
+  const ky = -(pt.y - cy) / scale;
+  const klen = Math.sqrt(kx*kx + ky*ky);
+  if (klen < 0.05) return;
+
+  const ux = kx/klen, uy = ky/klen;   // unit k direction (physics)
+
+  // unit k in canvas coords
+  const ux_c =  ux;
+  const uy_c = -uy;
+
+  // k arrow: origin → click point
+  arrow(cx, cy, pt.x, pt.y, kvecCol, 2, headSz);
+  ctx.fillStyle = kvecCol;
+  ctx.font = 'bold ' + labelSz + 'px sans-serif';
+  ctx.textAlign = pt.x > cx ? 'left' : 'right';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('k', pt.x > cx ? pt.x+6 : pt.x-6, pt.y-4);
+
+  // B_eff = k × ê_z → physics: (ky, -kx); canvas (y-flipped): (ky, kx) normalised
+  const bux_c =  uy;   // perpendicular to k-hat in canvas, 90° CCW
+  const buy_c =  ux;
+
+  // B_eff anchored at origin, length ∝ |k|
+  const bscale = Math.min(W * 0.16, 90) * (klen / (R_outer / scale));
+  const bex = cx + bux_c * bscale;
+  const bey = cy + buy_c * bscale;
+
+  arrow(cx, cy, bex, bey, beffCol, 2.5, headSz*1.1);
+  ctx.fillStyle = beffCol;
+  ctx.font = 'bold ' + labelSz + 'px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('B_eff = k×E', bex + bux_c*labelSz*1.6, bey + buy_c*labelSz*1.6);
+
+  // Intersections of k-hat with the two Fermi circles
+  const pOut = { x: cx + ux_c * R_outer, y: cy + uy_c * R_outer };
+  const pIn  = { x: cx + ux_c * R_inner, y: cy + uy_c * R_inner };
+
+  const spinLen = Math.min(W * 0.13, 75);
+
+  if (showSigma) {
+    // σ↑ on outer circle: parallel to B_eff direction
+    arrow(pOut.x, pOut.y,
+          pOut.x + bux_c * spinLen,
+          pOut.y + buy_c * spinLen,
+          spinUpCol, 2.5, headSz*1.1);
+    ctx.fillStyle = spinUpCol;
+    ctx.font = 'bold ' + labelSz + 'px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('σ↑', pOut.x + bux_c*(spinLen + labelSz*1.2),
+                       pOut.y + buy_c*(spinLen + labelSz*1.2));
+
+    // σ↓ on inner circle: antiparallel to B_eff direction
+    arrow(pIn.x, pIn.y,
+          pIn.x - bux_c * spinLen,
+          pIn.y - buy_c * spinLen,
+          spinDownCol, 2.5, headSz*1.1);
+    ctx.fillStyle = spinDownCol;
+    ctx.font = 'bold ' + labelSz + 'px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('σ↓', pIn.x - bux_c*(spinLen + labelSz*1.2),
+                       pIn.y - buy_c*(spinLen + labelSz*1.2));
+  }
+}
+
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  const scaleY = H / rect.height;
+  if (e.touches) {
+    return { x: (e.touches[0].clientX - rect.left)*scaleX,
+             y: (e.touches[0].clientY - rect.top)*scaleY };
+  }
+  return { x: (e.clientX - rect.left)*scaleX,
+           y: (e.clientY - rect.top)*scaleY };
+}
+
+canvas.addEventListener('click',      e => { lastPt = getPos(e); draw(lastPt); });
+canvas.addEventListener('mousemove',  e => { draw(getPos(e)); });
+canvas.addEventListener('mouseleave', () => { draw(lastPt); });
+canvas.addEventListener('touchmove',  e => { e.preventDefault(); draw(getPos(e)); }, { passive: false });
+canvas.addEventListener('touchstart', e => { e.preventDefault(); lastPt = getPos(e); draw(lastPt); }, { passive: false });
+
+document.getElementById('showSigma').addEventListener('change', () => draw(lastPt));
+window.addEventListener('resize', resize);
+resize();
+</script>
+</body>
+</html>
